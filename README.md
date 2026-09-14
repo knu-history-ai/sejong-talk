@@ -31,7 +31,7 @@ npm run build
 - 리뷰 1명과 CI 통과 후 병합합니다.
 - 이슈 종료는 dev 반영 완료를 뜻하며 실제 배포는 별도로 기록합니다.
 
-[협업 규칙](CONTRIBUTING.md) · [폴더 구조와 담당 경계](docs/ARCHITECTURE.md)
+[협업 규칙](CONTRIBUTING.md) · [폴더 구조와 담당 경계](docs/ARCHITECTURE.md) · [개발 보드](https://github.com/orgs/knu-history-ai/projects/1)
 
 ## 담당
 
