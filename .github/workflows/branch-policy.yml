@@ -1,0 +1,25 @@
+name: Branch policy
+
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  branch-policy-check:
+    name: branch-policy-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const pr = context.payload.pull_request;
+            const repository = `${context.repo.owner}/${context.repo.repo}`;
+            if (pr.base.ref === 'main' &&
+                (pr.head.ref !== 'dev' || pr.head.repo?.full_name !== repository)) {
+              core.setFailed('main 배포 PR은 이 저장소의 dev 브랜치에서만 보내 주세요. 기능 PR의 대상은 dev입니다.');
+            }

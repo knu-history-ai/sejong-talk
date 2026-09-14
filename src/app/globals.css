@@ -1,0 +1,4 @@
+@import "tailwindcss";
+
+:root { color-scheme: light; }
+body { margin: 0; background: #f7f8fa; color: #172235; font-family: Arial, "Apple SD Gothic Neo", sans-serif; }

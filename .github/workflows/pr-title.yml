@@ -1,0 +1,24 @@
+name: PR title
+
+on:
+  pull_request:
+    branches: [dev, main]
+    types: [opened, edited, synchronize, reopened, ready_for_review]
+
+permissions:
+  contents: read
+
+jobs:
+  pr-title-check:
+    name: pr-title-check
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const title = context.payload.pull_request.title;
+            const valid = /^(feat|fix|docs|chore|test|refactor):\s+\S/.test(title);
+            if (!valid) {
+              core.setFailed('제목을 "feat: 음성 질문 입력"처럼 작성해 주세요.');
+            }

@@ -1,0 +1,29 @@
+name: 오류 보고
+description: 재현 가능한 오류와 기대한 동작을 기록합니다.
+title: 'fix: '
+labels: ['bug']
+body:
+  - type: textarea
+    id: steps
+    attributes:
+      label: 재현 순서와 환경
+      placeholder: 브라우저와 기기, 접속한 버전, 누른 버튼과 입력 순서
+    validations:
+      required: true
+  - type: textarea
+    id: expected
+    attributes:
+      label: 기대한 결과
+    validations:
+      required: true
+  - type: textarea
+    id: actual
+    attributes:
+      label: 실제 결과
+    validations:
+      required: true
+  - type: textarea
+    id: evidence
+    attributes:
+      label: 확인 자료
+      description: 오류 메시지나 화면을 첨부하세요. API 키와 개인 대화는 제외하세요.

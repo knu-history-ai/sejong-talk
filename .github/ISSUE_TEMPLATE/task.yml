@@ -1,0 +1,50 @@
+name: 작업
+description: 기능 개발, 설정, 자료 정리와 개선 작업
+title: 'feat: '
+labels: ['task']
+body:
+  - type: markdown
+    attributes:
+      value: |
+        제목은 feat: / fix: / docs: / chore: 중에서 선택하세요.
+        오른쪽 Assignees에 담당자 1명, Projects에 팀 보드를 지정하세요.
+        기한은 보드의 목표일에 적고, 아직 합의 전이면 비워두세요.
+  - type: textarea
+    id: goal
+    attributes:
+      label: 목표
+      description: 이 작업이 끝나면 사용자나 팀원이 무엇을 할 수 있나요?
+      placeholder: 녹음한 질문을 글로 확인하고 수정한 뒤 전송할 수 있다.
+    validations:
+      required: true
+  - type: textarea
+    id: scope
+    attributes:
+      label: 작업 범위
+      description: 이번 이슈에서 구현할 내용을 적어주세요.
+      value: |
+        - [ ]
+        - [ ]
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: 완료 기준과 확인 방법
+      description: 리뷰어가 확인할 수 있는 동작과 시험 방법을 적어주세요.
+      placeholder: 마이크를 거절해도 글로 질문할 수 있다. 인식 문장을 수정하면 수정한 내용이 전송된다.
+    validations:
+      required: true
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: 연결할 기능과 먼저 필요한 것
+      description: 샘플 데이터로 먼저 구현할 부분, 실제 연결에 필요한 이슈를 구분하세요.
+      placeholder: 화면은 샘플 전사문으로 먼저 구현. 실제 음성 인식 연결은 관련 이슈 번호를 적는다.
+    validations:
+      required: true
+  - type: input
+    id: reference
+    attributes:
+      label: 관련 문서
+      placeholder: docs/PRD.md의 기능 ID 또는 관련 논의 링크
