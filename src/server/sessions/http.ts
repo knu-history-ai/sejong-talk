@@ -1,7 +1,7 @@
 import "server-only";
 import { NextRequest, NextResponse } from "next/server.js";
 import type { CreateSessionResponse, DeleteSessionResponse, ErrorResponse } from "../../contracts/index.ts";
-import { SessionError, isSessionError, type SessionStore } from "./store.ts";
+import { SessionError, isSessionError, type SessionStore, type SessionHandle } from "./store.ts";
 
 export interface SessionHttpConfig {
   origin: string;
@@ -121,8 +121,21 @@ export async function createSessionResponse(
 ): Promise<NextResponse<CreateSessionResponse | ErrorResponse>> {
   try {
     checkSessionOrigin(request, config);
+    const previousToken = readToken(request, config);
+    let previousSession: SessionHandle | undefined;
+    if (previousToken) {
+      try {
+        previousSession = store.authenticate(previousToken, false);
+      } catch (error) {
+        // A cookie that was already expired at arrival may start a fresh session.
+        if (!isSessionError(error) || error.code !== "SESSION_EXPIRED") throw error;
+      }
+    }
     await readCreationBody(request);
-    const { token, session } = store.create(readToken(request, config));
+    // Reading a streamed body yields. A concurrent reset/replacement must win
+    // over this older request; do not resurrect it with a late Set-Cookie.
+    previousSession?.assertActive();
+    const { token, session } = store.create(previousToken);
     const response = NextResponse.json<CreateSessionResponse>({
       status: "created", sessionId: session.sessionId, characterId: session.characterId,
       expiresAt: new Date(session.expiresAt).toISOString(),

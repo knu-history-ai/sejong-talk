@@ -194,6 +194,50 @@ test("development only infers a loopback origin", t => {
   assert.throws(() => getSessionHttpConfig(new Request("https://unconfigured.example/api/sessions")), { code: "UNAVAILABLE" });
 });
 
+test("overlapping replacements of the same live session issue only one new cookie", async t => {
+  const h = harness(t); const initial = await h.create();
+  const results = await Promise.all([
+    h.create(request({ cookie: initial.cookie })),
+    h.create(request({ cookie: initial.cookie })),
+  ]);
+  assert.deepEqual(results.map(item => item.response.status).sort(), [201, 401]);
+  const rejected = results.find(item => item.response.status === 401);
+  assert.equal(rejected.response.headers.get("set-cookie"), null);
+  assert.equal((await rejected.response.json()).code, "SESSION_EXPIRED");
+  assert.throws(() => h.store.authenticate(initial.token), { code: "SESSION_EXPIRED" });
+  assert.ok(h.store.authenticate(results.find(item => item.response.status === 201).token));
+});
+
+test("reset during a streamed replacement prevents a late session and cookie", async t => {
+  const h = harness(t); const initial = await h.create();
+  let controller;
+  const req = new NextRequest(config.origin + "/api/sessions", {
+    method: "POST", duplex: "half",
+    headers: { origin: config.origin, cookie: initial.cookie, "content-type": "application/json" },
+    body: new ReadableStream({ start(stream) { controller = stream; } }),
+  });
+  const pending = h.create(req);
+  const reset = deleteSessionResponse(request({ method: "DELETE", cookie: initial.cookie }), h.store, config);
+  assert.equal(reset.status, 200);
+  controller.enqueue(new TextEncoder().encode('{"characterId":"sejong"}'));
+  controller.close();
+  const { response } = await pending;
+  assert.equal(response.status, 401);
+  assert.equal(response.headers.get("set-cookie"), null);
+  assert.equal((await response.json()).code, "SESSION_EXPIRED");
+});
+
+test("an already expired cookie can deliberately start a new conversation", async t => {
+  let now = Date.now();
+  const h = harness(t, { now: () => now });
+  const initial = await h.create();
+  now += 30 * 60_000;
+  const next = await h.create(request({ cookie: initial.cookie }));
+  assert.equal(next.response.status, 201);
+  assert.notEqual(next.token, initial.token);
+  assert.deepEqual(h.store.authenticate(next.token).getRecentTurns(), []);
+});
+
 test("unexpected programmer errors are not mislabeled as expired sessions", () => {
   assert.throws(() => sessionErrorResponse(new Error("bug")), { message: "bug" });
 });
