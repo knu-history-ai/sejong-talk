@@ -1,4 +1,4 @@
-# 공통 요청·응답 규격 — W01-08
+# 공통 요청·응답 규격 — W01-08 / W02-01
 
 2026-09-19 · PRD 7·8·13절을 구현용 타입으로 옮긴 검토안. 팀원 검토와 dev 병합 전이다.
 
@@ -9,7 +9,7 @@
 - 타입: `src/contracts/index.ts` (브라우저에서는 `import type`으로 사용)
 - 샘플: `tests/fixtures/contracts.ts` (직접 import 가능)
 - 확인: Node 24에서 `npm run typecheck`와 `npm test`
-- 이 PR은 타입·샘플만 제공한다. 아래 HTTP 경로, 인증, 취소, 검증 로직은 아직 구현하지 않았다. 타입만으로 외부 입력이 안전해지지 않는다.
+- W02-01 브랜치에는 세션 생성·삭제 API와 공통 세션 확인 함수가 구현되어 있다. 대화·전사·합성·요청 상태 경로와 프론트 연결은 후속 작업이다. 타입만으로 외부 입력이 안전해지지 않는다.
 
 ## 담당자별 시작 예시
 
@@ -57,6 +57,68 @@ if (response.status === "approved") {
 성공 JSON은 표의 객체를 그대로 반환한다. 추가 `data` 래퍼는 없다. 전사에서 FormData를 보낼 때 Content-Type을 직접 지정하지 않아야 브라우저가 boundary를 붙인다. 지원 녹음 MIME 목록은 유진의 브라우저 시험 후 확정하며 서버에서 실제 파일 형식도 검사한다.
 
 음성은 인증된 같은 출처 URL 방식으로 통일한다. 음원 응답은 `Cache-Control: private, no-store`, 세션 만료·초기화 뒤 접근 차단이 필요하다. 공급자 URL이나 공개 저장소 URL을 그대로 전달하지 않는다. 재생 시 같은 answerId의 서버 음원을 재사용하고 새 합성을 반복하지 않는다.
+
+
+## W02-01 세션 API 사용법
+
+**구현:** `POST /api/sessions`, `DELETE /api/sessions/current`. 이 브랜치는 PR #12의 규격을 기반으로 하며 dev 병합 전이다. 브라우저 화면의 시작/초기화 버튼 연결은 선영의 후속 작업이다.
+
+### 선영: 시작과 초기화
+
+같은 사이트에서 아래 요청을 보낸다. 브라우저가 Origin과 쿠키를 자동으로 처리하므로 토큰을 직접 읽거나 localStorage에 저장하지 않는다.
+
+```ts
+const response = await fetch("/api/sessions", {
+  method: "POST",
+  headers: { "Content-Type": "application/json" },
+  credentials: "same-origin",
+  body: JSON.stringify({ characterId: "sejong" }),
+});
+const result = await response.json();
+if (!response.ok) {
+  // result.message 표시. 자동으로 무한 재시도하지 않는다.
+} else {
+  // result.sessionId를 현재 화면의 대화 식별자로 보관한다.
+  // result.intro, result.suggestedQuestions를 표시한다.
+}
+```
+
+- 시작 요청은 세종만 허용한다. 인물 외의 필드(토큰·대화 기록·system 등)는 400이다.
+- 같은 쿠키로 다시 시작하면 기존 세션을 없애고 새 ID와 쿠키를 발급한다. 시작 버튼의 연속 클릭은 처리 중 비활성화한다.
+- 초기화 확인 후 로컬 진행 요청·녹음·재생을 중단하고 `DELETE /api/sessions/current`를 보낸다. 성공 후 화면 기록을 지운다. 계속 대화하려면 POST로 새 세션을 시작한다. DELETE는 이미 만료되었거나 쿠키가 없어도 200이다.
+- UI는 작업 시작 시점의 sessionId와 requestId를 보관하고, 완료 시 현재 화면과 다른 결과를 버려야 한다. 서버 차단만으로 이미 내려간 응답이나 브라우저 음원이 자동으로 지워지지는 않는다.
+- 쿠키는 **같은 브라우저 프로필의 탭끼리 공유**한다. 독립 브라우저/시크릿 프로필의 세션은 분리된다. 여러 탭에서 각각 독립 대화를 제공하는 기능은 이번 구현에 없다. 후속 화면 통합에서 새 대화/초기화를 다른 탭에도 알리고 오래된 화면의 전송을 막아야 한다.
+- `expiresAt`은 생성 시점의 유휴 만료 예정 시각이다. 사용자 활동으로 연장될 수 있으므로 이 최초 값만으로 화면을 강제 종료하지 않는다. 서버의 SESSION_EXPIRED 응답이 기준이다.
+
+### 정민·유진·시연: 서버에서 사용할 공통 함수
+
+`src/server/sessions/http.ts`의 `requireSession(request, store, config)`로 쿠키와 허용 Origin을 확인한다. store는 `getSessionStore()`, config는 `getSessionHttpConfig(request)`로 가져온다. 승인/등록되지 않은 본문이나 query의 sessionId로 세션을 찾는 경로는 제공하지 않는다.
+
+1. 사용자 요청 접수 시 `requireSession`으로 핸들을 얻는다.
+2. 외부 호출이 지원하면 핸들의 `signal`을 전달한다. 초기화·만료 시 abort된다.
+3. 비동기 처리가 끝난 뒤 **저장/응답 직전** `handle.assertActive()`를 호출한다. 만료되었으면 SESSION_EXPIRED로 종료한다. 확인과 저장 사이에 다시 await를 넣지 않는다.
+4. 답변 검증을 마친 결과만 `handle.appendApprovedTurn({ userText, answer })`으로 저장한다. 이 함수도 세션 유효성을 다시 검사한다. 답변의 역사적 정확성이나 공개 가능 여부를 검사하는 함수는 아니다.
+5. LLM에는 `handle.getRecentTurns()`로 최근 최대 10개 완결 대화를 전달한다. TTS는 `handle.getAnswer(answerId)`로 현재 세션의 승인 답변만 가져온다. 다른 세션 번호는 undefined이며 존재 정보를 공개하지 않는다.
+6. 상태 폴링·음원 조회에는 `requireSession(..., { touch: false })`를 사용한다. 백그라운드 조회로 유휴 시간을 무한 연장하지 않는다.
+7. 세션 오류는 `sessionErrorResponse(error, requestId)`로 계약에 맞게 반환할 수 있다. 세션 생성/삭제에는 requestId가 없어 null이다. 요청별 저장 상태·중복 방지·취소 판정·외부 호출 전 사용량 검사는 W03-01에서 연결한다.
+
+### 만료·보관·실행 조건
+
+| 항목 | 현재 동작 |
+|---|---|
+| 인증 | 공개 sessionId와 별개인 무작위 256비트 토큰. 서버에는 토큰 해시만 보관 |
+| 쿠키 | HTTPS: __Host-sejong_session, HttpOnly·Secure·SameSite=Strict·Path=/, Domain 없음. HTTP localhost만 sejong_session/Secure 예외 |
+| 유효 기간 | 유휴 30분, 활동 중이어도 생성 후 최대 4시간. 타이머와 요청 시점 모두 검사 |
+| 초기화 | 이전 토큰 무효화, 저장한 대화 제거, 기존 핸들 abort 및 읽기/저장 차단 |
+| 저장 상한 | 초기 단일 프로세스 시험은 활성 세션 5개. 포화 시 503, 기존 사용자 강제 퇴장 없음 |
+| 대화 상한 | 세션당 완결 대화 30개, 각 기록 최대 16,000자 직렬화 크기. 질문 500자·답변 400자. 전체 30개 답변은 현재 세션에서 다시 조회 가능 |
+| 비용 제한 | 저장 시 30개 상한은 비용 차단을 대신하지 않음. 유료 호출 전/전체 예산 검사는 후속 W03 작업 |
+| 재시작 | 세션 소멸. 이전 토큰으로 복구하지 않음 |
+| 응답 | 성공·처리한 오류 모두 Cache-Control: no-store. 토큰은 JSON에 포함하지 않음 |
+
+`.env.local`의 `APP_ORIGIN`은 `https://도메인`처럼 끝의 / 없이 입력한다. 배포 실행에서 누락/잘못된 값은 503으로 차단한다. 사용자 요청의 Host나 X-Forwarded-Host를 허용 목록으로 채택하지 않는다. 로컬 `npm run dev`만 loopback 주소를 자동 인식하며, `npm start`로 로컬 시험할 때도 명시해야 한다.
+
+이 저장소는 **하나의 상시 실행 Node 프로세스**가 전제다. 여러 인스턴스·서버리스 환경은 서로 메모리를 공유하지 않는다. 공유 저장소와 원자적 취소/한도 관리 없이 확장하지 않는다. 음원 캐시·요청 상태를 추가하는 담당자는 세션 signal에 맞춰 해당 데이터도 정리해야 한다.
 
 ## 상태와 답변 종류
 
