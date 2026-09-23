@@ -35,5 +35,7 @@ jobs:
         run: npm run typecheck
       - name: Production build
         run: npm run build
-      - name: Contract fixtures
+      - name: Unit and contract tests
         run: npm test
+      - name: Session HTTP integration
+        run: npm run test:http
