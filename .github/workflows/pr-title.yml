@@ -1,4 +1,4 @@
-name: PR title
+name: PR title and issue
 
 on:
   pull_request:
@@ -8,6 +8,10 @@ on:
 permissions:
   contents: read
 
+concurrency:
+  group: pr-metadata-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
 jobs:
   pr-title-check:
     name: pr-title-check
@@ -15,10 +19,24 @@ jobs:
     timeout-minutes: 3
     steps:
       - uses: actions/github-script@v9
+        name: Check title and opening issue section
         with:
           script: |
-            const title = context.payload.pull_request.title;
+            const { title, body } = context.payload.pull_request;
             const valid = /^(feat|fix|docs|chore|test|refactor):\s+\S/.test(title);
             if (!valid) {
               core.setFailed('제목을 "feat: 음성 질문 입력"처럼 작성해 주세요.');
+            }
+            // Read text from the event; never interpolate PR content into code.
+            const text = (body ?? '')
+              .replace(/\r\n?/g, '\n')
+              .replace(/<!--[\s\S]*?-->/g, '')
+              .trim();
+            const firstSection = text.split(/\n(?=#{1,6}\s)/, 1)[0];
+            const [heading, ...lines] = firstSection.split('\n');
+            const issues = lines.map(line => line.trim()).filter(Boolean);
+            const validIssues = heading === '## 📌 관련된 이슈 (Issue Number)' &&
+              issues.length > 0 && issues.every(line => /^- Resolves #[1-9]\d*$/.test(line));
+            if (!validIssues) {
+              core.setFailed('PR 본문 최상단을 "## 📌 관련된 이슈 (Issue Number)"로 시작하고, 다음 줄에 "- Resolves #실제이슈번호"를 적어 주세요. 여러 이슈는 한 줄씩 작성합니다.');
             }
