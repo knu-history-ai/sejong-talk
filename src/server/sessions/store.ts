@@ -7,6 +7,7 @@ export const ABSOLUTE_TIMEOUT_MS = 4 * 60 * 60 * 1000;
 // Initial single-process trial: increase only after measuring memory and latency.
 export const MAX_ACTIVE_SESSIONS = 5;
 export const MAX_COMPLETED_TURNS = 30;
+const MAX_RETIRED_TOKENS = 1000;
 const SESSION_ERROR = Symbol.for("sejong.session.error");
 const ERROR_STATUS = { INVALID_INPUT: 400, SESSION_EXPIRED: 401, FORBIDDEN: 403,
   REQUEST_CONFLICT: 409, LIMIT_EXCEEDED: 429, UNAVAILABLE: 503 } as const;
@@ -70,6 +71,8 @@ interface Options {
 
 export class SessionStore {
   private readonly sessions = new Map<string, Entry>();
+  // Keep hashes only, so delayed retries cannot reuse a replaced/reset cookie.
+  private readonly retired = new Map<string, number>();
   private readonly now: () => number;
   private readonly idleTimeoutMs: number;
   private readonly absoluteTimeoutMs: number;
@@ -133,11 +136,22 @@ export class SessionStore {
     entry.timer.unref();
   }
 
+  private pruneRetired(): void {
+    for (const [key, expiresAt] of this.retired) {
+      if (this.now() >= expiresAt) this.retired.delete(key);
+    }
+  }
+
   create(previousToken?: string): { token: string; session: SessionSnapshot } {
+    this.pruneRetired();
     for (const key of this.sessions.keys()) this.live(key);
     const previousKey = this.key(previousToken);
+    if (previousKey && this.retired.has(previousKey)) throw this.expired();
     const previous = this.live(previousKey);
-    if (this.sessions.size >= this.maxSessions && !previous) {
+    // Fail closed instead of evicting replay protection under excessive churn.
+    // Revoking existing sessions can add at most maxSessions extra hashes.
+    if (this.retired.size >= MAX_RETIRED_TOKENS ||
+        (this.sessions.size >= this.maxSessions && !previous)) {
       throw new SessionError("UNAVAILABLE", 503, "현재 대화 인원이 많습니다. 잠시 후 다시 시작해 주세요.");
     }
     // No await between replacing the old session and inserting the new one.
@@ -149,6 +163,8 @@ export class SessionStore {
       lastActivityAt: now, controller: new AbortController(), turns: [],
     };
     if (previous && previousKey) this.remove(previousKey, previous);
+    // A naturally expired cookie may restart once; retries must not multiply it.
+    if (previousKey) this.retired.set(previousKey, now + this.absoluteTimeoutMs);
     this.sessions.set(key, entry);
     this.scheduleExpiry(key, entry);
     return { token, session: this.snapshot(entry) };
@@ -197,9 +213,13 @@ export class SessionStore {
   }
 
   revoke(token: string | undefined): void {
+    this.pruneRetired();
     const key = this.key(token);
     const entry = this.live(key);
-    if (entry && key) this.remove(key, entry);
+    if (entry && key) {
+      this.retired.set(key, this.now() + this.absoluteTimeoutMs);
+      this.remove(key, entry);
+    }
   }
 
   private expired(): SessionError {

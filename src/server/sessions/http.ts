@@ -25,6 +25,16 @@ export function getSessionHttpConfig(request: Request): SessionHttpConfig {
       if (process.env.NODE_ENV === "production" || !isLoopback(url)) {
         throw new Error("APP_ORIGIN required");
       }
+      // Next can normalize 127.0.0.1 to localhost in request.url. Only in
+      // unconfigured local development, recover the actual loopback Host.
+      // Never trust forwarded headers or infer a production origin this way.
+      const host = request.headers.get("host");
+      if (host !== null) {
+        if (!/^(localhost|127\.0\.0\.1|\[::1\])(?::\d{1,5})?$/i.test(host)) {
+          throw new Error("Loopback Host required");
+        }
+        url = new URL(`${url.protocol}//${host}`);
+      }
     }
     if (url.protocol !== "https:" && !(url.protocol === "http:" && isLoopback(url))) {
       throw new Error("HTTPS required outside localhost");

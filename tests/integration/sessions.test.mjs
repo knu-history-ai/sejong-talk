@@ -73,7 +73,7 @@ test("production HTTP: cookie rotation, cross-route reset, capacity and restart"
   assert.equal(replacement.response.status, 201);
   assert.notEqual(replacement.cookie, sessions[0].cookie);
   // At capacity, only an owner of a currently live session can replace a slot.
-  assert.equal((await create(sessions[0].cookie)).response.status, 503);
+  assert.equal((await create(sessions[0].cookie)).response.status, 401);
 
   const deleted = await remove(sessions[1].cookie);
   assert.equal(deleted.status, 200);

@@ -238,6 +238,63 @@ test("an already expired cookie can deliberately start a new conversation", asyn
   assert.deepEqual(h.store.authenticate(next.token).getRecentTurns(), []);
 });
 
+test("a delayed retry after rotation cannot create another session or consume capacity", async t => {
+  const h = harness(t, { maxSessions: 2 });
+  const initial = await h.create();
+  const replacement = await h.create(request({ cookie: initial.cookie }));
+  for (let i = 0; i < 3; i++) {
+    const retry = await h.create(request({ cookie: initial.cookie }));
+    assert.equal(retry.response.status, 401);
+    assert.equal(retry.response.headers.get("set-cookie"), null);
+    assert.equal((await retry.response.json()).code, "SESSION_EXPIRED");
+  }
+  assert.ok(h.store.authenticate(replacement.token));
+  assert.equal((await h.create()).response.status, 201);
+});
+
+test("a request arriving after reset cannot resurrect the revoked cookie", async t => {
+  const h = harness(t);
+  const initial = await h.create();
+  deleteSessionResponse(request({ method: "DELETE", cookie: initial.cookie }), h.store, config);
+  const retry = await h.create(request({ cookie: initial.cookie }));
+  assert.equal(retry.response.status, 401);
+  assert.equal(retry.response.headers.get("set-cookie"), null);
+  assert.equal((await h.create()).response.status, 201);
+});
+
+test("restarting with an expired cookie consumes that cookie only once", async t => {
+  let now = Date.now();
+  const h = harness(t, { now: () => now });
+  const initial = await h.create();
+  now += 30 * 60_000;
+  assert.equal((await h.create(request({ cookie: initial.cookie }))).response.status, 201);
+  assert.equal((await h.create(request({ cookie: initial.cookie }))).response.status, 401);
+});
+
+test("development uses the actual loopback Host even when Next normalizes the request URL", async t => {
+  const env = environment(t);
+  env("NODE_ENV", "development"); env("APP_ORIGIN", undefined);
+  const h = harness(t);
+  for (const host of ["localhost:3102", "127.0.0.1:3102", "[::1]:3102"]) {
+    const origin = "http://" + host;
+    const req = new NextRequest("http://localhost:3102/api/sessions", {
+      method: "POST", headers: { host, origin, "content-type": "application/json" },
+      body: '{"characterId":"sejong"}',
+    });
+    const local = getSessionHttpConfig(req);
+    assert.equal(local.origin, origin);
+    assert.equal((await h.create(req, local)).response.status, 201);
+    const foreign = await h.create(request({ origin: "https://foreign.example" }), local);
+    assert.equal(foreign.response.status, 403);
+    assert.equal(foreign.response.headers.get("set-cookie"), null);
+  }
+  for (const host of ["attacker.test", "localhost.attacker.test", "localhost:3102@attacker.test", "localhost:3102/path"]) {
+    assert.throws(() => getSessionHttpConfig(new Request("http://localhost:3102", { headers: { host } })), { code: "UNAVAILABLE" });
+  }
+  env("APP_ORIGIN", config.origin);
+  assert.deepEqual(getSessionHttpConfig(new Request("http://localhost:3102", { headers: { host: "127.0.0.1:3102" } })), config);
+});
+
 test("unexpected programmer errors are not mislabeled as expired sessions", () => {
   assert.throws(() => sessionErrorResponse(new Error("bug")), { message: "bug" });
 });

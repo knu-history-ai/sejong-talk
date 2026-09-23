@@ -124,6 +124,20 @@ test("expiry frees private data and aborts work even without a later HTTP reques
   assert.throws(() => handle.getRecentTurns(), expired);
 });
 
+test("excessive rotation preserves replay protection and recovers after retention expires", t => {
+  const h = harness(t);
+  const original = h.create();
+  let current = original;
+  for (let i = 0; i < 1000; i++) current = h.create(current.token);
+  assert.throws(() => h.create(original.token), expired);
+  assert.throws(() => h.create(current.token), { code: "UNAVAILABLE" });
+  assert.ok(h.store.authenticate(current.token));
+  h.store.revoke(current.token);
+  assert.throws(() => h.create(current.token), expired);
+  h.advance(ABSOLUTE_TIMEOUT_MS);
+  assert.ok(h.create());
+});
+
 test("a fresh store after restart rejects previously issued credentials", t => {
   const h = harness(t); const { token } = h.create();
   const restarted = new SessionStore();
