@@ -3,7 +3,7 @@ import path from "node:path";
 import process from "node:process";
 import { performance } from "node:perf_hooks";
 
-const PROVIDERS = ["azure", "elevenlabs"];
+const PROVIDERS = ["azure", "elevenlabs", "typecast"];
 const args = Object.fromEntries(
   process.argv.slice(2).map((arg) => {
     const [key, ...value] = arg.replace(/^--/, "").split("=");
@@ -13,9 +13,17 @@ const args = Object.fromEntries(
 
 if (args.help || !args.provider || !PROVIDERS.includes(args.provider)) {
   console.log(
-    "사용법: npm run tts:evaluate -- --provider=azure|elevenlabs [--case=historical-terms] [--out=경로]",
+    "사용법: npm run tts:evaluate -- --provider=azure|elevenlabs|typecast [--voice=primary|alt] [--case=historical-terms] [--out=경로]",
   );
   process.exit(args.help ? 0 : 1);
+}
+
+const voiceVariant = args.provider === "typecast" ? args.voice || "primary" : null;
+if (
+  voiceVariant === true ||
+  (voiceVariant && !/^[a-z0-9][a-z0-9-]*$/.test(voiceVariant))
+) {
+  throw new Error("Typecast 음성 이름은 영문 소문자, 숫자, 하이픈만 사용할 수 있습니다.");
 }
 
 const fixturesPath = path.resolve("tests/fixtures/tts-w01-05.json");
@@ -30,7 +38,7 @@ if (selected.length === 0) {
 
 const outputDir = path.resolve(
   args.out === true || !args.out
-    ? `evals/sejong/w01-05-results/${args.provider}`
+    ? `evals/sejong/w01-05-results/${args.provider}${voiceVariant ? `/${voiceVariant}` : ""}`
     : args.out,
 );
 await mkdir(outputDir, { recursive: true });
@@ -96,9 +104,37 @@ async function requestElevenLabs(text) {
   return { response, extension: "mp3" };
 }
 
+async function requestTypecast(text) {
+  const voiceEnvName =
+    voiceVariant === "primary"
+      ? "TYPECAST_VOICE_ID"
+      : `TYPECAST_VOICE_ID_${voiceVariant.replaceAll("-", "_").toUpperCase()}`;
+  const response = await fetch("https://api.typecast.ai/v1/text-to-speech", {
+    method: "POST",
+    headers: {
+      "X-API-KEY": required("TYPECAST_API_KEY"),
+      "Content-Type": "application/json",
+    },
+    body: JSON.stringify({
+      voice_id: required(voiceEnvName),
+      text,
+      model: process.env.TYPECAST_TTS_MODEL || "ssfm-v30",
+      prompt: { emotion_type: "smart" },
+      output: {
+        volume: 100,
+        audio_pitch: -1,
+        audio_tempo: 0.95,
+        audio_format: "mp3",
+      },
+    }),
+  });
+  return { response, extension: "mp3" };
+}
+
 const requests = {
   azure: requestAzure,
   elevenlabs: requestElevenLabs,
+  typecast: requestTypecast,
 };
 
 const results = [];
@@ -138,6 +174,7 @@ for (const fixture of selected) {
 
 const report = {
   provider: args.provider,
+  ...(voiceVariant ? { voiceVariant } : {}),
   generatedAt: new Date().toISOString(),
   latencyDefinition: "요청 직전부터 전체 오디오 응답 수신까지의 시간",
   results,
