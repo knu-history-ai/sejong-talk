@@ -8,9 +8,8 @@
     "start": "next start",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
-    "tts:evaluate": "node --env-file-if-exists=.env.local scripts/tts-w01-05.mjs"
+    "tts:evaluate": "node --env-file-if-exists=.env.local scripts/tts-w01-05.mjs",
     "test": "node --test tests/*.test.mjs",
-    "typecheck": "next typegen && tsc --noEmit"
   },
   "dependencies": {
     "next": "16.3.5",
