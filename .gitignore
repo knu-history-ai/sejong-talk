@@ -50,3 +50,6 @@ private/
 *.pem
 *.key
 service-account*.json
+
+# Local TTS evaluation output (generated audio and API measurements)
+/evals/sejong/w01-05-results/
