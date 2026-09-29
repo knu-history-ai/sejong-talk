@@ -28,8 +28,14 @@ export function ChatExperience() {
   const [history, setHistory] = useState<Conversation[]>([]);
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
+  const dialogue = useRef<HTMLDivElement>(null);
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
+  useEffect(() => {
+    const element = dialogue.current;
+    if (!element) return;
+    element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
+  }, [history, loading]);
 
   function ask(event: FormEvent) {
     event.preventDefault();
@@ -98,7 +104,7 @@ export function ChatExperience() {
       <div className="conversation-panel">
         <section className="conversation-card" aria-labelledby="conversation-title">
           <div className="conversation-heading"><h1 id="conversation-title"><ChatIcon />세종대왕과 이야기하기</h1><span className="sample-badge">예시 대화</span></div>
-          <div className="dialogue">
+          <div className="dialogue" ref={dialogue}>
             <div className="message sejong-message"><Avatar /><div className="answer-content">
               <strong className="speaker-name">세종대왕</strong>
               <div className="answer-bubble"><p>{welcome}</p></div>

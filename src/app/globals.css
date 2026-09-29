@@ -65,12 +65,12 @@ button, p, h1, h2 { overflow-wrap: anywhere; }
 .chat-workspace { display: grid; grid-template-columns: 28% minmax(0,1fr); min-height: calc(100dvh - 84px); }
 .chat-scene { min-height: 700px; }
 .chat-scene > img { object-position: center bottom; }
-.conversation-panel { min-width: 0; display: flex; flex-direction: column; padding: 14px 14px 0; background: #edf7fc; }
-.conversation-card { flex: 1; min-width: 0; padding: 22px 24px; background: #fff; border: 1px solid #e6eff5; border-radius: 7px; }
+.conversation-panel { min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 14px 14px 0; background: #edf7fc; overflow: hidden; }
+.conversation-card { flex: 1; min-width: 0; min-height: 0; display: flex; flex-direction: column; padding: 22px 24px; background: #fff; border: 1px solid #e6eff5; border-radius: 7px; }
 .conversation-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 22px; }
 .conversation-heading h1 { display: flex; align-items: center; gap: 9px; margin: 0; font-size: 21px; color: var(--navy); letter-spacing: -.06em; font-weight: 800; }
 .sample-badge { flex: 0 0 auto; font-size: 10px; padding: 4px 7px; border-radius: 4px; background: #f3f7fa; color: #6c7e8c; }
-.dialogue { display: flex; flex-direction: column; gap: 26px; }
+.dialogue { min-height: 0; display: flex; flex: 1; flex-direction: column; gap: 26px; padding-right: 8px; overflow-y: auto; overscroll-behavior: contain; scrollbar-gutter: stable; }
 .conversation-turn { display: flex; flex-direction: column; gap: 20px; }
 .conversation-turn + .conversation-turn { padding-top: 26px; border-top: 1px solid var(--line); }
 .message { display: flex; align-items: flex-start; gap: 12px; }
@@ -140,19 +140,23 @@ dialog::backdrop { background: #1a304b80; }
 .modal-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
 .modal-actions .outline-button { color: #0076d6; border-color: #6cb6f0; }
 @media (min-width: 1441px) { .sejong-app { box-shadow: 0 0 50px #1c4e7012; } }
+@media (min-width: 761px) {
+  .chat-workspace { height: calc(100dvh - 84px); min-height: 0; overflow: hidden; }
+  .chat-scene { min-height: 0; }
+}
 @media (max-width: 1100px) {
   .site-header { padding-inline: 24px; height: 76px; }.brand img { width: 126px; }
   .intro-hero, .intro-scene { min-height: 580px; }.intro-copy { padding: 36px; }.intro-copy h1 { font-size: 43px; }.eyebrow { font-size: 14px; }.start-button { font-size: 18px; min-height: 58px; }
   .how-to { padding: 28px; gap: 24px; }.how-to ol { gap: 18px; }.how-to-heading h2 { font-size: 17px; }.how-to li { align-items: flex-start; gap: 8px; }
-  .chat-workspace { grid-template-columns: 27% minmax(0,1fr); min-height: calc(100dvh - 76px); }.chat-scene { min-height: 660px; }
+  .chat-workspace { grid-template-columns: 27% minmax(0,1fr); height: calc(100dvh - 76px); }.chat-scene { min-height: 0; }
   .conversation-card { padding: 19px 16px; }.conversation-heading h1 { font-size: 18px; }.answer-actions { gap: 12px; }.speed-control { gap: 7px; }.composer-controls { flex-wrap: wrap; }.composer textarea { flex-basis: calc(100% - 240px); }.mic-button,.send-button { font-size: 12px; padding: 10px; }.suggestions button { font-size: 11px; }.answer-bubble p { font-size: 16px; }
 }
 @media (max-width: 760px) {
   .site-header { height: 68px; padding-inline: 18px; gap: 10px; }.site-header nav { gap: 8px; }.brand img { width: 110px; }.nav-divider { display: none; }.auto-listen { gap: 6px; font-size: 11px; }.history-trigger { padding: 8px; min-height: 38px; }.history-trigger .line-icon:last-child { display: none; }.new-chat { padding: 8px 10px; min-height: 38px; }
   .intro-hero { grid-template-columns: 1fr; }.intro-scene { min-height: 0; height: 360px; }.intro-scene > img { object-position: center 36%; }.intro-copy { padding: 36px 26px; align-items: center; text-align: center; }.intro-copy h1 { font-size: 42px; }.eyebrow { margin-bottom: 18px; }.intro-description { margin: 20px 0 24px; font-size: 16px; }.ai-notice { font-size: 11px; }.scene-badge { bottom: 16px; left: 18px; font-size: 10px; }
   .how-to { display: block; padding: 28px 24px; }.how-to-heading { text-align: center; margin-bottom: 25px; }.how-to ol { grid-template-columns: 1fr; gap: 20px; max-width: 330px; margin: auto; }.how-to li { align-items: center; gap: 14px; }.how-to strong { font-size: 14px; }.how-to p { font-size: 12px; }
-  .chat-workspace { grid-template-columns: 1fr; }.chat-scene { min-height: 0; height: 195px; }.chat-scene > img { width: 60% !important; left: auto !important; object-fit: cover; object-position: center 43%; mask-image: linear-gradient(to right, transparent, #000 24%); }.chat-scene .scene-badge { bottom: 12px; font-size: 9px; }
-  .conversation-panel { padding: 10px 10px 0; }.conversation-card { padding: 18px 14px; }.conversation-heading { margin-bottom: 20px; }.conversation-heading h1 { font-size: 18px; }.conversation-heading .chat-icon { width: 29px; height: 29px; }.dialogue { gap: 22px; }.avatar { width: 38px; height: 38px; flex-basis: 38px; }.message { gap: 8px; }.student-message p { font-size: 14px; padding: 12px 15px; }.answer-bubble { padding: 15px; }.answer-bubble p { font-size: 15px; }.answer-actions { gap: 10px; }.speed-control { flex-wrap: wrap; gap: 8px; }.speed-control button { min-width: 45px; }.source-toggle { font-size: 12px; gap: 9px; padding: 12px; }.source-toggle .line-icon { width: 18px; }
+  .chat-workspace { grid-template-columns: 1fr; height: auto; min-height: calc(100dvh - 68px); overflow: visible; }.chat-scene { min-height: 0; height: 195px; }.chat-scene > img { width: 60% !important; left: auto !important; object-fit: cover; object-position: center 43%; mask-image: linear-gradient(to right, transparent, #000 24%); }.chat-scene .scene-badge { bottom: 12px; font-size: 9px; }
+  .conversation-panel { padding: 10px 10px 0; overflow: visible; }.conversation-card { padding: 18px 14px; }.conversation-heading { margin-bottom: 20px; }.conversation-heading h1 { font-size: 18px; }.conversation-heading .chat-icon { width: 29px; height: 29px; }.dialogue { gap: 22px; padding-right: 0; overflow: visible; }.avatar { width: 38px; height: 38px; flex-basis: 38px; }.message { gap: 8px; }.student-message p { font-size: 14px; padding: 12px 15px; }.answer-bubble { padding: 15px; }.answer-bubble p { font-size: 15px; }.answer-actions { gap: 10px; }.speed-control { flex-wrap: wrap; gap: 8px; }.speed-control button { min-width: 45px; }.source-toggle { font-size: 12px; gap: 9px; padding: 12px; }.source-toggle .line-icon { width: 18px; }
   .question-area { padding: 18px 5px 8px; }.suggestions { gap: 6px; margin-bottom: 18px; }.suggestions button { flex: 1 1 140px; font-size: 12px; }.composer-controls { display: grid; grid-template-columns: 1fr 1fr; }.composer textarea { width: 100%; grid-column: 1 / -1; min-height: 74px; font-size: 14px; }.mic-button,.send-button { font-size: 14px; min-height: 47px; }.chat-footer { font-size: 9px; padding: 8px 14px 15px; }
 }
 @media (max-width: 480px) {
