@@ -50,3 +50,6 @@ private/
 *.pem
 *.key
 service-account*.json
+
+# tts의 샘플 음성 폴더
+evals/
