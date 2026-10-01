@@ -1,0 +1,22 @@
+{
+  "at": "2026-09-30T02:16:43.828Z",
+  "status": "PASS",
+  "source": "Chrome synthetic microphone, real Next route and Azure Short Audio REST; not a physical device test",
+  "upload": {
+    "mime": "audio/wav",
+    "bytes": 132524,
+    "sampleRate": 16000,
+    "channels": 1,
+    "bitsPerSample": 16,
+    "durationMs": 4140,
+    "dataOffset": 44,
+    "dataBytes": 132480
+  },
+  "httpStatus": 200,
+  "originalMime": "audio/webm;codecs=opus",
+  "transcript": "세종대왕은 외 훈민정음을 만들었나요?세종.",
+  "editedText": "훈민정음은 처음에 몇 글자였어요?",
+  "onConfirmCount": 1,
+  "transcriptionRequests": 1,
+  "browser": "153.0.8010.53"
+}
