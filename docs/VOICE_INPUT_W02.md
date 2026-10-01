@@ -1,5 +1,7 @@
 # W02-04 (#14): 브라우저 녹음 구현·시험 기록
 
+> 2026-09-30 최신 판정: **W02-04 구현 완료, 자동 시험 PASS**. 녹음 → 실제 PCM WAV 변환 → Azure F0 호환 Short Audio REST → 인식문 수정 → 수동 전송(onConfirm 1회)을 확인했습니다. AI 답변 서버는 후속 통합 범위입니다. 아래는 mock 단계의 과거 기록입니다. 현재 사용법은 [구현 보고서](STT_IMPLEMENTATION.md), 미실행 기기 항목은 [체크리스트](STT_DEVICE_TEST_CHECKLIST.md)를 참고하세요.
+
 작성일: 2026-09-23. 구현 PR의 관련 이슈는 [#14](https://github.com/knu-history-ai/sejong-talk/issues/14)다. 선행 기술 검증 [#13](https://github.com/knu-history-ai/sejong-talk/issues/13)의 조사·시험 계획은 별도 PR로 관리한다.
 
 대상 사용자는 초등학생이다. 현재 화면은 기능 검증용 개발 화면이며, 실제 서비스에 연결할 때도 쉬운 안내와 명시적 확인·전송을 유지한다.

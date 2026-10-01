@@ -18,7 +18,7 @@ function harness(t, options = {}) {
   let state;
   let transcript;
   let received;
-  const track = { stop() { stopped++; }, onended: null };
+  const track = { readyState: "live", enabled: true, muted: false, stop() { stopped++; track.readyState = "ended"; }, onended: null };
   const stream = { getTracks: () => [track] };
   const context = {
     state: "running", resume: async () => {},
@@ -28,7 +28,7 @@ function harness(t, options = {}) {
   };
   const recorder = {
     state: "inactive", mimeType: options.mime || "audio/webm;codecs=opus",
-    start() { recorder.state = "recording"; },
+    start() { if (options.startError) throw options.startError; recorder.state = "recording"; },
     stop() { recorder.state = "inactive"; },
     data(size = 400) { recorder.ondataavailable?.({ data: new Blob([new Uint8Array(size)]) }); },
     finish() { recorder.onstop?.(); },
@@ -37,7 +37,7 @@ function harness(t, options = {}) {
     supported: () => options.supported !== false,
     supportsMime: (mime) => options.noMime ? false : mime === recorder.mimeType,
     getStream: () => { requested++; return options.getStream ? options.getStream(stream) : Promise.resolve(stream); },
-    createRecorder: () => recorder,
+    createRecorder: () => { if (options.constructorError) throw options.constructorError; return recorder; },
     createContext: () => context,
     now: () => now,
   };
@@ -183,4 +183,112 @@ test("unmount disposes recording and prevents future start", async (t) => {
 test("device disconnection releases resources without transcription", async (t) => {
   const h = harness(t); await h.controller.start(); h.track.onended();
   assert.equal(h.state.code, "MICROPHONE_DISCONNECTED"); assert.equal(h.stopped, 1); assert.equal(h.calls, 0);
+});
+
+test("empty STT response returns a recoverable error", async (t) => {
+  const h = harness(t, { transcribe: async () => " " });
+  await h.controller.start(); h.tick(300); h.controller.stop(); h.recorder.data(); h.recorder.finish(); await flush();
+  assert.equal(h.state.code, "TRANSCRIPT_EMPTY"); assert.equal(h.transcript, undefined);
+});
+
+test("STT failure is recoverable and start is blocked while transcription is pending", async (t) => {
+  let reject;
+  const h = harness(t, { transcribe: () => new Promise((_, fail) => { reject = fail; }) });
+  await h.controller.start(); h.tick(300); h.controller.stop(); h.recorder.data(); h.recorder.finish();
+  await h.controller.start(); assert.equal(h.requested, 1);
+  reject(new Error("공급자 요청 실패")); await flush();
+  assert.equal(h.state.code, "TRANSCRIPTION_FAILED"); assert.equal(h.transcript, undefined);
+});
+
+function development(t) {
+  const previous = process.env.NODE_ENV;
+  process.env.NODE_ENV = "development";
+  t.after(() => { if (previous === undefined) delete process.env.NODE_ENV; else process.env.NODE_ENV = previous; });
+}
+
+test("development diagnostics trace MP4 start; microphone request is synchronous before yielding", async (t) => {
+  development(t);
+  const h = harness(t, { mime: "audio/mp4" });
+  const pending = h.controller.start();
+  assert.equal(h.requested, 1);
+  assert.equal(h.state.debug.getUserMediaRequested, true);
+  await pending;
+  assert.equal(h.state.debug.selectedMime, "audio/mp4");
+  assert.equal(h.state.debug.actualMime, "audio/mp4");
+  for (const key of ["getUserMediaSucceeded", "mediaRecorderCreated", "mediaRecorderStarted"]) assert.equal(h.state.debug[key], true);
+});
+
+for (const [name, code] of [["NotAllowedError", "PERMISSION_DENIED"], ["NotFoundError", "NO_MICROPHONE"], ["NotReadableError", "MICROPHONE_BUSY"]]) {
+  test(`development identifies ${name} and releases busy state`, async (t) => {
+    development(t);
+    const h = harness(t, { getStream: () => Promise.reject(new DOMException("device failure", name)) });
+    await h.controller.start();
+    assert.equal(h.state.code, code);
+    assert.equal(h.controller.isBusy(), false);
+    assert.equal(h.state.debug["error.name"], name);
+    assert.equal(h.state.debug["error.message"], "device failure");
+    assert.equal(h.state.debug.errorStage, "getUserMedia");
+    assert.equal(h.state.debug.getUserMediaSucceeded, false);
+  });
+}
+
+for (const [name, code] of [["AbortError", "MICROPHONE_ABORTED"], ["InvalidStateError", "RECORDER_INVALID_STATE"], ["SecurityError", "MICROPHONE_BLOCKED"], ["TypeError", "RECORDING_UNAVAILABLE"]]) {
+  test(`${name} from getUserMedia has its own recoverable code`, async (t) => {
+    development(t);
+    const error = name === "TypeError" ? new TypeError("not available") : new DOMException("not available", name);
+    const h = harness(t, { getStream: () => Promise.reject(error) });
+    await h.controller.start();
+    assert.equal(h.state.phase, "error"); assert.equal(h.state.code, code);
+    assert.equal(h.controller.isBusy(), false);
+    assert.equal(h.state.debug["error.name"], name);
+    assert.equal(h.state.debug.errorStage, "getUserMedia");
+  });
+}
+
+test("development diagnostics report track state, release and blob without audio content", async (t) => {
+  development(t);
+  const h = harness(t);
+  await h.controller.start();
+  assert.equal(h.state.debug.streamTrackCount, "1");
+  assert.equal(h.state.debug["streamTrack.readyState"], "live");
+  assert.equal(h.state.debug["streamTrack.enabled"], "true");
+  assert.equal(h.state.debug["streamTrack.muted"], "false");
+  h.tick(500); h.recorder.data(100); h.controller.stop();
+  assert.equal(h.state.debug["streamTrack.readyState"], "ended");
+  assert.equal(h.state.debug.microphoneReleased, true);
+  h.recorder.finish(); await flush();
+  assert.equal(h.state.debug["blob.type"], "audio/webm;codecs=opus");
+  assert.equal(h.state.debug["blob.size"], "100");
+  assert.equal(h.state.debug.durationMs, "500");
+  assert.match(h.state.debug.dataavailableCount, /^1 \(100 bytes\)$/);
+});
+
+for (const [option, stage, created] of [["constructorError", "MediaRecorder constructor", false], ["startError", "recorder.start()", true]]) {
+  test(`development distinguishes ${stage} failure`, async (t) => {
+    development(t);
+    const h = harness(t, { [option]: new DOMException("unsupported", "NotSupportedError") });
+    await h.controller.start();
+    assert.equal(h.state.debug.errorStage, stage);
+    assert.equal(h.state.debug.mediaRecorderCreated, created);
+    assert.equal(h.state.debug.mediaRecorderStarted, false);
+    assert.equal(h.stopped, 1);
+  });
+}
+
+test("resume rejection remains visible and sensitive exception fields are redacted", async (t) => {
+  development(t);
+  const h = harness(t);
+  h.context.resume = async () => { throw new Error("token=private-value Bearer secret-value https://private.example/key"); };
+  await h.controller.start();
+  assert.equal(h.state.code, "AUDIO_ANALYSIS_FAILED");
+  assert.equal(h.state.debug.errorStage, "AudioContext.resume()");
+  assert.doesNotMatch(h.state.debug["error.message"], /private-value|secret-value|private.example/);
+});
+
+test("production does not collect recording diagnostics", async (t) => {
+  development(t);
+  process.env.NODE_ENV = "production";
+  const h = harness(t);
+  await h.controller.start();
+  assert.equal(h.state.debug, undefined);
 });
