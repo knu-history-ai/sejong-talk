@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { FormEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { FormEvent, KeyboardEvent, ReactNode, useEffect, useRef, useState } from "react";
 
 type Conversation = { question: string; answer: string };
 type IconName = "arrow" | "clock" | "plus" | "close" | "mic" | "send" | "speaker" | "document" | "chevron" | "info";
@@ -29,6 +29,7 @@ export function ChatExperience() {
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const dialogue = useRef<HTMLDivElement>(null);
+  const sourceCard = useRef<HTMLDivElement>(null);
 
   useEffect(() => () => { if (timer.current) clearTimeout(timer.current); }, []);
   useEffect(() => {
@@ -36,6 +37,13 @@ export function ChatExperience() {
     if (!element) return;
     element.scrollTo({ top: element.scrollHeight, behavior: "smooth" });
   }, [history, loading]);
+  useEffect(() => {
+    if (!sourceOpen) return;
+    const frame = requestAnimationFrame(() => {
+      sourceCard.current?.scrollIntoView({ behavior: "smooth", block: "nearest" });
+    });
+    return () => cancelAnimationFrame(frame);
+  }, [sourceOpen]);
 
   function ask(event: FormEvent) {
     event.preventDefault();
@@ -43,13 +51,13 @@ export function ChatExperience() {
     if (!text || loading) return;
     setLoading(true);
     setSentQuestion(text);
+    setQuestion("");
     setSourceOpen(false);
     setNotice("");
     timer.current = setTimeout(() => {
       const nextAnswer = answers[text] ?? "좋은 질문이구나. 실제 서비스에서는 검토된 역사 자료를 바탕으로 질문에 맞는 답변이 이곳에 나타난단다.";
       setHistory((items) => [...items, { question: text, answer: nextAnswer }]);
       setSentQuestion("");
-      setQuestion("");
       setLoading(false);
       if (autoListen) setNotice("답변 듣기는 준비 중이에요. 지금은 글로 답변을 확인해 주세요.");
       timer.current = null;
@@ -67,6 +75,12 @@ export function ChatExperience() {
   function selectQuestion(text: string) {
     setQuestion(text);
     input.current?.focus();
+  }
+
+  function handleQuestionKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
+    if (event.key !== "Enter" || event.shiftKey || event.nativeEvent.isComposing) return;
+    event.preventDefault();
+    event.currentTarget.form?.requestSubmit();
   }
 
   const header = <header className="site-header">
@@ -116,7 +130,7 @@ export function ChatExperience() {
                 <div className="answer-bubble"><p>{item.answer}</p></div>
                 {index === history.length - 1 && !loading && <>
                 <div className="answer-actions"><button className="primary-button listen-button" onClick={() => setNotice("답변 듣기는 준비 중이에요. 지금은 글로 답변을 확인해 주세요.")}><Icon name="speaker" />답변 듣기</button><div className="speed-control"><span id="speed-label">재생 속도</span><div role="group" aria-labelledby="speed-label">{[0.8, 1, 1.2].map((value) => <button key={value} aria-pressed={speed === value} onClick={() => setSpeed(value)}>{value}배</button>)}</div></div></div>
-                <div className="source-card"><button className="source-toggle" aria-expanded={sourceOpen} aria-controls="answer-sources" onClick={() => setSourceOpen(!sourceOpen)}><Icon name="document" /><span>이 이야기의 출처 보기</span><Icon name="chevron" /></button>{sourceOpen && <div id="answer-sources"><p>현재 답변은 화면 확인용 예시예요. 실제 답변이 연결되면 검토된 역사 자료와 원문 링크가 이곳에 표시돼요.</p></div>}</div>
+                <div className="source-card" ref={sourceCard}><button className="source-toggle" aria-expanded={sourceOpen} aria-controls="answer-sources" onClick={() => setSourceOpen(!sourceOpen)}><Icon name="document" /><span>이 이야기의 출처 보기</span><Icon name="chevron" /></button>{sourceOpen && <div id="answer-sources"><p>현재 답변은 화면 확인용 예시예요. 실제 답변이 연결되면 검토된 역사 자료와 원문 링크가 이곳에 표시돼요.</p></div>}</div>
                 </>}
               </div></div>
             </div>)}
@@ -135,7 +149,7 @@ export function ChatExperience() {
           <div className="suggestions">{suggestions.map((item) => <button key={item} disabled={loading} onClick={() => selectQuestion(item)}>{item}</button>)}</div>
           <form className="composer" onSubmit={ask}>
             <div className="composer-label"><label htmlFor="question">이어서 궁금한 점을 물어보세요</label><small>{question.length} / 500</small></div>
-            <div className="composer-controls"><textarea ref={input} id="question" value={question} onChange={(event) => setQuestion(event.target.value)} maxLength={500} rows={2} placeholder="세종대왕에게 궁금한 것을 물어보세요." disabled={loading} /><button type="button" className="outline-button mic-button" disabled={loading} onClick={() => setNotice("음성 질문은 준비 중이에요. 지금은 질문을 글로 입력해 주세요.")}><Icon name="mic" /><span>말로 질문</span></button><button className="primary-button send-button" disabled={!question.trim() || loading}><Icon name="send" /><span>{loading ? "답변 준비 중" : "질문 보내기"}</span></button></div>
+            <div className="composer-controls"><textarea ref={input} id="question" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={handleQuestionKeyDown} maxLength={500} rows={2} placeholder="세종대왕에게 궁금한 것을 물어보세요." disabled={loading} /><button type="button" className="outline-button mic-button" disabled={loading} onClick={() => setNotice("음성 질문은 준비 중이에요. 지금은 질문을 글로 입력해 주세요.")}><Icon name="mic" /><span>말로 질문</span></button><button className="primary-button send-button" disabled={!question.trim() || loading}><Icon name="send" /><span>{loading ? "답변 준비 중" : "질문 보내기"}</span></button></div>
           </form>
         </section>
         <p className="chat-footer">역사 자료를 바탕으로 재구성한 AI예요. 실제 세종대왕이 남긴 말과는 다를 수 있어요.</p>
