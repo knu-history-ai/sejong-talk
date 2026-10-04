@@ -11,6 +11,23 @@
 - 중복 요청은 같은 `requestId`와 같은 입력이면 기존 결과를 재사용하고, 같은 ID에 다른 입력이면 `REQUEST_CONFLICT`로 처리한다.
 - 취소 또는 시간 초과가 먼저 확정되면 이후 도착한 공급자 응답은 공개하지 않는다.
 
+## 세션 API 연결 방식
+
+이 PR은 세션 저장소에 직접 의존하지 않고, AI 답변 생성 엔진이 세션 계층에 붙을 수 있는 입력과 실행 흐름을 제공한다.
+
+후속 route는 아래 순서로 연결한다.
+
+1. 세션 쿠키와 Origin을 확인한다.
+2. 현재 세션의 최근 승인 답변만 `recentConversation`으로 변환한다.
+3. `runCoordinatedSejongTurn`에 `request`, `recentConversation`, `RequestCoordinator`, 세션 활성 확인 함수를 전달한다.
+4. 생성 시작 전과 LLM 응답 도착 후에 세션이 아직 활성인지 다시 확인한다.
+5. 세션이 활성일 때만 `onApprovedTurn`에서 답변을 저장하고 클라이언트에 노출한다.
+6. 세션 초기화, 만료, 교체, 사용자 취소, 시간 초과가 먼저 확정되면 늦은 LLM 응답은 `cancelled`로 버린다.
+
+`runCoordinatedSejongTurn`은 같은 `requestId`와 같은 입력에는 기존 작업을 재사용하고, 같은 `requestId`에 다른 입력이 들어오면 `REQUEST_CONFLICT`를 반환한다. fingerprint에는 사용자 질문과 최근 승인 대화가 포함되므로 같은 요청 ID가 다른 대화 맥락에 재사용되는 것도 막는다.
+
+역사 자료 기반 답변은 `generateSejongTurn`에서 만든다. 이 함수는 질문과 맞는 `approved` fact만 프롬프트에 넣고, 모델이 반환한 `factIds` 중 실제 프롬프트에 들어간 승인 fact만 최종 `Answer.factIds`와 `sources`에 남긴다.
+
 ## 고정 질문
 
 `evals/sejong/fixed-questions.json`에 Q01/Q03/Q05를 둔다.

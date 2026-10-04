@@ -16,9 +16,14 @@ import {
   buildSejongPromptInput,
 } from "../src/server/ai/prompt.ts";
 import {
+  buildSejongTurnFingerprint,
+  runCoordinatedSejongTurn,
+} from "../src/server/ai/turn-runner.ts";
+import {
   loadSejongKnowledgeBase,
   selectReviewedFactsForQuestion,
 } from "../src/server/content/sejong.ts";
+import { RequestCoordinator } from "../src/server/requests/index.ts";
 
 test("Sejong prompt input separates character, recent turns, and approved facts", async () => {
   const knowledgeBase = await loadSejongKnowledgeBase();
@@ -188,4 +193,132 @@ test("Gemini request maps rate limits to shared error code", async () => {
       return true;
     },
   );
+});
+
+test("coordinated Sejong turn passes session recent conversation and stores approved answer", async () => {
+  const coordinator = new RequestCoordinator();
+  const recentConversation = [
+    {
+      question: "훈민정음은 왜 만들었어요?",
+      answer: {
+        kind: "grounded",
+        text: "백성들이 쉽게 글을 쓰도록 만들었단다.",
+        factIds: ["sejong_hunminjeongeum_purpose"],
+      },
+    },
+  ];
+  let seenRecentConversation;
+  let savedTurn;
+
+  const result = await runCoordinatedSejongTurn({
+    coordinator,
+    request: {
+      requestId: "turn_runner_01",
+      text: "훈민정음은 처음에 몇 글자였어요?",
+    },
+    recentConversation,
+    timeoutMs: 1000,
+    generateTurn: async ({ recentConversation: generatedRecent }) => {
+      seenRecentConversation = generatedRecent;
+      return {
+        requestId: "turn_runner_01",
+        operation: "turn",
+        status: "approved",
+        answer: {
+          answerId: "answer_runner_01",
+          kind: "grounded",
+          text: "훈민정음은 처음에 스물여덟 글자였단다.",
+          factIds: ["sejong_hunminjeongeum_28_letters"],
+          sources: [],
+          personaVersion: "sejong-persona-v1",
+          contentVersion: "sejong-content-v1",
+        },
+      };
+    },
+    onApprovedTurn: async (turn) => {
+      savedTurn = turn;
+    },
+  });
+
+  assert.equal(result.status, "approved");
+  assert.deepEqual(seenRecentConversation, recentConversation);
+  assert.equal(savedTurn.answer.factIds[0], "sejong_hunminjeongeum_28_letters");
+});
+
+test("coordinated Sejong turn discards late answer after session becomes inactive", async () => {
+  const coordinator = new RequestCoordinator();
+  let active = true;
+  let saveCalls = 0;
+
+  const result = await runCoordinatedSejongTurn({
+    coordinator,
+    request: { requestId: "turn_runner_02", text: "세종은 누구예요?" },
+    timeoutMs: 1000,
+    isSessionActive: () => active,
+    generateTurn: async () => {
+      active = false;
+      return {
+        requestId: "turn_runner_02",
+        operation: "turn",
+        status: "approved",
+        answer: {
+          answerId: "answer_runner_late",
+          kind: "conversation",
+          text: "늦게 도착한 답변",
+          factIds: [],
+          sources: [],
+          personaVersion: "sejong-persona-v1",
+          contentVersion: "sejong-content-v1",
+        },
+      };
+    },
+    onApprovedTurn: async () => {
+      saveCalls += 1;
+    },
+  });
+
+  assert.equal(result.status, "cancelled");
+  assert.equal(saveCalls, 0);
+});
+
+test("coordinated Sejong turn rejects expired session before LLM call", async () => {
+  const coordinator = new RequestCoordinator();
+  let calls = 0;
+
+  const result = await runCoordinatedSejongTurn({
+    coordinator,
+    request: { requestId: "turn_runner_03", text: "안녕" },
+    isSessionActive: () => false,
+    generateTurn: async () => {
+      calls += 1;
+      throw new Error("must not run");
+    },
+  });
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.code, "SESSION_EXPIRED");
+  assert.equal(calls, 0);
+});
+
+test("Sejong turn fingerprint is stable for nested recent conversation keys", () => {
+  const first = buildSejongTurnFingerprint({
+    request: { requestId: "turn_runner_04", text: "안녕" },
+    recentConversation: [
+      {
+        question: "이전 질문",
+        answer: { kind: "conversation", text: "이전 답", factIds: [] },
+      },
+    ],
+  });
+  const second = buildSejongTurnFingerprint({
+    recentConversation: [
+      {
+        answer: { factIds: [], text: "이전 답", kind: "conversation" },
+        question: "이전 질문",
+      },
+    ],
+    request: { text: "안녕", requestId: "turn_runner_04" },
+  });
+
+  assert.equal(first, second);
 });

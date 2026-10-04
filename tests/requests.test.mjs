@@ -140,3 +140,66 @@ test("request coordinator turns timeout into retryable upstream failure", async 
   assert.equal(result.code, "UPSTREAM_TIMEOUT");
   assert.equal(result.retryable, true);
 });
+
+test("request coordinator forwards external cancellation to running work", async () => {
+  const coordinator = new RequestCoordinator();
+  const controller = new AbortController();
+  const running = coordinator.run(
+    {
+      requestId: "turn_request_05",
+      operation: "turn",
+      fingerprint: fingerprintJson({ text: "취소" }),
+      timeoutMs: 1000,
+      signal: controller.signal,
+    },
+    async (signal) =>
+      new Promise((_, reject) => {
+        signal.addEventListener("abort", () =>
+          reject(new DOMException("aborted", "AbortError")),
+        );
+      }),
+  );
+
+  controller.abort();
+  const result = await running;
+
+  assert.equal(result.status, "failed");
+  assert.equal(result.code, "UPSTREAM_TIMEOUT");
+});
+
+test("fingerprintJson sorts nested object keys without changing array order", () => {
+  const left = fingerprintJson({
+    request: { text: "안녕", requestId: "turn_request_06" },
+    recentConversation: [
+      {
+        answer: { text: "답", factIds: [], kind: "conversation" },
+        question: "질문",
+      },
+    ],
+  });
+  const right = fingerprintJson({
+    recentConversation: [
+      {
+        question: "질문",
+        answer: { kind: "conversation", factIds: [], text: "답" },
+      },
+    ],
+    request: { requestId: "turn_request_06", text: "안녕" },
+  });
+  const differentOrder = fingerprintJson({
+    request: { requestId: "turn_request_06", text: "안녕" },
+    recentConversation: [
+      {
+        question: "다른 질문",
+        answer: { kind: "conversation", factIds: [], text: "다른 답" },
+      },
+      {
+        question: "질문",
+        answer: { kind: "conversation", factIds: [], text: "답" },
+      },
+    ],
+  });
+
+  assert.equal(left, right);
+  assert.notEqual(left, differentOrder);
+});

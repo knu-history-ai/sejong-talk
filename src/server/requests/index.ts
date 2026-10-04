@@ -10,6 +10,7 @@ export interface RequestWorkOptions {
   operation: Operation;
   fingerprint: string;
   timeoutMs: number;
+  signal?: AbortSignal;
 }
 
 type RequestWork<T extends RequestState> = (signal: AbortSignal) => Promise<T>;
@@ -44,6 +45,21 @@ function cancelledRequest(
   operation: Operation,
 ): RequestState {
   return { requestId, operation, status: "cancelled" };
+}
+
+function stableJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return `[${value.map((item) => stableJson(item)).join(",")}]`;
+  }
+
+  if (value && typeof value === "object") {
+    return `{${Object.entries(value as Record<string, unknown>)
+      .sort(([left], [right]) => left.localeCompare(right))
+      .map(([key, item]) => `${JSON.stringify(key)}:${stableJson(item)}`)
+      .join(",")}}`;
+  }
+
+  return JSON.stringify(value);
 }
 
 export class RequestCoordinator {
@@ -88,6 +104,13 @@ export class RequestCoordinator {
       promise: Promise.resolve({} as RequestState),
     };
 
+    const abortFromParent = () => controller.abort(options.signal?.reason);
+    if (options.signal?.aborted) {
+      abortFromParent();
+    } else {
+      options.signal?.addEventListener("abort", abortFromParent, { once: true });
+    }
+
     const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
     record.promise = work(controller.signal)
       .then((state) => {
@@ -112,7 +135,10 @@ export class RequestCoordinator {
         );
         return record.state;
       })
-      .finally(() => clearTimeout(timeout));
+      .finally(() => {
+        clearTimeout(timeout);
+        options.signal?.removeEventListener("abort", abortFromParent);
+      });
 
     this.records.set(options.requestId, record);
     return record.promise;
@@ -139,5 +165,5 @@ export class RequestCoordinator {
 }
 
 export function fingerprintJson(value: unknown): string {
-  return JSON.stringify(value, Object.keys(value as Record<string, unknown>).sort());
+  return stableJson(value);
 }

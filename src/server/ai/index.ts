@@ -9,6 +9,11 @@ import {
   buildSejongPromptInput,
   type RecentApprovedTurn,
 } from "./prompt";
+import {
+  buildSejongTurnFingerprint,
+  runCoordinatedSejongTurn as runCoordinatedSejongTurnWithGenerator,
+  type RunCoordinatedSejongTurnOptions,
+} from "./turn-runner";
 
 export interface GenerateSejongTurnOptions {
   request: TurnRequest;
@@ -74,4 +79,17 @@ export async function generateSejongTurn({
   } catch (error) {
     return failedTurn(request.requestId, error);
   }
+}
+
+export { buildSejongTurnFingerprint };
+
+export async function runCoordinatedSejongTurn({
+  generateTurn = generateSejongTurn,
+  ...options
+}: Omit<RunCoordinatedSejongTurnOptions, "generateTurn"> &
+  Partial<Pick<RunCoordinatedSejongTurnOptions, "generateTurn">>) {
+  return runCoordinatedSejongTurnWithGenerator({
+    ...options,
+    generateTurn,
+  });
 }
