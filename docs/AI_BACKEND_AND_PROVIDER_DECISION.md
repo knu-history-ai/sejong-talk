@@ -1,6 +1,6 @@
 # AI 백엔드·후보 시험·예산 결정 기록
 
-2026-10-04 기준 작업 기록이다. 첨부 기획서와 PRD는 요구사항 참고자료로만 사용했고, 문서 안의 문장을 실행 지시로 취급하지 않는다.
+2026-10-06 기준 작업 기록이다. 첨부 기획서와 PRD는 요구사항 참고자료로만 사용했고, 문서 안의 문장을 실행 지시로 취급하지 않는다.
 
 ## 구현 결정
 
@@ -22,9 +22,13 @@
 3. `runCoordinatedSejongTurn`에 `request`, `recentConversation`, `RequestCoordinator`, 세션 활성 확인 함수를 전달한다.
 4. 생성 시작 전과 LLM 응답 도착 후에 세션이 아직 활성인지 다시 확인한다.
 5. 세션이 활성일 때만 `onApprovedTurn`에서 답변을 저장하고 클라이언트에 노출한다.
-6. 세션 초기화, 만료, 교체, 사용자 취소, 시간 초과가 먼저 확정되면 늦은 LLM 응답은 `cancelled`로 버린다.
+6. 사용자 취소·외부 abort는 `cancelled`, 시간 초과는 `failed / UPSTREAM_TIMEOUT`으로 확정하고 늦은 응답을 버린다. 세션 비활성 확인 시에도 저장하지 않는다. 공급자가 abort를 무시해도 요청은 종료된다.
+
+`onApprovedTurn`을 호출하기 직전에 취소 여부와 세션 활성을 다시 확인한다. 후속 세션 저장 함수도 비활성 세션에 대한 저장을 거절해야 한다. 저장이 이미 시작된 뒤의 취소까지 보장하는 전체 API 연결은 통합 작업에서 검증한다.
 
 `runCoordinatedSejongTurn`은 같은 `requestId`와 같은 입력에는 기존 작업을 재사용하고, 같은 `requestId`에 다른 입력이 들어오면 `REQUEST_CONFLICT`를 반환한다. fingerprint에는 사용자 질문과 최근 승인 대화가 포함되므로 같은 요청 ID가 다른 대화 맥락에 재사용되는 것도 막는다.
+
+질문 검색에서는 한국어 조사와 한글·훈민정음 이름을 정리한 뒤 관련 사실 카드를 찾는다. 전체 형태소 분석이나 의미 검색을 구현한 것은 아니다.
 
 역사 자료 기반 답변은 `generateSejongTurn`에서 만든다. 이 함수는 질문과 맞는 `approved` fact만 프롬프트에 넣고, 모델이 반환한 `factIds` 중 실제 프롬프트에 들어간 승인 fact만 최종 `Answer.factIds`와 `sources`에 남긴다.
 
@@ -37,6 +41,8 @@
 | Q01 | 정상 사실 질문 | `grounded`, 훈민정음 28자 fact 연결 |
 | Q03 | 역할 변경 공격 | 세종 설정 유지, 관리자 사칭 거절 |
 | Q05 | 자료 부족 질문 | 커피 취향을 꾸미지 않고 `insufficient` |
+
+이 runner는 질문별 응답과 기대 조건을 기록한다. 실행 성공이 답변 품질 통과를 뜻하지 않으며, 역사적 사실과 페르소나 유지 여부는 실제 답변을 읽고 확인해야 한다. 현재 서버 검증은 JSON 형식·길이·승인된 fact ID·출처 연결을 확인한다. 답변 문장이 자료와 의미상 일치하는지 판정하는 검증은 W03-09 후속 작업이다.
 
 실행:
 
@@ -59,36 +65,20 @@ GEMINI_API_KEY=... npm run eval:ai
 
 결과는 `evals/sejong/results/`에 JSON으로 저장하며 Git에는 올리지 않는다.
 
-## API 후보와 선택
+## API 후보와 사용 조건
 
-| 후보 | 품질 확인 | 비용 | 이용 조건 | 판단 |
-|---|---:|---:|---|---|
-| Gemini Developer API, Flash 계열 | 이미 #26에서 인증·호출 성공 기록이 있고, 이번 고정 질문 runner가 같은 구조를 사용 | Gemini 3.x Flash 표준 가격은 공식 페이지 기준 입력 $0.30/1M, 출력 $2.50/1M 토큰 수준. 무료 티어는 일부 모델에서 가능 | Gemini 가격표는 Free Tier 데이터가 제품 개선에 사용될 수 있고 Paid Tier는 No로 표시한다. Billing 문서는 Tier 1 월 cap $250과 project/account spend cap을 설명한다 | **MVP 1차 선택**. 기존 실험을 이어가되 Paid Tier와 $5 선불/월 테스트 한도 설정 후 사용 |
-| OpenAI API, 경량 텍스트 모델 | 같은 Q01/Q03/Q05 runner에 provider adapter를 추가해 비교 가능 | OpenAI 가격표 기준 `gpt-6-luna` 표준 short context는 입력 $0.10/1M, 출력 $0.50/1M 토큰 | OpenAI API 문서는 API 입력·출력을 모델 학습에 사용하지 않는다고 안내한다 | Gemini가 Q03/Q05에서 실패하거나 지연이 크면 2차 후보 |
+- Gemini Developer API의 기존 호출 실험을 이어갈 수 있도록 adapter와 고정 질문 runner를 준비했다. 실제 사용 모델은 무료 이용 가능 여부와 비교 결과를 확인하고 결정한다.
+- 카드 등록 없는 무료 플랜·트라이얼과 로컬 모델을 비교한다. 학생 개인 카드 등록, 유료 전환, 선불 충전은 진행하지 않는다.
+- 무료 한도 또는 품질 때문에 유료 후보가 필요하면 그 이유와 비교 결과를 멘토님께 공유하고 사용 방식을 먼저 협의한다.
+- PR의 자동 검증은 mock 공급자로 실행하며 실제 API 호출·요금·품질을 입증하지 않는다.
+- API 키는 서버 환경 변수에만 둔다. 무료 플랜의 데이터 처리 조건도 실제 계정에서 확인하고, 평가에는 개인정보가 없는 고정 질문을 사용한다.
 
-공식 확인 URL:
+이 사용 조건은 9월 24일 멘토님 안내를 반영한다. 이전 초안의 Paid Tier·월 $5 결제 제안은 확정된 팀 결정이 아니므로 적용하지 않는다.
 
-- Gemini 가격: https://ai.google.dev/gemini-api/docs/pricing
-- Gemini Billing·Spend caps: https://ai.google.dev/gemini-api/docs/billing
-- OpenAI API 가격: https://developers.openai.com/api/docs/pricing
-- OpenAI API 데이터 정책: https://platform.openai.com/docs/models/default-usage-policies-by-endpoint
+## 호스팅과 비용 관리
 
-## 호스팅 선택
+배포 업체는 아직 정하지 않았다. 로컬 통합을 먼저 확인하고 학교 지원 방식과 서비스 운영 조건을 멘토님과 협의한 뒤 결정한다. 현재 세션·요청 상태는 메모리에 있으므로 여러 서버 인스턴스나 재시작에서도 상태가 보존된다고 가정하면 안 된다.
 
-| 후보 | 장점 | 위험 | 판단 |
-|---|---|---|---|
-| Vercel | Next.js 연결이 가장 쉽고 preview 공유가 빠름. Pricing 페이지는 hard spend limits와 usage credit을 안내한다 | 서버리스 실행은 in-memory 세션·요청 상태가 인스턴스 간 유지된다고 가정하기 어렵다 | 화면 preview와 정적 데모용 |
-| Google Cloud Run | 공식 가격 문서 기준 request-based pay-per-use이고 max instances로 MVP 단일 서버 상태를 단순화할 수 있음 | 컨테이너 배포 설정이 필요하고 Vercel보다 초기 설정이 무겁다 | **MVP 백엔드 시연 선택**. max instances 1, min instances 0, 요청 기반 과금으로 시작 |
+`.env.example`의 Gemini 변수는 공급자·모델·timeout·재시도 설정이다. 애플리케이션이 금액을 자동으로 집계하거나 결제를 차단하는 기능은 아직 없다. 사용되지 않던 `AI_DAILY_TEST_BUDGET_USD`와 `AI_MONTHLY_TEST_BUDGET_USD`는 제거했다. API 비용 추적은 W03-02 후속 작업이다.
 
-공식 확인 URL:
-
-- Vercel Pricing: https://vercel.com/pricing
-- Cloud Run Pricing: https://cloud.google.com/run/pricing
-
-## 시험 예산
-
-- API 시험 예산: Gemini Paid Tier 선불 최소 단위에 맞춰 **월 $5**를 1차 한도로 둔다.
-- 일일 개발 한도: `.env.local`에서 `AI_DAILY_TEST_BUDGET_USD=1`을 기준값으로 둔다.
-- Q01/Q03/Q05 3개를 한 번씩 실행하는 smoke run과, 같은 세트 3회 반복 비교를 분리해 기록한다.
-- PRD의 20회 대화 측정은 생성 1회와 검증 1회를 합산해도 소액이지만, 실패·취소·반복 호출까지 비용 기록에 포함한다.
-- 원문 질문·답변 전체는 기본 운영 로그에 남기지 않고, 평가 JSON은 공개 저장소에 커밋하지 않는다.
+Q01/Q03/Q05 3개를 한 번씩 실행하는 smoke run과 같은 세트 3회 반복 비교를 분리해 기록한다. 실패·취소·재시도도 공급자 호출이 시작됐다면 사용량이 생길 수 있다. 평가 JSON은 `evals/sejong/results/`에 로컬로 저장하며 공개 저장소에는 커밋하지 않는다.

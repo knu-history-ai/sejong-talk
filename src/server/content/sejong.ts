@@ -36,11 +36,16 @@ export async function loadSejongKnowledgeBase(): Promise<SejongKnowledgeBase> {
 }
 
 function tokenize(text: string): string[] {
-  return text
+  const tokens = text
     .toLowerCase()
     .split(/[^0-9a-z가-힣]+/u)
-    .map((token) => token.trim())
+    .map((token) => token.replace(/(?:에서는|에서도|에게서|으로부터|으로는|에서|으로|에게|부터|까지|은|는|이|가|을|를|의|에|와|과|도|만)$/u, ""))
     .filter((token) => token.length >= 2);
+  // Normalize only known topic aliases and question cues; keep unrelated words intact.
+  if (tokens.includes("한글")) tokens.push("훈민정음");
+  if (tokens.includes("훈민정음")) tokens.push("한글");
+  if (/(?:왜|이유|목적)/u.test(text)) tokens.push("목적");
+  return [...new Set(tokens)];
 }
 
 function scoreFact(questionTokens: string[], fact: Fact): number {

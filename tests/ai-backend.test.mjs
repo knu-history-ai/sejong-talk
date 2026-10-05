@@ -25,6 +25,79 @@ import {
 } from "../src/server/content/sejong.ts";
 import { RequestCoordinator } from "../src/server/requests/index.ts";
 
+function approvedTurn(requestId) {
+  return {
+    requestId, operation: "turn", status: "approved",
+    answer: {
+      answerId: `answer_${requestId}`, kind: "conversation", text: "반갑구나.",
+      factIds: [], sources: [], personaVersion: "sejong-persona-v1",
+      contentVersion: "sejong-content-v1",
+    },
+  };
+}
+
+for (const scenario of ["cancel", "timeout", "parent-abort"]) {
+  test(`late approved answer is never stored after ${scenario}`, async () => {
+    const coordinator = new RequestCoordinator();
+    const parent = new AbortController();
+    const requestId = `late_${scenario}`;
+    let release;
+    let started;
+    const generationStarted = new Promise((resolve) => { started = resolve; });
+    let saved = 0;
+    const running = runCoordinatedSejongTurn({
+      coordinator, request: { requestId, text: "안녕" }, signal: parent.signal,
+      timeoutMs: scenario === "timeout" ? 10 : 1000,
+      generateTurn: () => new Promise((resolve) => { release = resolve; started(); }),
+      onApprovedTurn: () => { saved += 1; },
+    });
+    await generationStarted;
+    if (scenario === "cancel") coordinator.cancel(requestId);
+    if (scenario === "parent-abort") parent.abort();
+    if (scenario === "timeout") await new Promise((resolve) => setTimeout(resolve, 30));
+    // The provider deliberately ignores abort and still returns an approved answer.
+    release(approvedTurn(requestId));
+    const result = await running;
+    await new Promise((resolve) => setImmediate(resolve));
+    assert.equal(saved, 0);
+    assert.equal(result.status, scenario === "timeout" ? "failed" : "cancelled");
+    if (scenario === "timeout") assert.equal(result.code, "UPSTREAM_TIMEOUT");
+    assert.equal(coordinator.get(requestId).status, result.status);
+  });
+}
+
+test("cancellation during the asynchronous session check prevents storing an answer", async () => {
+  const coordinator = new RequestCoordinator();
+  let checks = 0;
+  let saved = 0;
+  const result = await runCoordinatedSejongTurn({
+    coordinator, request: { requestId: "cancel_at_save", text: "안녕" },
+    isSessionActive: async () => {
+      if (++checks === 3) coordinator.cancel("cancel_at_save");
+      return true;
+    },
+    generateTurn: async () => approvedTurn("cancel_at_save"),
+    onApprovedTurn: () => { saved += 1; },
+  });
+  assert.equal(result.status, "cancelled");
+  assert.equal(saved, 0);
+});
+
+test("reviewed facts match common Korean particles and alternate names", async () => {
+  const knowledgeBase = await loadSejongKnowledgeBase();
+  for (const [question, expectedId] of [
+    ["한글은 왜 만들었어요?", "sejong_hunminjeongeum_purpose"],
+    ["훈민정음이 만들어진 이유가 뭐예요?", "sejong_hunminjeongeum_purpose"],
+    ["집현전이 뭐예요?", "sejong_jiphyeonjeon_learning"],
+    ["집현전에서는 뭘 했어요?", "sejong_jiphyeonjeon_learning"],
+  ]) {
+    assert.ok(selectReviewedFactsForQuestion(knowledgeBase, question)
+      .some((fact) => fact.id === expectedId), question);
+  }
+  assert.deepEqual(selectReviewedFactsForQuestion(knowledgeBase, "커피 취향은 어때요?"), []);
+  assert.deepEqual(selectReviewedFactsForQuestion(knowledgeBase, "집현전기라는 가전제품 알려줘"), []);
+});
+
 test("Sejong prompt input separates character, recent turns, and approved facts", async () => {
   const knowledgeBase = await loadSejongKnowledgeBase();
   const request = {
@@ -53,10 +126,8 @@ test("Sejong prompt input separates character, recent turns, and approved facts"
   const prompt = buildSejongAnswerPrompt(promptInput);
 
   assert.equal(promptInput.character.id, "sejong");
-  assert.deepEqual(
-    promptInput.reviewedFacts.map((fact) => fact.reviewStatus),
-    ["approved"],
-  );
+  assert.ok(promptInput.reviewedFacts.length > 0);
+  assert.ok(promptInput.reviewedFacts.every((fact) => fact.reviewStatus === "approved"));
   assert.ok(
     promptInput.reviewedFacts.some(
       (fact) => fact.id === "sejong_hunminjeongeum_28_letters",

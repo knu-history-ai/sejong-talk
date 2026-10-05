@@ -108,9 +108,11 @@ export async function runCoordinatedSejongTurn({
       signal,
     },
     async (coordinatorSignal) => {
+      if (coordinatorSignal.aborted) return cancelledTurn(request.requestId);
       if (!(await isActive(isSessionActive))) {
         return sessionExpiredTurn(request.requestId);
       }
+      if (coordinatorSignal.aborted) return cancelledTurn(request.requestId);
 
       const turn = await generateTurn({
         request,
@@ -118,11 +120,12 @@ export async function runCoordinatedSejongTurn({
         signal: coordinatorSignal,
       });
 
+      if (coordinatorSignal.aborted) return cancelledTurn(request.requestId);
       if (turn.status !== "approved") {
         return turn;
       }
 
-      if (!(await isActive(isSessionActive))) {
+      if (!(await isActive(isSessionActive)) || coordinatorSignal.aborted) {
         return cancelledTurn(request.requestId);
       }
 

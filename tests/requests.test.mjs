@@ -163,8 +163,32 @@ test("request coordinator forwards external cancellation to running work", async
   controller.abort();
   const result = await running;
 
+  assert.equal(result.status, "cancelled");
+});
+
+test("timeout settles even when the provider ignores abort and never resolves", async () => {
+  const coordinator = new RequestCoordinator();
+  let signal;
+  const result = await coordinator.run(
+    { requestId: "non_cooperative", operation: "turn", fingerprint: "test", timeoutMs: 10 },
+    (workSignal) => { signal = workSignal; return new Promise(() => {}); },
+  );
   assert.equal(result.status, "failed");
   assert.equal(result.code, "UPSTREAM_TIMEOUT");
+  assert.equal(signal.aborted, true);
+});
+
+test("an already aborted parent never starts provider work", async () => {
+  const coordinator = new RequestCoordinator();
+  const parent = new AbortController();
+  parent.abort();
+  let calls = 0;
+  const result = await coordinator.run(
+    { requestId: "pre_aborted", operation: "turn", fingerprint: "test", timeoutMs: 1000, signal: parent.signal },
+    async () => { calls += 1; throw new Error("must not start"); },
+  );
+  assert.equal(result.status, "cancelled");
+  assert.equal(calls, 0);
 });
 
 test("fingerprintJson sorts nested object keys without changing array order", () => {

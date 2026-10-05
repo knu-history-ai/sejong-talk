@@ -29,7 +29,6 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 .pnpm-debug.log*
-.npm-cache/
 
 # env files (can opt-in for committing if needed)
 .env*
@@ -52,7 +51,14 @@ private/
 *.key
 service-account*.json
 
-# evaluation outputs
+# tts의 샘플 음성 폴더
+evals/
+
+# next dev --experimental-https 로컬 인증서
+certificates/
+
+# AI evaluation outputs and local npm cache
+.npm-cache/
 /evals/**/results/
 /evals/**/*.local.*
 /evals/**/*.wav

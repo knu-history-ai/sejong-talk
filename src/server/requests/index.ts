@@ -21,6 +21,7 @@ interface ActiveRecord {
   controller: AbortController;
   promise: Promise<RequestState>;
   state: RequestState;
+  settle: (state: RequestState) => void;
 }
 
 function failedRequest(
@@ -92,6 +93,7 @@ export class RequestCoordinator {
     }
 
     const controller = new AbortController();
+    let resolveResult!: (state: RequestState) => void;
     const record: ActiveRecord = {
       operation: options.operation,
       fingerprint: options.fingerprint,
@@ -101,30 +103,40 @@ export class RequestCoordinator {
         operation: options.operation,
         status: "processing",
       },
-      promise: Promise.resolve({} as RequestState),
+      promise: new Promise((resolve) => { resolveResult = resolve; }),
+      settle: () => {},
     };
+    let settled = false;
+    const abortFromParent = () => {
+      record.settle(cancelledRequest(options.requestId, options.operation));
+      controller.abort(options.signal?.reason);
+    };
+    record.settle = (state) => {
+      if (settled) return;
+      settled = true;
+      record.state = state;
+      clearTimeout(timeout);
+      options.signal?.removeEventListener("abort", abortFromParent);
+      resolveResult(state);
+    };
+    this.records.set(options.requestId, record);
 
-    const abortFromParent = () => controller.abort(options.signal?.reason);
+    const timeout = setTimeout(() => {
+      record.settle(failedRequest(
+        options.requestId, options.operation, "UPSTREAM_TIMEOUT",
+        "요청 처리가 늦어지고 있습니다. 다시 시도해 주세요.", true,
+      ));
+      controller.abort();
+    }, options.timeoutMs);
+
     if (options.signal?.aborted) {
       abortFromParent();
-    } else {
-      options.signal?.addEventListener("abort", abortFromParent, { once: true });
+      return record.promise;
     }
+    options.signal?.addEventListener("abort", abortFromParent, { once: true });
 
-    const timeout = setTimeout(() => controller.abort(), options.timeoutMs);
-    record.promise = work(controller.signal)
-      .then((state) => {
-        if (record.state.status === "cancelled") {
-          return record.state;
-        }
-        record.state = state;
-        return record.state;
-      })
-      .catch((error) => {
-        if (record.state.status === "cancelled") {
-          return record.state;
-        }
-        record.state = failedRequest(
+    const handleFailure = (error: unknown) => {
+      record.settle(failedRequest(
           options.requestId,
           options.operation,
           error instanceof DOMException && error.name === "AbortError"
@@ -132,15 +144,14 @@ export class RequestCoordinator {
             : "UNAVAILABLE",
           "요청 처리가 늦어지고 있습니다. 다시 시도해 주세요.",
           true,
-        );
-        return record.state;
-      })
-      .finally(() => {
-        clearTimeout(timeout);
-        options.signal?.removeEventListener("abort", abortFromParent);
-      });
-
-    this.records.set(options.requestId, record);
+      ));
+    };
+    // A provider may ignore abort. Settle independently and never accept its late result.
+    try {
+      void work(controller.signal).then(record.settle).catch(handleFailure);
+    } catch (error) {
+      handleFailure(error);
+    }
     return record.promise;
   }
 
@@ -158,7 +169,7 @@ export class RequestCoordinator {
       return record.state;
     }
 
-    record.state = cancelledRequest(requestId, record.operation);
+    record.settle(cancelledRequest(requestId, record.operation));
     record.controller.abort();
     return record.state;
   }
