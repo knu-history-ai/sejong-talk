@@ -1,0 +1,37 @@
+name: Dependabot issue link
+
+on:
+  pull_request_target:
+    branches: [dev]
+    types: [opened, edited, synchronize, reopened, closed]
+
+permissions:
+  contents: read
+  issues: write
+  pull-requests: write
+
+concurrency:
+  group: dependabot-metadata-${{ github.event.pull_request.number }}
+  cancel-in-progress: false
+
+jobs:
+  link-issue:
+    if: >-
+      github.event.pull_request.user.login == 'dependabot[bot]' &&
+      github.event.pull_request.user.type == 'Bot' &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 3
+    steps:
+      # Privileged workflow: execute only reviewed base-branch code.
+      # Never check out PR head/merge code, install packages or run app tests.
+      - uses: actions/checkout@v7
+        with:
+          ref: ${{ github.event.pull_request.base.sha }}
+          persist-credentials: false
+          sparse-checkout: .github/scripts
+      - uses: actions/github-script@v9
+        with:
+          script: |
+            const sync = require('./.github/scripts/dependabot-metadata.cjs');
+            await sync({ github, context });

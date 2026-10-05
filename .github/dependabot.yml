@@ -1,0 +1,41 @@
+version: 2
+updates:
+  # The repository default branch is dev; omit target-branch so these options
+  # also apply to security updates. CI and a human review are still required.
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 2
+    commit-message:
+      prefix: chore
+    assignees: [minjun-ludigames2019]
+    labels: ["🐳 infra", "👀 review needed"]
+    allow:
+      - dependency-name: "*"
+        update-types: ["version-update:semver-patch", "version-update:semver-minor"]
+    groups:
+      npm-compatible:
+        patterns: ["*"]
+        update-types: [minor, patch]
+      npm-security:
+        applies-to: security-updates
+        patterns: ["*"]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+      time: "09:00"
+      timezone: Asia/Seoul
+    open-pull-requests-limit: 1
+    commit-message:
+      prefix: chore
+    assignees: [minjun-ludigames2019]
+    labels: ["🐳 infra", "👀 review needed"]
+    groups:
+      actions:
+        patterns: ["*"]
