@@ -56,3 +56,10 @@ evals/
 
 # next dev --experimental-https 로컬 인증서
 certificates/
+
+# AI evaluation outputs and local npm cache
+.npm-cache/
+/evals/**/results/
+/evals/**/*.local.*
+/evals/**/*.wav
+/evals/**/*.mp3
