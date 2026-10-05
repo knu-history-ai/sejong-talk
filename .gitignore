@@ -51,6 +51,8 @@ private/
 *.key
 service-account*.json
 
+# Local TTS evaluation output (generated audio and API measurements)
+/evals/sejong/w01-05-results/
 # tts의 샘플 음성 폴더
 evals/
 

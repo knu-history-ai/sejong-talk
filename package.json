@@ -8,8 +8,9 @@
     "start": "next start",
     "eval:ai": "node evals/sejong/run-fixed-questions.mjs",
     "lint": "eslint .",
-    "test": "node --test tests/*.test.mjs",
-    "typecheck": "next typegen && tsc --noEmit"
+    "typecheck": "next typegen && tsc --noEmit",
+    "tts:evaluate": "node --env-file-if-exists=.env.local scripts/tts-w01-05.mjs",
+    "test": "node --test tests/*.test.mjs"
   },
   "dependencies": {
     "next": "16.3.5",
