@@ -36,7 +36,7 @@ jobs:
             const [heading, ...lines] = firstSection.split('\n');
             const issues = lines.map(line => line.trim()).filter(Boolean);
             const validIssues = heading === '## 📌 관련된 이슈 (Issue Number)' &&
-              issues.length > 0 && issues.every(line => /^- Resolves #[1-9]\d*$/.test(line));
+              issues.length > 0 && issues.every(line => /^- (Resolves|Refs) #[1-9]\d*$/.test(line));
             if (!validIssues) {
-              core.setFailed('PR 본문 최상단을 "## 📌 관련된 이슈 (Issue Number)"로 시작하고, 다음 줄에 "- Resolves #실제이슈번호"를 적어 주세요. 여러 이슈는 한 줄씩 작성합니다.');
+              core.setFailed('PR 본문 최상단을 "## 📌 관련된 이슈 (Issue Number)"로 시작하고, 다음 줄에 "- Resolves #실제이슈번호"(완료) 또는 "- Refs #실제이슈번호"(일부 진행)를 적어 주세요. 여러 이슈는 한 줄씩 작성합니다.');
             }
