@@ -71,7 +71,7 @@ async function requestAzure(text) {
         "X-Microsoft-OutputFormat": "audio-24khz-48kbitrate-mono-mp3",
         "User-Agent": "SejongTalk-TTS-Evaluation",
       },
-      body: `<speak version="1.0" xml:lang="ko-KR"><voice name="${voice}"><prosody rate="-5%" pitch="-1st">${escapeXml(text)}</prosody></voice></speak>`,
+      body: `<speak version="1.0" xml:lang="ko-KR"><voice name="${voice}"><prosody rate="-5%">${escapeXml(text)}</prosody></voice></speak>`,
     },
   );
   return { response, extension: "mp3" };
@@ -141,7 +141,6 @@ const results = [];
 for (const fixture of selected) {
   const startedAt = performance.now();
   const result = await requests[args.provider](fixture.text);
-  const apiLatencyMs = Math.round(performance.now() - startedAt);
 
   if (!result.response.ok) {
     const errorBody = await result.response.text();
@@ -151,6 +150,7 @@ for (const fixture of selected) {
   }
 
   const audio = result.audio || Buffer.from(await result.response.arrayBuffer());
+  const apiLatencyMs = Math.round(performance.now() - startedAt);
   const filename = `${fixture.id}.${result.extension}`;
   await writeFile(path.join(outputDir, filename), audio);
   results.push({

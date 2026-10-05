@@ -1,0 +1,139 @@
+{
+  "at": "2026-09-30T01:37:59.819Z",
+  "source": "Windows Microsoft Heami Desktop synthetic speech; not a human/device benchmark",
+  "reference": "세종대왕은 왜 훈민정음을 만들었나요?",
+  "mime": "audio/wav",
+  "bytes": 162282,
+  "results": [
+    {
+      "provider": "azure",
+      "text": "세종대왕은 왜 훈민정음을 만들었나요?",
+      "latencyMs": 2110,
+      "success": true,
+      "evaluation": {
+        "exactMatch": true,
+        "cer": 0,
+        "cerWithoutSpaces": 0,
+        "terms": [
+          {
+            "term": "세종",
+            "recognized": true
+          },
+          {
+            "term": "세종대왕",
+            "recognized": true
+          },
+          {
+            "term": "훈민정음",
+            "recognized": true
+          }
+        ],
+        "termAccuracy": 1
+      }
+    },
+    {
+      "provider": "clova",
+      "text": "세종대왕은 왜 훈민정음을 만들었나요",
+      "latencyMs": 985,
+      "success": true,
+      "evaluation": {
+        "exactMatch": false,
+        "cer": 0.05,
+        "cerWithoutSpaces": 0.058823529411764705,
+        "terms": [
+          {
+            "term": "세종",
+            "recognized": true
+          },
+          {
+            "term": "세종대왕",
+            "recognized": true
+          },
+          {
+            "term": "훈민정음",
+            "recognized": true
+          }
+        ],
+        "termAccuracy": 1
+      }
+    },
+    {
+      "provider": "deepgram",
+      "text": "세종대왕은 왜 훈민정음을 만들었나요?",
+      "latencyMs": 2697,
+      "success": true,
+      "evaluation": {
+        "exactMatch": true,
+        "cer": 0,
+        "cerWithoutSpaces": 0,
+        "terms": [
+          {
+            "term": "세종",
+            "recognized": true
+          },
+          {
+            "term": "세종대왕",
+            "recognized": true
+          },
+          {
+            "term": "훈민정음",
+            "recognized": true
+          }
+        ],
+        "termAccuracy": 1
+      }
+    },
+    {
+      "provider": "groq",
+      "text": "세종대왕은 왜 훈민정음을 만들었나요?",
+      "latencyMs": 566,
+      "success": true,
+      "evaluation": {
+        "exactMatch": true,
+        "cer": 0,
+        "cerWithoutSpaces": 0,
+        "terms": [
+          {
+            "term": "세종",
+            "recognized": true
+          },
+          {
+            "term": "세종대왕",
+            "recognized": true
+          },
+          {
+            "term": "훈민정음",
+            "recognized": true
+          }
+        ],
+        "termAccuracy": 1
+      }
+    },
+    {
+      "provider": "elevenlabs",
+      "text": "세종대왕은 왜 훈민정음을 만들었나요?",
+      "latencyMs": 1851,
+      "success": true,
+      "evaluation": {
+        "exactMatch": true,
+        "cer": 0,
+        "cerWithoutSpaces": 0,
+        "terms": [
+          {
+            "term": "세종",
+            "recognized": true
+          },
+          {
+            "term": "세종대왕",
+            "recognized": true
+          },
+          {
+            "term": "훈민정음",
+            "recognized": true
+          }
+        ],
+        "termAccuracy": 1
+      }
+    }
+  ]
+}
