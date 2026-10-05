@@ -13,7 +13,7 @@ export interface PlaybackState {
 interface PlayableAudio {
   currentTime: number;
   playbackRate: number;
-  onended: (() => void) | null;
+  onended: HTMLAudioElement["onended"];
   play(): Promise<void>;
   pause(): void;
 }
