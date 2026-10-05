@@ -1,4 +1,5 @@
 import type { ErrorCode } from "../../contracts";
+import { runMeteredCall } from "../usage/runtime.ts";
 
 export const DEFAULT_GEMINI_MODEL = "gemini-3.8-flash";
 export const DEFAULT_GEMINI_TIMEOUT_MS = 20_000;
@@ -24,6 +25,7 @@ export interface GeminiConfig {
   maxAttempts: number;
   apiBaseUrl: string;
   retryBaseDelayMs: number;
+  usageStage?: "llm_generation" | "llm_verification";
 }
 
 export interface GeminiUsage {
@@ -209,15 +211,22 @@ export function extractGeminiText(responseBody: unknown): string {
 }
 
 function sleep(ms: number, signal?: AbortSignal): Promise<void> {
+  if (signal?.aborted) {
+    return Promise.reject(new GeminiRequestError("UPSTREAM_TIMEOUT", false));
+  }
   if (ms <= 0) {
     return Promise.resolve();
   }
 
   return new Promise((resolve, reject) => {
-    const timeout = setTimeout(resolve, ms);
+    const timeout = setTimeout(() => {
+      signal?.removeEventListener("abort", onAbort);
+      resolve();
+    }, ms);
     const onAbort = () => {
       clearTimeout(timeout);
-      reject(new GeminiRequestError("UPSTREAM_TIMEOUT", true));
+      signal?.removeEventListener("abort", onAbort);
+      reject(new GeminiRequestError("UPSTREAM_TIMEOUT", false));
     };
     signal?.addEventListener("abort", onAbort, { once: true });
   });
@@ -228,6 +237,7 @@ export async function requestGeminiCandidate(
   config: GeminiConfig,
   fetchImpl: FetchLike = fetch,
   signal?: AbortSignal,
+  meter: typeof runMeteredCall = runMeteredCall,
 ): Promise<GeminiCandidateResult> {
   const endpoint = new URL(
     `${config.apiBaseUrl.replace(/\/$/, "")}/models/${encodeURIComponent(config.model)}:generateContent`,
@@ -238,24 +248,37 @@ export async function requestGeminiCandidate(
   for (let attempt = 1; attempt <= config.maxAttempts; attempt += 1) {
     const timed = withTimeout(signal, config.timeoutMs);
     try {
-      const response = await fetchImpl(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(buildGeminiRequestBody(prompt)),
-        signal: timed.signal,
-      });
+      return await meter(
+        { stage: config.usageStage ?? "llm_generation", provider: "gemini", model: config.model },
+        async (report) => {
+          const response = await fetchImpl(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify(buildGeminiRequestBody(prompt)),
+            signal: timed.signal,
+          });
 
-      if (!response.ok) {
-        throw errorFromStatus(response);
-      }
+          if (!response.ok) {
+            throw errorFromStatus(response);
+          }
 
-      const responseBody = await response.json();
-      return {
-        text: extractGeminiText(responseBody),
-        usage: readUsage(responseBody),
-        attempts: attempt,
-      };
+          const responseBody = await response.json();
+          const usage = readUsage(responseBody);
+          report({
+            ...(usage.inputTokens !== null ? { inputTokens: usage.inputTokens } : {}),
+            ...(usage.outputTokens !== null ? { outputTokens: usage.outputTokens } : {}),
+            ...(usage.totalTokens !== null ? { totalTokens: usage.totalTokens } : {}),
+          });
+          return { text: extractGeminiText(responseBody), usage, attempts: attempt };
+        },
+        timed.signal,
+      );
     } catch (error) {
+      // A usage-policy refusal is already a shared error. Preserve its code and
+      // never turn a denied reservation into another paid attempt.
+      if (!(error instanceof GeminiRequestError) && error && typeof error === "object" && "code" in error && ["LIMIT_EXCEEDED", "UNAVAILABLE"].includes(String(error.code))) {
+        throw error;
+      }
       lastError =
         error instanceof GeminiRequestError
           ? error
@@ -264,7 +287,7 @@ export async function requestGeminiCandidate(
               true,
             );
 
-      if (!lastError.retryable || attempt >= config.maxAttempts) {
+      if (lastError.code === "LIMIT_EXCEEDED" || signal?.aborted || !lastError.retryable || attempt >= config.maxAttempts) {
         throw lastError;
       }
 

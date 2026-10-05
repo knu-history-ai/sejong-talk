@@ -2,6 +2,9 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync, readdirSync } from "node:fs";
 import { loadTs } from "./helpers/load-ts.mjs";
+import { mockMeteredCall } from "./helpers/usage-meter.mjs";
+// Replace the cached transpiled runtime before loading the STT dispatcher.
+loadTs("src/server/usage/runtime.ts").runMeteredCall = mockMeteredCall;
 const { evaluate, cer } = loadTs("src/features/voice-input/evaluation.ts");
 const { compare, transcribe } = loadTs("src/server/stt/index.ts");
 const { readAudio, handleStt } = loadTs("src/server/stt/http.ts");
@@ -116,4 +119,3 @@ test("client source contains no secret env access or server imports; all adapter
   }
   for (const file of readdirSync("src/server/stt").filter((f) => f.endsWith(".ts"))) assert.match(readFileSync(`src/server/stt/${file}`, "utf8"), /import "server-only"/);
 });
-

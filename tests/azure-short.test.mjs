@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { loadTs } from "./helpers/load-ts.mjs";
+import { mockMeteredCall } from "./helpers/usage-meter.mjs";
+// Replace the cached transpiled runtime before loading the STT dispatcher.
+loadTs("src/server/usage/runtime.ts").runMeteredCall = mockMeteredCall;
 const { azure, azureDisplayText, AZURE_TIMEOUT_MS } = loadTs("src/server/stt/azure.ts");
 const { transcribe } = loadTs("src/server/stt/index.ts");
 const { handleStt } = loadTs("src/server/stt/http.ts");

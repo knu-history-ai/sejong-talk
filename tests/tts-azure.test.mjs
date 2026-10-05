@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mockMeteredCall } from "./helpers/usage-meter.mjs";
 import {
   AZURE_TTS_MIME_TYPE,
   AZURE_TTS_OUTPUT_FORMAT,
@@ -40,6 +41,8 @@ test("Azure request sends SSML with server credentials and returns MP3 bytes", a
     "훈민정음은 스물여덟 글자였단다.",
     { key: "test-secret", region: "koreacentral" },
     fetchMock,
+    undefined,
+    mockMeteredCall,
   );
 
   assert.equal(
@@ -66,6 +69,8 @@ test("Azure request maps provider failures without exposing the response body", 
       "승인된 답변",
       { key: "test-secret", region: "koreacentral" },
       fetchMock,
+      undefined,
+      mockMeteredCall,
     ),
     (error) => {
       assert.ok(error instanceof AzureSpeechError);

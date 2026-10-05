@@ -7,6 +7,7 @@ import type {
   TurnRequest,
 } from "../../contracts";
 import type { RecentApprovedTurn } from "./prompt";
+import { isUsageError, type UsageLedger } from "../usage/ledger.ts";
 
 export interface RequestCoordinatorLike {
   run<T extends RequestState>(
@@ -36,6 +37,8 @@ export interface RunCoordinatedSejongTurnOptions
   timeoutMs?: number;
   isSessionActive?: () => boolean | Promise<boolean>;
   onApprovedTurn?: (turn: ApprovedTurn) => void | Promise<void>;
+  /** Trusted session ID from server authentication, never a caller-supplied cookie/token. */
+  usage?: { ledger: UsageLedger; sessionId: string };
 }
 
 function sessionExpiredTurn(requestId: string): FailedRequest {
@@ -94,6 +97,7 @@ export async function runCoordinatedSejongTurn({
   timeoutMs = 20_000,
   isSessionActive,
   onApprovedTurn,
+  usage,
 }: RunCoordinatedSejongTurnOptions): Promise<RequestState> {
   if (!(await isActive(isSessionActive))) {
     return sessionExpiredTurn(request.requestId);
@@ -114,23 +118,37 @@ export async function runCoordinatedSejongTurn({
       }
       if (coordinatorSignal.aborted) return cancelledTurn(request.requestId);
 
-      const turn = await generateTurn({
-        request,
-        recentConversation,
-        signal: coordinatorSignal,
-      });
+      let usageId: string | undefined;
+      let completed = false;
+      try {
+        usageId = usage?.ledger.beginSession(usage.sessionId, "turn", request.requestId);
+        const turn = await generateTurn({
+          request,
+          recentConversation,
+          signal: coordinatorSignal,
+        });
 
-      if (coordinatorSignal.aborted) return cancelledTurn(request.requestId);
-      if (turn.status !== "approved") {
+        if (coordinatorSignal.aborted) return cancelledTurn(request.requestId);
+        if (turn.status !== "approved") {
+          return turn;
+        }
+
+        if (!(await isActive(isSessionActive)) || coordinatorSignal.aborted) {
+          return cancelledTurn(request.requestId);
+        }
+
+        await onApprovedTurn?.(turn);
+        completed = true;
         return turn;
+      } catch (error) {
+        if (isUsageError(error)) return {
+          requestId: request.requestId, operation: "turn", status: "failed",
+          code: error.code, message: error.message, retryable: error.retryable,
+        };
+        throw error;
+      } finally {
+        if (usageId) usage!.ledger.finishSession(usageId, completed);
       }
-
-      if (!(await isActive(isSessionActive)) || coordinatorSignal.aborted) {
-        return cancelledTurn(request.requestId);
-      }
-
-      await onApprovedTurn?.(turn);
-      return turn;
     },
   );
 }
