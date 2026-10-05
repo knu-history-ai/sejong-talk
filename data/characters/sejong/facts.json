@@ -1,0 +1,42 @@
+[
+  {
+    "id": "sejong_hunminjeongeum_purpose",
+    "characterId": "sejong",
+    "topic": "훈민정음 한글 창제 목적",
+    "text": "세종은 백성들이 자기 뜻을 쉽게 글로 적을 수 있도록 훈민정음을 만들었다.",
+    "sourceIds": ["source_urihistory_hunminjeongeum"],
+    "reviewStatus": "approved"
+  },
+  {
+    "id": "sejong_hunminjeongeum_28_letters",
+    "characterId": "sejong",
+    "topic": "훈민정음 처음 글자 수",
+    "text": "훈민정음은 처음에 초성 17자와 중성 11자를 합해 28자로 만들어졌다.",
+    "sourceIds": ["source_urihistory_hunminjeongeum"],
+    "reviewStatus": "approved"
+  },
+  {
+    "id": "sejong_jiphyeonjeon_learning",
+    "characterId": "sejong",
+    "topic": "세종 학문 집현전",
+    "text": "세종 때 집현전은 학문 연구와 인재 양성에 중요한 역할을 했다.",
+    "sourceIds": ["source_urihistory_jiphyeonjeon"],
+    "reviewStatus": "approved"
+  },
+  {
+    "id": "sejong_private_feeling_pending",
+    "characterId": "sejong",
+    "topic": "세종의 속마음",
+    "text": "세종이 훈민정음 반대 의견을 들었을 때 느낀 개인 감정은 검토 전 자료만 있다.",
+    "sourceIds": ["source_pending_story"],
+    "reviewStatus": "pending"
+  },
+  {
+    "id": "sejong_unverified_modern_claim",
+    "characterId": "sejong",
+    "topic": "현대 물건 직접 경험",
+    "text": "세종이 스마트폰을 사용했다는 주장은 역사 자료와 맞지 않는다.",
+    "sourceIds": ["source_pending_story"],
+    "reviewStatus": "rejected"
+  }
+]
