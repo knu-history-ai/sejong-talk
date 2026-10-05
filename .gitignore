@@ -53,3 +53,6 @@ service-account*.json
 
 # tts의 샘플 음성 폴더
 evals/
+
+# next dev --experimental-https 로컬 인증서
+certificates/
