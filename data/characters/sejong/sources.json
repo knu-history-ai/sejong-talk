@@ -1,0 +1,26 @@
+[
+  {
+    "id": "source_urihistory_hunminjeongeum",
+    "title": "훈민정음",
+    "institution": "국사편찬위원회 우리역사넷",
+    "url": "https://contents.history.go.kr/mobile/kc/view.do?levelId=kc_r300900",
+    "locator": "훈민정음 창제 목적과 처음 글자 수 설명",
+    "checkedAt": "2026-10-04T00:00:00Z"
+  },
+  {
+    "id": "source_urihistory_jiphyeonjeon",
+    "title": "집현전",
+    "institution": "국사편찬위원회 우리역사넷",
+    "url": "https://contents.history.go.kr",
+    "locator": "세종대 학문 연구와 집현전 관련 설명",
+    "checkedAt": "2026-10-04T00:00:00Z"
+  },
+  {
+    "id": "source_pending_story",
+    "title": "검토 전 일화 메모",
+    "institution": "팀 내부 메모",
+    "url": "https://example.org/private-draft",
+    "locator": "검토 전 자료. 답변 근거로 사용하지 않음",
+    "checkedAt": null
+  }
+]
