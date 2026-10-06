@@ -1,18 +1,15 @@
 "use client";
 
 import Image from "next/image";
+import type { Answer, ApiError } from "@/contracts";
+import { requestSampleTurn } from "./sample-turn";
 import { FormEvent, KeyboardEvent, ReactNode, useEffect, useRef, useState } from "react";
 
 type ConversationStatus = "loading" | "failed" | "answered" | "cancelled";
-type Conversation = { question: string; answer: string; status: ConversationStatus };
+type Conversation = { question: string; answer: Answer | null; error?: ApiError; status: ConversationStatus };
 type IconName = "arrow" | "clock" | "plus" | "close" | "mic" | "send" | "speaker" | "document" | "chevron" | "info";
 
 const suggestions = ["한글은 왜 만들었나요?", "백성을 위해 어떤 일을 했나요?", "장영실은 어떤 사람인가요?"];
-const answers: Record<string, string> = {
-  "한글은 왜 만들었나요?": "백성들이 자신의 생각을 글로 쉽게 표현할 수 있기를 바랐단다. 그래서 누구나 배우기 쉬운 새 글자를 만들었지.",
-  "백성을 위해 어떤 일을 했나요?": "백성의 생활에 도움이 되는 일을 중요하게 여겼단다. 농사와 글자, 과학처럼 삶과 가까운 문제를 살피려 노력했지.",
-  "장영실은 어떤 사람인가요?": "장영실은 조선의 과학 기술 발전에 힘쓴 인물이란다. 시간을 재고 날씨를 살피는 여러 기구를 만드는 데 참여했지.",
-};
 const welcome = "만나서 반갑구나. 내게 궁금한 것이 있느냐? 한글부터 조선의 일상까지, 함께 이야기해 보자꾸나.";
 
 export function ChatExperience() {
@@ -29,13 +26,13 @@ export function ChatExperience() {
   const [speed, setSpeed] = useState(1);
   const [notice, setNotice] = useState("");
   const [history, setHistory] = useState<Conversation[]>([]);
-  const timer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const activeRequest = useRef<AbortController | null>(null);
   const input = useRef<HTMLTextAreaElement>(null);
   const dialogue = useRef<HTMLDivElement>(null);
   const sourceCard = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    return () => { if (timer.current) clearTimeout(timer.current); };
+    return () => { activeRequest.current?.abort(); };
   }, []);
   useEffect(() => {
     const container = dialogue.current;
@@ -53,39 +50,62 @@ export function ChatExperience() {
   function ask(event: FormEvent) {
     event.preventDefault();
     const text = question.trim();
-    if (!text || loading || sessionExpired) return;
+    if (!text || loading || sessionExpired || activeRequest.current) return;
     const index = history.length;
-    setHistory((items) => [...items, { question: text, answer: "", status: "loading" }]);
+    setHistory((items) => [...items, { question: text, answer: null, status: "loading" }]);
     setQuestion("");
     requestAnswer(text, index, failNextAnswer);
     setFailNextAnswer(false);
   }
 
-  function requestAnswer(text: string, index: number, fail = false) {
+  async function requestAnswer(text: string, index: number, fail = false) {
+    if (activeRequest.current) return;
+    const controller = new AbortController();
+    activeRequest.current = controller;
+    const requestId = crypto.randomUUID();
     setLoading(true);
     setSourceOpen(false);
     setNotice("");
-    setHistory((items) => items.map((item, position) => position === index ? { ...item, answer: "", status: "loading" } : item));
-    timer.current = setTimeout(() => {
-      const nextAnswer = answers[text] ?? "좋은 질문이구나. 실제 서비스에서는 검토된 역사 자료를 바탕으로 질문에 맞는 답변이 이곳에 나타난단다.";
-      setHistory((items) => items.map((item, position) => position === index
-        ? { ...item, answer: fail ? "" : nextAnswer, status: fail ? "failed" : "answered" }
-        : item));
-      setLoading(false);
-      if (!fail && autoListen) setNotice("답변 듣기는 준비 중이에요. 지금은 글로 답변을 확인해 주세요.");
-      timer.current = null;
-    }, 850);
+    setHistory((items) => items.map((item, position) => position === index ? { ...item, answer: null, error: undefined, status: "loading" } : item));
+    try {
+      const response = await requestSampleTurn({ requestId, text }, { signal: controller.signal, fail });
+      if (activeRequest.current !== controller || controller.signal.aborted) return;
+      if (response.status === "approved") {
+        setHistory((items) => items.map((item, position) => position === index ? { ...item, answer: response.answer, status: "answered" } : item));
+        if (autoListen) setNotice("답변 듣기는 준비 중이에요. 지금은 글로 답변을 확인해 주세요.");
+      } else if (response.status === "failed") {
+        setHistory((items) => items.map((item, position) => position === index ? { ...item, error: response, status: "failed" } : item));
+        if (response.code === "SESSION_EXPIRED") expireSession();
+      } else if (response.status === "cancelled") {
+        setHistory((items) => items.map((item, position) => position === index ? { ...item, status: "cancelled" } : item));
+      }
+    } catch {
+      if (activeRequest.current !== controller || controller.signal.aborted) return;
+      setHistory((items) => items.map((item, position) => position === index ? { ...item, status: "failed", error: { requestId, code: "UNAVAILABLE", message: "답변을 가져오지 못했어요. 다시 시도해 주세요.", retryable: true } } : item));
+    } finally {
+      if (activeRequest.current === controller) {
+        activeRequest.current = null;
+        setLoading(false);
+      }
+    }
+  }
+
+  function cancelAnswer() {
+    const controller = activeRequest.current;
+    activeRequest.current = null;
+    controller?.abort();
+    setLoading(false);
+    setHistory((items) => items.map((item) => item.status === "loading" ? { ...item, status: "cancelled" } : item));
   }
 
   function retry(index: number) {
     const item = history[index];
-    if (!item || item.status !== "failed" || loading || sessionExpired) return;
+    if (!item || item.status !== "failed" || item.error?.retryable === false || loading || sessionExpired) return;
     requestAnswer(item.question, index);
   }
 
   function expireSession() {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
+    cancelAnswer();
     setLoading(false);
     setHistory((items) => items.map((item) => item.status === "loading" ? { ...item, status: "cancelled" } : item));
     setSessionExpired(true);
@@ -95,8 +115,7 @@ export function ChatExperience() {
   }
 
   function reset() {
-    if (timer.current) clearTimeout(timer.current);
-    timer.current = null;
+    cancelAnswer();
     setQuestion("");
     setHistory([]); setLoading(false); setSourceOpen(false);
     setResetOpen(false); setNotice("");
@@ -159,13 +178,13 @@ export function ChatExperience() {
               <div className="message student-message"><div><span className="sr-only">나의 질문</span><p>{item.question}</p></div><Avatar student /></div>
               <div className="message sejong-message"><Avatar /><div className="answer-content">
                 <strong className="speaker-name">세종대왕</strong>
-                {item.status === "answered" && <div className="answer-bubble"><p>{item.answer}</p></div>}
-                {item.status === "loading" && <div className="answer-bubble" role="status" aria-live="polite" aria-atomic="true"><p>잠시만 기다려 주겠느냐?<br />답변을 준비하고 있단다.</p><span className="typing-dots" aria-label="답변 준비 중"><i /><i /><i /></span></div>}
-                {item.status === "failed" && <div className="answer-bubble error-bubble" role="alert"><p>지금은 답변을 가져오지 못했어요.<br />잠시 후 다시 시도하거나 질문을 바꿔서 물어보세요.</p><div className="recovery-actions"><button className="primary-button" disabled={loading || sessionExpired} onClick={() => retry(index)}>다시 시도</button><button className="outline-button" disabled={loading || sessionExpired} onClick={() => selectQuestion(item.question)}>질문 수정하기</button></div></div>}
-                {item.status === "cancelled" && <div className="answer-bubble cancelled-bubble"><p>대화 시간이 만료되어 답변 준비를 멈췄어요.</p></div>}
+                {item.status === "answered" && <div className="answer-bubble"><p>{item.answer?.text}</p></div>}
+                {item.status === "loading" && <div className="answer-bubble" role="status" aria-live="polite" aria-atomic="true"><p>잠시만 기다려 주겠느냐?<br />답변을 준비하고 있단다.</p><span className="typing-dots" aria-label="답변 준비 중"><i /><i /><i /></span><button type="button" className="outline-button" onClick={cancelAnswer}>답변 취소</button></div>}
+                {item.status === "failed" && <div className="answer-bubble error-bubble" role="alert"><p>{item.error?.message ?? "답변을 가져오지 못했어요. 다시 시도해 주세요."}</p><div className="recovery-actions"><button className="primary-button" disabled={loading || sessionExpired || item.error?.retryable === false} onClick={() => retry(index)}>다시 시도</button><button className="outline-button" disabled={loading || sessionExpired} onClick={() => selectQuestion(item.question)}>질문 수정하기</button></div></div>}
+                {item.status === "cancelled" && <div className="answer-bubble cancelled-bubble"><p>답변 준비를 멈췄어요.</p></div>}
                 {item.status === "answered" && index === history.length - 1 && !loading && !sessionExpired && <>
                 <div className="answer-actions"><button className="primary-button listen-button" onClick={() => setNotice("답변 듣기는 준비 중이에요. 지금은 글로 답변을 확인해 주세요.")}><Icon name="speaker" />답변 듣기</button><div className="speed-control"><span id="speed-label">재생 속도</span><div role="group" aria-labelledby="speed-label">{[0.8, 1, 1.2].map((value) => <button key={value} aria-pressed={speed === value} onClick={() => setSpeed(value)}>{value}배</button>)}</div></div></div>
-                <div className="source-card" ref={sourceCard}><button className="source-toggle" aria-expanded={sourceOpen} aria-controls="answer-sources" onClick={() => setSourceOpen(!sourceOpen)}><Icon name="document" /><span>이 이야기의 출처 보기</span><Icon name="chevron" /></button>{sourceOpen && <div id="answer-sources"><p>현재 답변은 화면 확인용 예시예요. 실제 답변이 연결되면 검토된 역사 자료와 원문 링크가 이곳에 표시돼요.</p></div>}</div>
+                <div className="source-card" ref={sourceCard}><button className="source-toggle" aria-expanded={sourceOpen} aria-controls="answer-sources" onClick={() => setSourceOpen(!sourceOpen)}><Icon name="document" /><span>이 이야기의 출처 보기</span><Icon name="chevron" /></button>{sourceOpen && <div id="answer-sources">{item.answer?.sources.length ? <ul>{item.answer.sources.map((source) => <li key={source.id}><strong>{source.title}</strong><p>{source.institution}</p>{/^https?:\/\//i.test(source.url) && <a href={source.url} target="_blank" rel="noopener noreferrer">원문 보기</a>}</li>)}</ul> : <p>현재 예시 답변에는 연결된 출처가 없어요.</p>}</div>}</div>
                 </>}
               </div></div>
             </div>)}
@@ -201,7 +220,7 @@ function ChatIcon() { return <Image className="chat-icon" src="/images/icon-chat
 function Avatar({ student = false }: { student?: boolean }) { return <Image className="avatar" src={`/images/avatar-${student ? "student" : "sejong"}.png`} alt="" width={48} height={48} />; }
 
 function getHistoryAnswer(item: Conversation) {
-  if (item.status === "answered") return item.answer;
+  if (item.status === "answered") return item.answer?.text ?? "";
   if (item.status === "failed") return "지금은 답변을 가져오지 못했어요.";
   if (item.status === "loading") return "답변을 준비하고 있어요.";
   return "대화 시간이 만료되어 답변 준비를 멈췄어요.";
