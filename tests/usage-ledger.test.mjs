@@ -159,3 +159,23 @@ test("an existing server connection recovers another process's crashed call and 
   ledger.finishSession(ledger.beginSession("s", "turn", "new-request"), true);
   assert.equal(ledger.snapshot().calls[0].status, "failed");
 });
+
+for (const [label, reported, rates] of [
+  ["invalid units", { inputTokens: -1 }, { inputTokens: 1 }],
+  ["cost overflow", { inputTokens: 20 }, { inputTokens: Number.MAX_VALUE }],
+]) {
+  test(`settlement with ${label} releases the slot but preserves uncertain reserved cost`, (t) => {
+    const { ledger } = fixture(t, { maxConcurrent: 1, dailyBudgetMicros: 1000, monthlyBudgetMicros: 1000,
+      plans: { "example:llm_generation": { mode: "paid", maxCostMicros: 60, rates } } });
+    const id = ledger.reserve(call);
+    assert.throws(() => ledger.finish(id, "completed", reported), fails("UNAVAILABLE"));
+    const record = ledger.snapshot().calls[0];
+    assert.equal(record.status, "failed");
+    assert.equal(record.cost, 60);
+    assert.equal(record.uncertain, 1);
+    assert.deepEqual(JSON.parse(record.units), { inputTokens: 20 });
+    ledger.finish(id, "completed", { inputTokens: 0 });
+    assert.equal(ledger.snapshot().dailyCostMicros, 60);
+    assert.ok(ledger.reserve(call), "completed work must release its concurrent slot");
+  });
+}

@@ -146,19 +146,30 @@ export class UsageLedger {
     });
   }
   finish(id: string, status: "completed" | "failed" | "cancelled", reported: UsageUnits = {}) {
-    this.transaction(() => {
+    const invalidReport = this.transaction(() => {
       const row = this.db.prepare("SELECT * FROM calls WHERE id=?").get(id);
-      if (!row || row.status !== "reserved") return; // Settlement is exactly once.
+      if (!row || row.status !== "reserved") return false; // Settlement is exactly once.
+      const failSettlement = () => {
+        // Commit the failure before reporting bad usage. Throwing inside this
+        // transaction would roll back the slot release and block future calls.
+        this.db.prepare("UPDATE calls SET status='failed', cost=reserved, latency=?, uncertain=1 WHERE id=?")
+          .run(Math.max(0, this.now() - Number(row.started)), id);
+        return true;
+      };
       const plan = this.policy.plans[`${row.provider}:${row.stage}`];
-      const units = validUnits({ ...JSON.parse(String(row.units)), ...reported });
+      let units: UsageUnits;
+      try { units = validUnits({ ...JSON.parse(String(row.units)), ...reported }); }
+      catch { return failSettlement(); }
       const rates = plan?.rates;
       const known = row.mode === "free" || (status === "completed" && rates && Object.keys(rates).length > 0 &&
         Object.keys(rates).every((key) => units[key as keyof UsageUnits] !== undefined));
       const calculated = row.mode === "free" ? 0 : known ? Math.ceil(Object.entries(rates!).reduce((sum, [unit, rate]) => sum + units[unit as keyof UsageUnits]! * rate!, 0)) : Number(row.reserved);
-      if (!Number.isSafeInteger(calculated)) throw new UsageError("UNAVAILABLE");
+      if (!Number.isSafeInteger(calculated)) return failSettlement();
       this.db.prepare("UPDATE calls SET status=?, cost=?, units=?, latency=?, uncertain=? WHERE id=?")
         .run(status, calculated, JSON.stringify(units), Math.max(0, this.now() - Number(row.started)), known ? 0 : 1, id);
+      return false;
     });
+    if (invalidReport) throw new UsageError("UNAVAILABLE");
   }
   beginSession(sessionId: string, operation: UsageOperation, requestId: string): string {
     return this.transaction(() => {

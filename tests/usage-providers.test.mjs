@@ -267,3 +267,25 @@ test("verification calls record a separate stage with the same provider ledger",
   await requestGeminiCandidate("검증용 prompt", { ...geminiConfig, usageStage: "llm_verification" }, async () => geminiResponse());
   assert.equal(rows(ledger)[0].stage, "llm_verification");
 });
+
+for (const [label, invalidCount] of [["negative", -1], ["fractional", 1.5], ["unsafe", Number.MAX_SAFE_INTEGER + 1]]) {
+  test(`invalid ${label} provider usage settles the failed call and releases its slot`, async (t) => {
+    const ledger = fixture(t);
+    let calls = 0;
+    const fetchMock = async () => {
+      calls += 1;
+      return Response.json({
+        candidates: [{ content: { parts: [{ text: "답변" }] } }],
+        usageMetadata: { promptTokenCount: invalidCount },
+      });
+    };
+    await assert.rejects(requestGeminiCandidate("prompt", geminiConfig, fetchMock), { code: "UNAVAILABLE", retryable: false });
+    assert.equal(calls, 1, "invalid usage must not trigger automatic retries");
+    const record = rows(ledger)[0];
+    assert.equal(record.status, "failed");
+    assert.equal(record.uncertain, 1);
+    assert.deepEqual(record.units, {});
+    assert.equal((await requestGeminiCandidate("prompt", geminiConfig, async () => geminiResponse())).text, "승인할 답변");
+    assert.equal(rows(ledger)[1].status, "completed");
+  });
+}

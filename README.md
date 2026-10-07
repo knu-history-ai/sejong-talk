@@ -2,7 +2,7 @@
 
 세종과 글과 음성으로 대화하는 교육용 웹 서비스입니다. 첫 MVP는 세종에 집중하고, 장영실·이순신은 후속 인물로 확장합니다.
 
-현재 저장소에는 공통 개발 환경과 개발용 음성 입력·STT 비교 기능이 있습니다. AI 대화·음성 합성·운영 세션 연결은 아직 구현하지 않았습니다. [STT 실행 방법과 검증 결과](docs/STT_IMPLEMENTATION.md)를 참고하세요.
+이 브랜치에는 공통 개발 환경·규격, 대화 세션 생성·분리·만료·초기화 API와 개발용 음성 입력·STT 비교 기능이 있습니다. 실제 대화 화면에 세션·AI·STT·TTS를 연결하는 작업은 후속입니다. [STT 실행 방법과 검증 결과](docs/STT_IMPLEMENTATION.md)를 참고하세요.
 
 ## 시작하기
 
@@ -31,7 +31,9 @@ npm run dev
 ```bash
 npm run lint
 npm run typecheck
+npm test
 npm run build
+npm run test:http
 ```
 
 빌드 결과를 직접 실행하려면 개발 서버를 종료하고 `npm run start` 후 같은 주소를 엽니다. `npm run dev`와 `npm run build`는 동시에 실행하지 않습니다.
@@ -56,6 +58,10 @@ npm ci:
 lint / typecheck / build:
 막힌 점: 없음 또는 오류 내용
 ```
+
+세션 API는 유료 API 키 없이 동작합니다. `test:http`는 빌드한 앱과 개발 서버를 임시 로컬 포트에서 실행하고 종료하며, 쿠키·초기화·서버 재시작·localhost/127.0.0.1 접속을 확인합니다. 배포 시 `APP_ORIGIN`을 실제 HTTPS 주소로 설정해야 합니다. 현재 세션은 단일 Node 프로세스 메모리에만 있으므로 여러 인스턴스나 서버리스 배포에 그대로 사용하지 않습니다.
+
+프론트·AI·음성 담당자의 연결 방법과 만료 기준: [세션 API 사용법](docs/API_CONTRACT.md#w02-01-세션-api-사용법).
 
 ## 협업
 
