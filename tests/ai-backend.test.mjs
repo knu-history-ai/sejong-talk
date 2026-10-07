@@ -1,5 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
+import { mockMeteredCall } from "./helpers/usage-meter.mjs";
 
 import {
   parseAnswerDraftFromText,
@@ -236,7 +237,7 @@ test("Gemini request retries retryable provider failures without exposing body",
     retryBaseDelayMs: 0,
   };
 
-  const result = await requestGeminiCandidate("prompt", config, fetchMock);
+  const result = await requestGeminiCandidate("prompt", config, fetchMock, undefined, mockMeteredCall);
 
   assert.equal(calls, 2);
   assert.equal(result.attempts, 2);
@@ -254,7 +255,7 @@ test("Gemini request maps rate limits to shared error code", async () => {
   };
 
   await assert.rejects(
-    requestGeminiCandidate("prompt", config, fetchMock),
+    requestGeminiCandidate("prompt", config, fetchMock, undefined, mockMeteredCall),
     (error) => {
       assert.ok(error instanceof GeminiRequestError);
       assert.equal(error.code, "LIMIT_EXCEEDED");

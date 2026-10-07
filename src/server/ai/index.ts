@@ -14,6 +14,7 @@ import {
   runCoordinatedSejongTurn as runCoordinatedSejongTurnWithGenerator,
   type RunCoordinatedSejongTurnOptions,
 } from "./turn-runner";
+import { getUsageLedger } from "../usage/runtime.ts";
 
 export interface GenerateSejongTurnOptions {
   request: TurnRequest;
@@ -85,11 +86,13 @@ export { buildSejongTurnFingerprint };
 
 export async function runCoordinatedSejongTurn({
   generateTurn = generateSejongTurn,
+  sessionId,
   ...options
-}: Omit<RunCoordinatedSejongTurnOptions, "generateTurn"> &
+}: Omit<RunCoordinatedSejongTurnOptions, "generateTurn" | "usage"> & { sessionId: string } &
   Partial<Pick<RunCoordinatedSejongTurnOptions, "generateTurn">>) {
   return runCoordinatedSejongTurnWithGenerator({
     ...options,
     generateTurn,
+    usage: { ledger: getUsageLedger(), sessionId },
   });
 }

@@ -178,3 +178,48 @@ evals에는 인사, 역사 질문, 자료 부족, 페르소나 변경 요청 등
 각 작업은 최신 dev에서 별도 브랜치로 시작한다. 같은 파일을 동시에 수정할 일이 생기면 이슈에서 범위를 먼저 나누고, 공통 형식을 바꾸는 PR을 먼저 합친 뒤 나머지 브랜치에 반영한다. 폴더 구분만으로 충돌이 없어지는 것은 아니다.
 
 현재 MVP에는 별도 Spring/Python 프로젝트, Docker, DB 초기화 스크립트를 구조만 맞추기 위해 추가하지 않는다. 실제 배포·저장 방식에서 필요해지면 담당 작업의 PR로 추가한다.
+
+## W03-02 사용량·비용·요청 한도 (2026-10-06)
+
+`src/server/usage`는 Node 24의 기본 SQLite로 공급자별 호출 단계·모델·토큰·오디오 길이·문자 수·지연·성공/실패/취소를 기록한다. 질문·답변 원문, 음성 파일과 API 키는 원장에 넣지 않는다. 기본 파일은 Git에서 제외되는 `private/usage/ledger.sqlite`다. 일·월 비용 합계는 한국 시간 기준이며 새 세션과 서버 재시작으로 초기화되지 않는다.
+
+현재 멘토 방침에 따라 유료 호출은 허용하지 않는다. `.env.local`의 `USAGE_PROVIDER_PLANS`에 **공급자 콘솔에서 무료 계정·리소스임을 확인한 항목만** 추가한다. 설정은 계정 확인을 대신하지 않으므로 카드·결제 연결 여부는 콘솔에서 확인해야 한다. 모델 가격이나 무료량을 코드에서 자동 추정하지 않는다. 설정을 바꾸면 서버를 다시 시작한다. 미설정 공급자, `paid` 설정, 원장 읽기·쓰기 실패는 외부 호출 전에 차단한다.
+
+```dotenv
+# 아래 예시는 실제 계정 확인 후 필요한 항목만 사용한다.
+USAGE_PROVIDER_PLANS='{"gemini:llm_generation":{"mode":"free","maxCostMicros":0},"azure:stt":{"mode":"free","maxCostMicros":0},"azure:tts":{"mode":"free","maxCostMicros":0}}'
+USAGE_DB_PATH=private/usage/ledger.sqlite
+```
+
+### 처음 실행할 때 확인할 설정
+
+1. `.env.example`을 참고해 `.env.local`에 각 API 키를 넣는다. 키만 등록해서는 외부 호출이 허용되지 않는다.
+2. 공급자 콘솔에서 해당 계정과 리소스가 무료이며 카드·유료 결제에 연결되지 않았는지 확인한다. 확인할 수 없다면 해당 후보를 호출하지 않는다.
+3. 위 예시에서 실제로 사용할 항목만 골라 `USAGE_PROVIDER_PLANS`에 넣고 개발 서버를 다시 시작한다. 무료라고 임의로 표시해서는 안 된다.
+4. 키가 있는데도 `503 / UNAVAILABLE`이 나오면 공급자 설정 누락, JSON 형식, 저장 경로의 쓰기 권한을 먼저 확인한다. 설정을 완화하거나 원장 파일을 삭제해 우회하지 않는다.
+
+이 설정은 팀 서버에서 호출을 허용하는 목록이다. 업체의 무료 사용량을 자동으로 조회하거나 계정의 과금을 막는 설정은 아니다. 무료 한도 소진·유료 전환이 필요한 경우 멘토님께 확인한다.
+
+기본 동시 호출 한도는 단계별 5개, 분당 60개다. 세션 요청은 작업별(글 대화/음성 인식/음성 합성) 동시 1개·분당 6개, 완료 글 질문은 30회다. 원장의 SQLite 트랜잭션에서 한도를 확인하고 슬롯·비용을 먼저 예약하므로 같은 호스트의 여러 프로세스가 마지막 잔액을 중복 소비하지 않는다. 중복 `requestId`는 먼저 공통 RequestCoordinator에서 재사용하고, 같은 작업을 원장에 다시 등록하지 않는다. 비용·한도를 회피하기 위해 원장 파일을 지우거나 매번 임시 경로를 만들면 안 된다.
+
+Gemini의 각 재시도, STT의 각 비교 후보, Azure TTS의 본문 수신까지 실제 공급자 호출에 원장을 연결했다. 의미 검증 자체는 W03-09 범위다. 검증에서 같은 Gemini 함수를 사용할 때는 `usageStage: "llm_verification"`으로 설정하고 해당 무료 plan도 확인한다. 실패·취소가 공급자 미청구를 뜻하지 않으므로, 불확실한 비용은 호출 상한만큼 보수적으로 남긴다. 비용 상한·단가가 있는 내부 원장은 일·월 예약 예산 초과를 차단하지만, 현재 서비스에서는 `paid`를 활성화할 수 없다. 실제 청구서와의 정산 확인은 별도다. `MICROS`는 USD의 백만분의 1이며 학교의 50만원을 임의로 환산한 예산이 아니다.
+
+### 선영·시연·유진의 연결 방법
+
+글 대화 route는 먼저 세션 소유권을 확인한 뒤 공개 진입점 `server/ai`의 `runCoordinatedSejongTurn`에 **인증한 세션의 ID**를 전달한다. 이 함수가 세션 한도와 중복·취소를 함께 적용한다. 클라이언트가 보낸 sessionId나 인증 토큰을 그대로 전달하지 않는다.
+
+```ts
+const snapshot = session.assertActive();
+const result = await runCoordinatedSejongTurn({
+  sessionId: snapshot.sessionId,
+  coordinator,
+  request: input,
+  signal: session.signal,
+  isSessionActive: () => { session.assertActive(); return true; },
+  onApprovedTurn: (turn) => session.appendApprovedTurn({ userText: input.text, answer: turn.answer }),
+});
+```
+
+STT·TTS의 실제 API 연결에서도 인증·RequestCoordinator 안에서 `getUsageLedger().beginSession(sessionId, "transcription" | "speech", requestId)`를 호출하고, 실제 작업이 끝나는 `finally`에서 `finishSession(id, 성공 여부)`를 호출한다. 공급자 호출의 전체 한도·사용량 기록은 서버 어댑터가 자동 적용한다. 클라이언트 취소 응답만으로 슬롯을 먼저 반환하지 않는다. 예외의 `LIMIT_EXCEEDED`는 HTTP 429, 원장/정책의 `UNAVAILABLE`은 503으로 반환한다. 개발 전용 STT 비교 route는 이 작업에서 운영 공개하지 않았다. 음성 세션 연결·답변 음원 캐시·UI 실제 통합은 각각의 후속 작업에서 확인한다.
+
+원장은 **단일 호스트의 영구 로컬 디스크**용이다. 여러 서버가 서로 다른 파일을 쓰거나 서버리스 임시 디스크를 쓰는 배포는 지원하지 않는다. 그런 배포 전에는 공통 영구 DB로 옮겨야 한다. 재시작/장애 복구 시 죽은 프로세스의 동시 슬롯만 정리하며 불확실한 비용은 보존한다. 사용 중인 DB와 `-wal`/`-shm` 파일을 함부로 삭제하거나 복사하지 않는다.

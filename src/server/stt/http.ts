@@ -41,8 +41,8 @@ export async function readAudio(request: Request) {
 }
 
 export async function handleStt(request: Request, comparison = false): Promise<Response> {
-  // Session/auth infrastructure is not implemented in this repository yet.
-  // Never expose a paid, anonymous transcription endpoint in a production build.
+  // This comparison endpoint has not yet been connected to authenticated sessions.
+  // Keep it development-only until the voice integration task adds ownership checks.
   if (process.env.NODE_ENV !== "development") return json({ message: "개발 환경에서만 사용할 수 있어요." }, 404);
   const origin = request.headers.get("origin");
   let sameOrigin = false;
@@ -65,7 +65,10 @@ export async function handleStt(request: Request, comparison = false): Promise<R
     const response = (async () => {
       if (comparison) return json({ results: await compare(input.audio, request.signal) });
       const result = await transcribe(provider!, input.audio, request.signal);
-      return result.success ? json({ requestId, operation: "transcription", status: "completed", text: result.text }) : json({ status: "failed", requestId, code: "UNAVAILABLE", retryable: true, message: result.error }, 502);
+      if (result.success) return json({ requestId, operation: "transcription", status: "completed", text: result.text });
+      const code = result.code ?? "UNAVAILABLE";
+      return json({ status: "failed", requestId, code, retryable: result.retryable ?? true, message: result.error },
+        code === "LIMIT_EXCEEDED" ? 429 : result.code === "UNAVAILABLE" ? 503 : 502);
     })();
     jobs.set(key, { hash: input.hash, expires: Date.now() + 60_000, response });
     const expiry = setTimeout(() => jobs.delete(key), 60_000); expiry.unref();
