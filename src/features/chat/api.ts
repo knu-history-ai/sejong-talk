@@ -21,6 +21,8 @@ export async function deleteChatSession() {
 }
 export async function requestTurn(request: TurnRequest, signal: AbortSignal): Promise<TurnResponse> {
   const result = await send("/api/turns", "POST", request, signal);
+  // Authentication may fail before the server can read a request ID.
+  if (result.status === "failed" && result.requestId === null) result.requestId = request.requestId;
   if (result.requestId !== request.requestId || !["approved", "failed", "cancelled"].includes(result.status)) throw new Error("Invalid turn response");
   if (result.status === "approved" && (!result.answer || typeof result.answer.text !== "string" || !Array.isArray(result.answer.sources))) throw new Error("Invalid answer");
   return result;

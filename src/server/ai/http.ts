@@ -4,15 +4,11 @@ import type { ApprovedTurn, FailedRequest, RequestState, TurnRequest } from "../
 import { RequestCoordinator } from "../requests/index";
 import { getSessionStore } from "../sessions/runtime";
 import { getSessionHttpConfig, requireSession, sessionErrorResponse } from "../sessions/http";
-import { SessionError, type SessionHandle } from "../sessions/store";
-import { runCoordinatedSejongTurn, type GenerateSejongTurnOptions } from "./turn-runner";
+import { SessionError, isSessionError, type SessionHandle } from "../sessions/store";
+import { runCoordinatedSejongTurn, type GenerateSejongTurnOptions } from "./index";
+import { isUsageError } from "../usage/ledger";
 
 type Generate = (options: GenerateSejongTurnOptions) => Promise<ApprovedTurn | FailedRequest>;
-// External calls stay blocked until PR #45's provider guard/ledger is connected.
-const guardedGeneration: Generate = async ({ request }) => ({
-  requestId: request.requestId, operation: "turn", status: "failed", code: "UNAVAILABLE",
-  message: "AI 사용량 보호 기능을 연결 중입니다. 연결이 완료된 뒤 다시 시도해 주세요.", retryable: false,
-});
 type Entry = { coordinator: RequestCoordinator; busy: boolean; count: number };
 const processState = globalThis as typeof globalThis & { sejongTurnRequests?: Map<string, Entry> };
 
@@ -59,7 +55,7 @@ async function readTurn(request: Request): Promise<TurnRequest> {
   } finally { reader.releaseLock(); }
 }
 
-export async function handleTurn(request: NextRequest, generate: Generate = guardedGeneration) {
+export async function handleTurn(request: NextRequest, generate?: Generate) {
   let requestId: string | null = null;
   try {
     const session = requireSession(request, getSessionStore(), getSessionHttpConfig(request));
@@ -72,20 +68,25 @@ export async function handleTurn(request: NextRequest, generate: Generate = guar
       entry.count++;
     }
     // Fingerprint only caller input: later history changes must not rerun duplicates.
-    return json(await entry.coordinator.run({ requestId, operation: "turn", fingerprint: JSON.stringify(turn), timeoutMs: 25_000, signal: session.signal }, async (signal) => {
+    return json(await entry.coordinator.run({ requestId, operation: "turn", fingerprint: JSON.stringify(turn), timeoutMs: 25_000, signal: AbortSignal.any([session.signal, request.signal]) }, async (signal) => {
       if (entry.busy) return { requestId: turn.requestId, operation: "turn", status: "failed", code: "LIMIT_EXCEEDED", message: "진행 중인 답변이 끝난 뒤 다시 시도해 주세요.", retryable: true };
       entry.busy = true;
       try {
         const inner = new RequestCoordinator();
         return await runCoordinatedSejongTurn({
           coordinator: inner, request: turn, signal, generateTurn: generate,
+          sessionId: session.assertActive().sessionId,
           recentConversation: session.getRecentTurns().map(({ userText, answer }) => ({ question: userText, answer })),
           isSessionActive: () => { try { session.assertActive(); return true; } catch { return false; } },
           onApprovedTurn: ({ answer }) => session.appendApprovedTurn({ userText: turn.text, answer }),
         });
       } finally { entry.busy = false; }
     }));
-  } catch (error) { return sessionErrorResponse(error, requestId); }
+  } catch (error) {
+    if (isSessionError(error)) return sessionErrorResponse(error, requestId);
+    if (isUsageError(error)) return NextResponse.json({ status: "failed", requestId, code: error.code, message: error.message, retryable: error.retryable }, { status: error.httpStatus, headers: { "Cache-Control": "no-store" } });
+    return NextResponse.json({ status: "failed", requestId, code: "UNAVAILABLE", message: "답변 서비스를 사용할 수 없습니다. 잠시 뒤 다시 시도해 주세요.", retryable: true }, { status: 503, headers: { "Cache-Control": "no-store" } });
+  }
 }
 
 export function handleRequest(request: NextRequest, id: string, cancel = false) {
