@@ -17,8 +17,8 @@ test("production chat HTTP: real pipeline, sources, cancellation, reset and owne
   const child = spawn(process.execPath, ["--import", new URL("../helpers/chat-gemini-fetch.mjs", import.meta.url).href,
     "node_modules/next/dist/bin/next", "start", "-H", "127.0.0.1", "-p", String(port)], {
     cwd: fileURLToPath(new URL("../../", import.meta.url)),
-    env: { ...process.env, NODE_ENV: "production", APP_ORIGIN: origin, GEMINI_API_KEY: "synthetic-offline-key",
-      USAGE_DB_PATH: join(directory, "ledger.sqlite"), USAGE_PROVIDER_PLANS: JSON.stringify({ "gemini:llm_generation": { mode: "free", maxCostMicros: 0 } }), NEXT_TELEMETRY_DISABLED: "1" },
+    env: { ...process.env, NODE_ENV: "production", APP_ORIGIN: origin, OLLAMA_MODEL: "qwen3.5:4b-q4_K_M",
+      USAGE_DB_PATH: join(directory, "ledger.sqlite"), USAGE_PROVIDER_PLANS: JSON.stringify({ "ollama:llm_generation": { mode: "free", maxCostMicros: 0 } }), NEXT_TELEMETRY_DISABLED: "1" },
     stdio: "pipe",
   });
   let log = ""; child.stdout.on("data", chunk => { log += chunk; }); child.stderr.on("data", chunk => { log += chunk; });
