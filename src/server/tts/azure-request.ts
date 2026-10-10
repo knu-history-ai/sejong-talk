@@ -1,4 +1,5 @@
 import type { ErrorResponse, RequestId } from "../../contracts";
+import { runMeteredCall } from "../usage/runtime.ts";
 
 export const AZURE_TTS_VOICE = "ko-KR-InJoonNeural";
 export const AZURE_TTS_OUTPUT_FORMAT = "audio-24khz-48kbitrate-mono-mp3";
@@ -77,51 +78,59 @@ export async function requestAzureSpeech(
   config: AzureSpeechConfig,
   fetchImpl: FetchLike = fetch,
   signal?: AbortSignal,
+  meter: typeof runMeteredCall = runMeteredCall,
 ): Promise<SynthesizedSpeech> {
   const { key, region } = readAzureSpeechConfig({
     AZURE_SPEECH_KEY: config.key,
     AZURE_SPEECH_REGION: config.region,
   });
 
-  let response: Response;
-  try {
-    response = await fetchImpl(
-      `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`,
-      {
-        method: "POST",
-        headers: {
-          "Ocp-Apim-Subscription-Key": key,
-          "Content-Type": "application/ssml+xml",
-          "X-Microsoft-OutputFormat": AZURE_TTS_OUTPUT_FORMAT,
-          "User-Agent": "SejongTalk-TTS",
-        },
-        body: buildAzureSpeechSsml(text),
-        signal,
-      },
-    );
-  } catch (error) {
-    if (error instanceof DOMException && error.name === "AbortError") {
-      throw new AzureSpeechError("UPSTREAM_TIMEOUT", true);
-    }
-    throw new AzureSpeechError("UNAVAILABLE", true);
-  }
+  const ssml = buildAzureSpeechSsml(text);
+  return meter(
+    { stage: "tts", provider: "azure", model: AZURE_TTS_VOICE, units: { characters: text.length } },
+    async () => {
+      try {
+        const response = await fetchImpl(
+          `https://${region}.tts.speech.microsoft.com/cognitiveservices/v1`,
+          {
+            method: "POST",
+            headers: {
+              "Ocp-Apim-Subscription-Key": key,
+              "Content-Type": "application/ssml+xml",
+              "X-Microsoft-OutputFormat": AZURE_TTS_OUTPUT_FORMAT,
+              "User-Agent": "SejongTalk-TTS",
+            },
+            body: ssml,
+            signal,
+          },
+        );
 
-  if (!response.ok) {
-    if (response.status === 429) {
-      throw new AzureSpeechError("LIMIT_EXCEEDED", true);
-    }
-    if (response.status === 408 || response.status === 504) {
-      throw new AzureSpeechError("UPSTREAM_TIMEOUT", true);
-    }
-    throw new AzureSpeechError("UNAVAILABLE", response.status >= 500);
-  }
+        if (!response.ok) {
+          if (response.status === 429) {
+            throw new AzureSpeechError("LIMIT_EXCEEDED", true);
+          }
+          if (response.status === 408 || response.status === 504) {
+            throw new AzureSpeechError("UPSTREAM_TIMEOUT", true);
+          }
+          throw new AzureSpeechError("UNAVAILABLE", response.status >= 500);
+        }
 
-  const audio = new Uint8Array(await response.arrayBuffer());
-  if (audio.byteLength === 0) {
-    throw new AzureSpeechError("UNAVAILABLE", true);
-  }
+        const audio = new Uint8Array(await response.arrayBuffer());
+        if (audio.byteLength === 0) {
+          throw new AzureSpeechError("UNAVAILABLE", true);
+        }
 
-  return { audio, mimeType: AZURE_TTS_MIME_TYPE };
+        return { audio, mimeType: AZURE_TTS_MIME_TYPE };
+      } catch (error) {
+        if (error instanceof AzureSpeechError) throw error;
+        if (error instanceof DOMException && ["AbortError", "TimeoutError"].includes(error.name)) {
+          throw new AzureSpeechError("UPSTREAM_TIMEOUT", true);
+        }
+        throw new AzureSpeechError("UNAVAILABLE", true);
+      }
+    },
+    signal,
+  );
 }
 
 export function toSpeechErrorResponse(
@@ -131,7 +140,9 @@ export function toSpeechErrorResponse(
   const speechError =
     error instanceof AzureSpeechError
       ? error
-      : new AzureSpeechError("UNAVAILABLE", true);
+      : error && typeof error === "object" && "code" in error && (error.code === "LIMIT_EXCEEDED" || error.code === "UNAVAILABLE")
+        ? new AzureSpeechError(error.code, "retryable" in error && error.retryable === true)
+        : new AzureSpeechError("UNAVAILABLE", true);
   const messages: Record<AzureSpeechErrorCode, string> = {
     LIMIT_EXCEEDED: "음성 합성 사용량이 많습니다. 잠시 뒤 다시 시도해 주세요.",
     UPSTREAM_TIMEOUT: "음성 생성이 늦어지고 있습니다. 다시 시도해 주세요.",
