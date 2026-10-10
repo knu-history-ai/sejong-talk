@@ -151,6 +151,13 @@ dialog::backdrop { background: #1a304b80; }
 .history-message strong { font-size: 11px; color: #536a80; }
 .history-message p { padding: 11px 12px; margin: 5px 0 0; border-radius: 7px; background: #f3f5f8; font-size: 12px; line-height: 1.8; white-space: pre-wrap; }
 .history-message:first-child p { background: #e0f0ff; }
+.saved-chat-list { display: grid; gap: 12px; }
+.history-delete { margin: 16px 0; padding: 14px 0; border-bottom: 1px solid var(--line); }
+.history-delete p { font-size: 13px; line-height: 1.7; }
+.saved-chat-list button { display: grid; gap: 7px; width: 100%; padding: 16px; text-align: left; border: 1px solid var(--line); border-radius: 12px; background: #f3f5f8; color: var(--navy); cursor: pointer; overflow-wrap: anywhere; }
+.saved-chat-list button:hover { background: #e0f0ff; }
+.saved-chat-list span, .saved-chat-list small { font-size: 12px; color: #536a80; }
+.history-message ul { padding-left: 18px; font-size: 12px; line-height: 1.8; overflow-wrap: anywhere; }
 .empty-history { min-height: 340px; display: flex; flex-direction: column; align-items: center; justify-content: center; text-align: center; }
 .empty-history .chat-icon { width: 55px; height: 55px; margin-bottom: 16px; }
 .empty-history strong { color: var(--navy); font-size: 16px; }.empty-history p { color: var(--muted); font-size: 12px; }

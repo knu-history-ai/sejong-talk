@@ -1,4 +1,7 @@
-import { readFile } from "node:fs/promises";
+import characterData from "../../../data/characters/sejong/character.json" with { type: "json" };
+import factData from "../../../data/characters/sejong/facts.json" with { type: "json" };
+import sourceData from "../../../data/characters/sejong/sources.json" with { type: "json" };
+import exampleData from "../../../data/characters/sejong/examples.json" with { type: "json" };
 
 import type { Character, Fact, PromptExample, Source, SourceView } from "../../contracts";
 
@@ -10,21 +13,13 @@ export interface SejongKnowledgeBase {
   contentVersion: string;
 }
 
-const DATA_DIR = new URL("../../../data/characters/sejong/", import.meta.url);
 const DEFAULT_CONTENT_VERSION = "sejong-content-v1";
 
-async function readJson<T>(path: string): Promise<T> {
-  const contents = await readFile(new URL(path, DATA_DIR), "utf-8");
-  return JSON.parse(contents) as T;
-}
-
 export async function loadSejongKnowledgeBase(): Promise<SejongKnowledgeBase> {
-  const [character, facts, sources, promptExamples] = await Promise.all([
-    readJson<Character>("character.json"),
-    readJson<Fact[]>("facts.json"),
-    readJson<Source[]>("sources.json"),
-    readJson<PromptExample[]>("examples.json"),
-  ]);
+  const character = structuredClone(characterData) as Character;
+  const facts = structuredClone(factData) as Fact[];
+  const sources = structuredClone(sourceData) as Source[];
+  const promptExamples = structuredClone(exampleData) as PromptExample[];
 
   return {
     character,
