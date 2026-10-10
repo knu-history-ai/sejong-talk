@@ -11,7 +11,7 @@ const { getSessionStore } = loadTs("src/server/sessions/runtime.ts");
 const { getUsageLedger } = loadTs("src/server/usage/runtime.ts");
 test.beforeEach((t) => {
   const directory = mkdtempSync(join(tmpdir(), "sejong-chat-http-"));
-  const settings = { USAGE_DB_PATH: join(directory, "test.sqlite"), USAGE_PROVIDER_PLANS: "{}", GEMINI_API_KEY: "test-key", USAGE_SESSION_PER_MINUTE: "6" };
+  const settings = { USAGE_DB_PATH: join(directory, "test.sqlite"), USAGE_PROVIDER_PLANS: "{}", OLLAMA_MODEL: "qwen3.5:4b-q4_K_M", USAGE_SESSION_PER_MINUTE: "6" };
   const previous = Object.fromEntries(Object.keys(settings).map((key) => [key, process.env[key]]));
   const oldLedger = globalThis.sejongUsageLedger;
   delete globalThis.sejongUsageLedger;
@@ -30,11 +30,11 @@ const request = (token, body, method = "POST") => new NextRequest(`${origin}/api
 });
 
 test("real generation pipeline returns grounded sources, carries history and meters each provider call", async (t) => {
-  process.env.USAGE_PROVIDER_PLANS = JSON.stringify({ "gemini:llm_generation": { mode: "free", maxCostMicros: 0 } });
+  process.env.USAGE_PROVIDER_PLANS = JSON.stringify({ "ollama:llm_generation": { mode: "free", maxCostMicros: 0 } });
   const prompts = [];
   t.mock.method(globalThis, "fetch", async (_url, init) => {
-    prompts.push(JSON.parse(init.body).contents[0].parts[0].text);
-    return Response.json({ candidates: [{ content: { parts: [{ text: JSON.stringify({ kind: "grounded", text: "백성들이 쉽게 뜻을 적도록 새 글자를 만들었단다.", factIds: ["sejong_hunminjeongeum_purpose"] }) }] } }], usageMetadata: { promptTokenCount: 10, candidatesTokenCount: 5, totalTokenCount: 15 } });
+    prompts.push(JSON.parse(init.body).prompt);
+    return Response.json({ response: JSON.stringify({ kind: "grounded", text: "백성들이 쉽게 뜻을 적도록 새 글자를 만들었단다.", factIds: ["sejong_hunminjeongeum_purpose"] }), prompt_eval_count: 10, eval_count: 5 });
   });
   const { token } = getSessionStore().create();
   try {
