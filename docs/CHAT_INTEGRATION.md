@@ -1,6 +1,6 @@
 # W03-11 글 대화 연결 (#46)
 
-현재 통합 브랜치 codex/46-ai-integration은 PR #45의 사용량 보호 코드를 반영한 개발용 브랜치다. #45는 아직 dev에 병합되지 않았다. 기존 feat/46-chat-integration 커밋은 보존했다.
+현재 통합 브랜치 codex/46-ai-integration은 PR #45가 병합된 최신 dev를 반영했다. 기존 feat/46-chat-integration 커밋은 보존했다. 실제 Ollama·Qwen 호출 전환은 #48에서 진행하고, 해당 코드를 반영한 뒤 모델이 설치된 노트북에서 #46 화면 통합을 확인한다. 아래 Gemini 설정은 현재 코드 기준이며 Qwen 실행 설정은 #48 안내를 따른다.
 
 기본 화면은 세션 생성 API와 POST /api/turns를 호출한다. 서버는 쿠키와 Origin을 확인하고 인증된 sessionId를 runCoordinatedSejongTurn에 전달한다. 승인 응답의 답변·출처를 표시하며, 질문 재시도는 새 requestId를 사용한다. 실패를 샘플 답변으로 대체하지 않는다. 개발 환경의 ?sample=1에서만 샘플 화면을 사용한다.
 
