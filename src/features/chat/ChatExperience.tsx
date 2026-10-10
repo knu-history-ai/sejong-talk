@@ -45,7 +45,6 @@ export function ChatExperience() {
     return () => { activeRequest.current?.abort(); };
   }, []);
   useEffect(() => {
-    if (!started) return;
     const changed = (event: StorageEvent) => {
       if ((event.key === CHAT_HISTORY_KEY && event.newValue === null) || event.key === "sejong-chat-clear") {
         setSavedChats([]);
@@ -64,12 +63,12 @@ export function ChatExperience() {
         setStarted(false);
         return;
       }
-      if (showSamples || event.key !== "sejong-session-change") return;
+      if (!started || showSamples || event.key !== "sejong-session-change") return;
       const controller = activeRequest.current;
       activeRequest.current = null;
       controller?.abort();
       setLoading(false);
-      setHistory([]);
+      setHistory((items) => items.map((item) => item.status === "loading" ? { ...item, status: "cancelled" } : item));
       setSessionExpired(true);
       setSourceOpen(false);
     };
@@ -92,7 +91,7 @@ export function ChatExperience() {
   function ask(event: FormEvent) {
     event.preventDefault();
     const text = question.trim();
-    if (!text || loading || starting || sessionExpired || activeRequest.current) return;
+    if (!text || loading || starting || startingRef.current || sessionExpired || activeRequest.current) return;
     const index = history.length;
     setHistory((items) => [...items, { question: text, answer: null, status: "loading" }]);
     setQuestion("");
@@ -101,7 +100,7 @@ export function ChatExperience() {
   }
 
   async function requestAnswer(text: string, index: number, fail = false) {
-    if (activeRequest.current) return;
+    if (activeRequest.current || startingRef.current) return;
     const controller = new AbortController();
     activeRequest.current = controller;
     const requestId = crypto.randomUUID();
@@ -146,7 +145,7 @@ export function ChatExperience() {
 
   function retry(index: number) {
     const item = history[index];
-    if (!item || item.status !== "failed" || item.error?.retryable === false || loading || starting || sessionExpired) return;
+    if (!item || item.status !== "failed" || item.error?.retryable === false || loading || starting || startingRef.current || sessionExpired) return;
     requestAnswer(item.question, index);
   }
 
@@ -189,6 +188,7 @@ export function ChatExperience() {
   async function deleteAllChats() {
     if (startingRef.current) return;
     startingRef.current = true;
+    setStarting(true);
     setDeleting(true);
     setArchiveError("");
     try {
@@ -226,8 +226,15 @@ export function ChatExperience() {
       setArchiveError("기록을 삭제하지 못했어요. 브라우저 저장 공간 설정을 확인하고 다시 시도해 주세요.");
     } finally {
       startingRef.current = false;
+      setStarting(false);
       setDeleting(false);
     }
+  }
+
+  function notifySessionChange() {
+    // Tab coordination is best effort; storage quota must not undo an API success.
+    try { window.localStorage.setItem("sejong-session-change", crypto.randomUUID()); }
+    catch { /* Local storage may be unavailable; the active API session still works. */ }
   }
 
   async function reset() {
@@ -239,7 +246,7 @@ export function ChatExperience() {
     try {
       if (!showSamples) {
         await deleteChatSession();
-        window.localStorage.setItem("sejong-session-change", crypto.randomUUID());
+        notifySessionChange();
         const session = await createChatSession();
         setIntro(session.intro);
         setRecommended(session.suggestedQuestions);
@@ -268,7 +275,7 @@ export function ChatExperience() {
     const sample = process.env.NODE_ENV === "development" && new URLSearchParams(window.location.search).get("sample") === "1";
     try {
       if (!sample) { const session = await createChatSession(); setIntro(session.intro); setRecommended(session.suggestedQuestions); }
-      if (!sample) window.localStorage.setItem("sejong-session-change", crypto.randomUUID());
+      if (!sample) notifySessionChange();
       setHistory([]);
       archiveId.current = null;
       setQuestion("");
@@ -280,6 +287,7 @@ export function ChatExperience() {
   }
 
   function selectQuestion(text: string) {
+    if (startingRef.current) return;
     setQuestion(text);
     input.current?.focus();
   }
@@ -291,12 +299,12 @@ export function ChatExperience() {
   }
 
   const header = <header className="site-header">
-    <button className="brand" aria-label="세종톡 소개 화면" onClick={() => { cancelAnswer(); setStarted(false); }}>
+    <button className="brand" aria-label="세종톡 소개 화면" disabled={starting} onClick={() => { cancelAnswer(); setStarted(false); }}>
       <Image src="/images/logo-sejongtalk.png" alt="세종톡" width={1928} height={815} sizes="140px" preload />
     </button>
     <nav aria-label="대화 설정">
       <label className="auto-listen"><input type="checkbox" role="switch" checked={autoListen} onChange={(event) => setAutoListen(event.target.checked)} /><span className="switch-track" aria-hidden="true" /><span>자동 듣기</span></label>
-      {started && <><span className="nav-divider" /><button className="outline-button history-trigger" onClick={openSavedChats}><Icon name="clock" /><span>이전 대화</span><Icon name="chevron" /></button><button className="primary-button new-chat" onClick={() => setResetOpen(true)}><Icon name="plus" /><span>새 대화</span></button></>}
+      {started && <><span className="nav-divider" /><button className="outline-button history-trigger" disabled={starting} onClick={openSavedChats}><Icon name="clock" /><span>이전 대화</span><Icon name="chevron" /></button><button className="primary-button new-chat" disabled={starting} onClick={() => setResetOpen(true)}><Icon name="plus" /><span>새 대화</span></button></>}
     </nav>
   </header>;
 
@@ -336,7 +344,7 @@ export function ChatExperience() {
                 <strong className="speaker-name">세종대왕</strong>
                 {item.status === "answered" && <div className="answer-bubble"><p>{item.answer?.text}</p></div>}
                 {item.status === "loading" && <div className="answer-bubble" role="status" aria-live="polite" aria-atomic="true"><p>잠시만 기다려 주겠느냐?<br />답변을 준비하고 있단다.</p><span className="typing-dots" aria-label="답변 준비 중"><i /><i /><i /></span><button type="button" className="outline-button" onClick={cancelAnswer}>답변 취소</button></div>}
-                {item.status === "failed" && <div className="answer-bubble error-bubble" role="alert"><p>{item.error?.message ?? "답변을 가져오지 못했어요. 다시 시도해 주세요."}</p><div className="recovery-actions"><button className="primary-button" disabled={loading || sessionExpired || item.error?.retryable === false} onClick={() => retry(index)}>다시 시도</button><button className="outline-button" disabled={loading || starting || sessionExpired} onClick={() => selectQuestion(item.question)}>질문 수정하기</button></div></div>}
+                {item.status === "failed" && <div className="answer-bubble error-bubble" role="alert"><p>{item.error?.message ?? "답변을 가져오지 못했어요. 다시 시도해 주세요."}</p><div className="recovery-actions"><button className="primary-button" disabled={loading || starting || sessionExpired || item.error?.retryable === false} onClick={() => retry(index)}>다시 시도</button><button className="outline-button" disabled={loading || starting || sessionExpired} onClick={() => selectQuestion(item.question)}>질문 수정하기</button></div></div>}
                 {item.status === "cancelled" && <div className="answer-bubble cancelled-bubble"><p>답변 준비를 멈췄어요.</p></div>}
                 {item.status === "answered" && index === history.length - 1 && !loading && !sessionExpired && <>
                 <div className="answer-actions"><button className="primary-button listen-button" onClick={() => setNotice("답변 듣기는 준비 중이에요. 지금은 글로 답변을 확인해 주세요.")}><Icon name="speaker" />답변 듣기</button><div className="speed-control"><span id="speed-label">재생 속도</span><div role="group" aria-labelledby="speed-label">{[0.8, 1, 1.2].map((value) => <button key={value} aria-pressed={speed === value} onClick={() => setSpeed(value)}>{value}배</button>)}</div></div></div>
@@ -349,10 +357,10 @@ export function ChatExperience() {
         </section>
         <section className="question-area" aria-label="질문 작성">
           <h2>이런 질문은 어때요?</h2>
-          <div className="suggestions">{recommended.map((item) => <button key={item} disabled={loading || sessionExpired} onClick={() => selectQuestion(item)}>{item}</button>)}</div>
+          <div className="suggestions">{recommended.map((item) => <button key={item} disabled={loading || starting || sessionExpired} onClick={() => selectQuestion(item)}>{item}</button>)}</div>
           <form className="composer" onSubmit={ask}>
             <div className="composer-label"><label htmlFor="question">이어서 궁금한 점을 물어보세요</label><small>{question.length} / 500</small></div>
-            <div className="composer-controls"><textarea ref={input} id="question" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={handleQuestionKeyDown} maxLength={500} rows={2} placeholder={sessionExpired ? "새 대화를 시작해 주세요." : "세종대왕에게 궁금한 것을 물어보세요."} disabled={loading || sessionExpired} /><button type="button" className="outline-button mic-button" disabled={loading || sessionExpired} onClick={() => setNotice("음성 질문은 준비 중이에요. 지금은 질문을 글로 입력해 주세요.")}><Icon name="mic" /><span>말로 질문</span></button><button className="primary-button send-button" disabled={!question.trim() || loading || starting || sessionExpired}><Icon name="send" /><span>{loading ? "답변 준비 중" : "질문 보내기"}</span></button></div>
+            <div className="composer-controls"><textarea ref={input} id="question" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={handleQuestionKeyDown} maxLength={500} rows={2} placeholder={sessionExpired ? "새 대화를 시작해 주세요." : "세종대왕에게 궁금한 것을 물어보세요."} disabled={loading || starting || sessionExpired} /><button type="button" className="outline-button mic-button" disabled={loading || starting || sessionExpired} onClick={() => setNotice("음성 질문은 준비 중이에요. 지금은 질문을 글로 입력해 주세요.")}><Icon name="mic" /><span>말로 질문</span></button><button className="primary-button send-button" disabled={!question.trim() || loading || starting || sessionExpired}><Icon name="send" /><span>{loading ? "답변 준비 중" : "질문 보내기"}</span></button></div>
           </form>
           {showSamples && <details className="sample-controls"><summary>예시 상태 확인</summary><p>실제 서비스 연결 전, 오류와 만료 상황을 확인하는 개발용 메뉴예요.</p><label><input type="checkbox" checked={failNextAnswer} disabled={loading || sessionExpired} onChange={(event) => setFailNextAnswer(event.target.checked)} /> 다음 질문에서 답변 오류 보기</label><button className="outline-button" disabled={sessionExpired} onClick={expireSession}>세션 만료 보기</button></details>}
         </section>
