@@ -9,11 +9,51 @@
   },
   {
     "id": "source_urihistory_jiphyeonjeon",
-    "title": "집현전",
+    "title": "집현전(集賢殿) — 역주조선왕조실록",
+    "institution": "한국학중앙연구원 한국학진흥사업성과포털",
+    "url": "https://waks.aks.ac.kr/rsh/dir/rview.aspx?dataID=AKS-2013-CKD-1240001_DIC%4000006593&rshID=AKS-2013-CKD-1240001",
+    "locator": "내용 및 특징: 젊고 유능한 문사의 선발, 사가독서로 연구 전념 지원, 학문 연구·편찬 사업·정책 논의 역할을 설명하는 문단. 기존 source ID는 참조 호환을 위해 유지한다.",
+    "checkedAt": "2026-10-10T00:00:00+09:00"
+  },
+  {
+    "id": "source_korean_hunminjeongeum_dates",
+    "title": "알고 싶은 한글 — 한글날의 유래",
+    "institution": "국립국어원",
+    "url": "https://www.korean.go.kr/hangeul/origin/001.html",
+    "locator": "1443년 12월 조의 언문 28자 창제 기록을 설명하는 첫 본문 문단. 월·일과 반포 행사에 관한 논의는 이 카드에서 단정하지 않는다.",
+    "checkedAt": "2026-10-10T00:00:00+09:00"
+  },
+  {
+    "id": "source_urihistory_hunminjeongeum_promulgation",
+    "title": "민족 문화의 융성 — 훈민정음의 창제",
     "institution": "국사편찬위원회 우리역사넷",
-    "url": "https://contents.history.go.kr",
-    "locator": "세종대 학문 연구와 집현전 관련 설명",
-    "checkedAt": "2026-10-04T00:00:00Z"
+    "url": "https://contents.history.go.kr/front/ta/view.do?levelId=ta_m61_0080_0030",
+    "locator": "훈민정음의 창제: 창제 후 3년 동안 시험한 뒤 1446년에 널리 반포했다고 설명하는 문단. 정확한 반포 날짜·행사는 별도 근거 없이 추가하지 않는다.",
+    "checkedAt": "2026-10-10T00:00:00+09:00"
+  },
+  {
+    "id": "source_urihistory_cheugugi_agriculture",
+    "title": "경제 생활 — 농본 정책",
+    "institution": "국사편찬위원회 우리역사넷",
+    "url": "https://contents.history.go.kr/front/ta/view.do?levelId=ta_m41_0070_0020",
+    "locator": "농본 정책: 강우량을 측정하여 농업에 도움을 주기 위해 측우기를 제작·각지에 설치했다는 문단 및 측우기 사진 설명. 사진 속 영조 때 유물을 세종 때 원본으로 설명하지 않는다.",
+    "checkedAt": "2026-10-10T00:00:00+09:00"
+  },
+  {
+    "id": "source_urihistory_angbuilgu",
+    "title": "앙부일구 — 시간과 절기를 알려주는 해시계",
+    "institution": "국사편찬위원회 우리역사넷",
+    "url": "https://contents.history.go.kr/mobile/kc/view.do?levelId=kc_r300715",
+    "locator": "1 개요: 그림자를 보고 시간과 절기를 파악하는 원리와 1434년 공공시계 설치 설명. 제작 참여자를 확정하지 않고 현존 유물은 조선 후기임을 구분한다.",
+    "checkedAt": "2026-10-10T00:00:00+09:00"
+  },
+  {
+    "id": "source_urihistory_nongsajikseol",
+    "title": "농사직설 — 우리 땅에 알맞은 농법을 모아 편찬하다",
+    "institution": "국사편찬위원회 우리역사넷",
+    "url": "https://contents.history.go.kr/mobile/kc/view.do?levelId=kc_r300270",
+    "locator": "1 개요: 조선 풍토에 알맞은 농법을 모은 책의 성격. 2 농본 정책과 농서 편찬: 1429년 편찬. 3 방문 조사: 지역 농민의 경험 수집 과정.",
+    "checkedAt": "2026-10-10T00:00:00+09:00"
   },
   {
     "id": "source_pending_story",
