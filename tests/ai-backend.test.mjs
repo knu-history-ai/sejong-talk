@@ -141,6 +141,57 @@ test("Sejong prompt input separates character, recent turns, and approved facts"
   assert.match(prompt, /\[사용자 질문\]/);
 });
 
+test("date source drafts stay out of prompts until they are approved", async () => {
+  const knowledgeBase = await loadSejongKnowledgeBase();
+
+  const hunminFacts = selectReviewedFactsForQuestion(
+    knowledgeBase,
+    "훈민정음은 12월 30일에 만든 게 맞아요?",
+  );
+  assert.ok(hunminFacts.every((fact) => !fact.id.startsWith("sejong_date_")));
+  assert.deepEqual(
+    selectReviewedFactsForQuestion(knowledgeBase, "치평요람은 3월 30일에 완성됐어요?"),
+    [],
+  );
+  assert.deepEqual(
+    selectReviewedFactsForQuestion(knowledgeBase, "의주 읍성터 공사는 언제 시작하고 끝났어요?"),
+    [],
+  );
+
+  const approvedKnowledgeBase = {
+    ...knowledgeBase,
+    facts: knowledgeBase.facts.map((fact) =>
+      fact.id.startsWith("sejong_date_")
+        ? { ...fact, reviewStatus: "approved" }
+        : fact,
+    ),
+  };
+
+  const uijuFacts = selectReviewedFactsForQuestion(
+    approvedKnowledgeBase,
+    "의주 읍성터 공사는 언제 시작하고 끝났어요?",
+  ).map((fact) => fact.id);
+
+  assert.ok(uijuFacts.includes("sejong_date_uiju_construction_start"));
+  assert.ok(uijuFacts.includes("sejong_date_uiju_construction_end"));
+
+  const promptInput = buildSejongPromptInput({
+    knowledgeBase,
+    request: {
+      requestId: "turn_date_pending",
+      text: "훈민정음을 만든 날이 12월 30일 맞아요?",
+    },
+    reviewedFacts: selectReviewedFactsForQuestion(
+      knowledgeBase,
+      "훈민정음을 만든 날이 12월 30일 맞아요?",
+    ),
+  });
+  const prompt = buildSejongAnswerPrompt(promptInput);
+
+  assert.doesNotMatch(prompt, /sejong_date_hunminjeongeum_creation_month/);
+  assert.doesNotMatch(prompt, /source_sillok_hunminjeongeum_creation_month/);
+});
+
 test("answer validation only exposes server-approved fact IDs and sources", async () => {
   const knowledgeBase = await loadSejongKnowledgeBase();
   const request = {
