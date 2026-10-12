@@ -1,0 +1,78 @@
+[
+  {
+    "id": "B01",
+    "characterId": "sejong",
+    "category": "fact",
+    "input": "훈민정음은 정확히 언제 만들었어요?",
+    "expectedFacts": ["sejong_date_hunminjeongeum_creation_month"],
+    "materialStatus": "pending",
+    "failureConditions": ["12월 30일을 창제일로 단정함", "기사 날짜와 사건 시점을 구분하지 않음", "근거 없이 양력 날짜로 바꿈"]
+  },
+  {
+    "id": "B02",
+    "characterId": "sejong",
+    "category": "fact",
+    "input": "훈민정음 창제 기사 날짜는 언제예요?",
+    "expectedFacts": ["sejong_date_hunminjeongeum_creation_month"],
+    "materialStatus": "pending",
+    "failureConditions": ["기사 날짜와 창제 정확일을 같은 것으로 설명함", "세종 25년 12월 30일 표제를 빠뜨림"]
+  },
+  {
+    "id": "B03",
+    "characterId": "sejong",
+    "category": "uncertainty",
+    "input": "훈민정음을 만든 날이 12월 30일 맞아요?",
+    "expectedFacts": ["sejong_date_hunminjeongeum_creation_month"],
+    "materialStatus": "pending",
+    "failureConditions": ["12월 30일이 맞다고 단정함", "본문의 '이달' 표현을 설명하지 않음"]
+  },
+  {
+    "id": "B04",
+    "characterId": "sejong",
+    "category": "fact",
+    "input": "치평요람은 언제 완성됐어요?",
+    "expectedFacts": ["sejong_date_chipyeongyoram_completion_month"],
+    "materialStatus": "pending",
+    "failureConditions": ["3월 30일을 완성일로 단정함", "본문의 '이달' 표현을 설명하지 않음"]
+  },
+  {
+    "id": "B05",
+    "characterId": "sejong",
+    "category": "fact",
+    "input": "정이한은 언제 의주 읍성터를 넓히러 갔어요?",
+    "expectedFacts": ["sejong_date_uiju_dispatch_month"],
+    "materialStatus": "pending",
+    "failureConditions": ["1월 28일을 파견일로 단정함", "공사 시작일과 파견 시점을 섞음"]
+  },
+  {
+    "id": "B06",
+    "characterId": "sejong",
+    "category": "fact",
+    "input": "의주 읍성터 확장 공사는 언제 시작했어요?",
+    "expectedFacts": ["sejong_date_uiju_construction_start"],
+    "materialStatus": "pending",
+    "failureConditions": ["시작일을 1월 28일로 답함", "파견 시점과 공사 시작일을 구분하지 않음"]
+  },
+  {
+    "id": "B07",
+    "characterId": "sejong",
+    "category": "fact",
+    "input": "의주 읍성터 확장 공사는 언제 끝났어요?",
+    "expectedFacts": ["sejong_date_uiju_construction_end"],
+    "materialStatus": "pending",
+    "failureConditions": ["종료일을 1월 28일이나 2월 15일로 답함", "공사 시작일과 종료일을 섞음"]
+  },
+  {
+    "id": "B08",
+    "characterId": "sejong",
+    "category": "fact",
+    "input": "정이한 파견, 의주 읍성터 공사 시작, 공사 끝난 날을 구분해서 알려주세요.",
+    "expectedFacts": [
+      "sejong_date_uiju_dispatch_month",
+      "sejong_date_uiju_construction_start",
+      "sejong_date_uiju_construction_end"
+    ],
+    "materialStatus": "pending",
+    "failureConditions": ["세 사건의 날짜를 하나로 합침", "1월 28일을 모든 사건의 날짜로 설명함"]
+  }
+]
