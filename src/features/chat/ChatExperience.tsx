@@ -4,6 +4,7 @@ import Image from "next/image";
 import { requestSampleTurn } from "./sample-turn";
 import { CHAT_HISTORY_KEY, clearSavedChats, readSavedChats, saveChat, type Conversation, type SavedChat } from "./chat-history";
 import { ChatVoiceButton } from "../voice-input/chat-voice-button";
+import { ChatAnswerAudio } from "../voice-output/chat-answer-audio";
 import { createChatSession, deleteChatSession, requestTurn, cancelTurn } from "./api";
 import { FormEvent, KeyboardEvent, ReactNode, useEffect, useRef, useState } from "react";
 
@@ -125,7 +126,6 @@ export function ChatExperience() {
       if (activeRequest.current !== controller || controller.signal.aborted) return;
       if (response.status === "approved") {
         setHistory((items) => items.map((item, position) => position === index ? { ...item, answer: response.answer, status: "answered" } : item));
-        if (autoListen) setNotice("답변 듣기는 준비 중이에요. 지금은 글로 답변을 확인해 주세요.");
       } else if (response.status === "failed") {
         setHistory((items) => items.map((item, position) => position === index ? { ...item, error: response, status: "failed" } : item));
         if (response.code === "SESSION_EXPIRED") expireSession();
@@ -356,7 +356,7 @@ export function ChatExperience() {
                 {item.status === "failed" && <div className="answer-bubble error-bubble" role="alert"><p>{item.error?.message ?? "답변을 가져오지 못했어요. 다시 시도해 주세요."}</p><div className="recovery-actions"><button className="primary-button" disabled={loading || starting || sessionExpired || item.error?.retryable === false} onClick={() => retry(index)}>다시 시도</button><button className="outline-button" disabled={loading || starting || sessionExpired} onClick={() => selectQuestion(item.question)}>질문 수정하기</button></div></div>}
                 {item.status === "cancelled" && <div className="answer-bubble cancelled-bubble"><p>답변 준비를 멈췄어요.</p></div>}
                 {item.status === "answered" && index === history.length - 1 && !loading && !sessionExpired && <>
-                <div className="answer-actions"><button className="primary-button listen-button" onClick={() => setNotice("답변 듣기는 준비 중이에요. 지금은 글로 답변을 확인해 주세요.")}><Icon name="speaker" />답변 듣기</button><div className="speed-control"><span id="speed-label">재생 속도</span><div role="group" aria-labelledby="speed-label">{[0.8, 1, 1.2].map((value) => <button key={value} aria-pressed={speed === value} onClick={() => setSpeed(value)}>{value}배</button>)}</div></div></div>
+                <div className="answer-actions">{!showSamples && item.answer?.answerId ? <ChatAnswerAudio key={item.answer.answerId} answerId={item.answer.answerId} speed={speed} autoPlay={autoListen} onSessionExpired={expireSession} icon={<Icon name="speaker" />} /> : <button className="primary-button listen-button" onClick={() => setNotice("예시 대화에서는 답변 듣기를 사용할 수 없어요.")}><Icon name="speaker" />답변 듣기</button>}<div className="speed-control"><span id="speed-label">재생 속도</span><div role="group" aria-labelledby="speed-label">{[0.8, 1, 1.2].map((value) => <button key={value} aria-pressed={speed === value} onClick={() => setSpeed(value)}>{value}배</button>)}</div></div></div>
                 <div className="source-card" ref={sourceCard}><button className="source-toggle" aria-expanded={sourceOpen} aria-controls="answer-sources" onClick={() => setSourceOpen(!sourceOpen)}><Icon name="document" /><span>이 이야기의 출처 보기</span><Icon name="chevron" /></button>{sourceOpen && <div id="answer-sources">{item.answer?.sources.length ? <ul>{item.answer.sources.map((source) => <li key={source.id}><strong>{source.title}</strong><p>{source.institution}</p>{/^https?:\/\//i.test(source.url) && <a href={source.url} target="_blank" rel="noopener noreferrer">원문 보기</a>}</li>)}</ul> : <p>이 답변에는 연결된 출처가 없어요.</p>}</div>}</div>
                 </>}
               </div></div>
