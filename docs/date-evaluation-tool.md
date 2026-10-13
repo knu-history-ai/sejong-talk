@@ -125,6 +125,8 @@ npm run eval:date -- finalize --dir evals/sejong/date-eval/results/pilot-before
 ```
 
 첫 판정 파일은 덮어쓰지 못합니다. 두 사람의 첫 점수·합의 전 일치 수/전체 수·이견을 보존합니다.
+한 번에 전부 제출하지 않아도 됩니다. 같은 검토자 ID로 미제출 항목만 담은 JSON 배열을 추가 등록하세요.
+등록할 때마다 별도 파일을 저장하며 이전 파일은 그대로 둡니다. 이미 제출한 항목을 다시 보내면 전체 등록을 거절하므로 새 항목만 보내세요.
 이견이나 보류가 있으면 `final.json`의 `agreement.details`를 보고 별도 합의 JSON 배열을 준비합니다.
 각 합의에는 packetId, packetHash, 두 reviewerIds, 원래 firstReviewHashes, 확정 점수·사건별 판정·이유를 넣습니다.
 필요하면 합의 시간 elapsedMs도 남깁니다. 원래 첫 판정은 바꾸지 않습니다.
@@ -150,6 +152,9 @@ npm run eval:date -- resolve-state --dir evals/sejong/date-eval/results/pilot-be
 
 원본 `run.json`은 보존됩니다. 이후 code·ai·packets·import-review·finalize·report·validate-judge 명령에 `--run evals/sejong/date-eval/results/pilot-before/run-resolved.json`을 똑같이 붙입니다.
 기존 채점 파일을 만든 뒤 상태를 변경했다면 이전 결과는 덮어쓰지 말고 새 폴더에서 확인본을 가져와 다시 채점합니다.
+보고서를 만들기 전에 코드·AI 채점 비용이 같은 계획·기준·실행 기록의 것인지 확인합니다.
+하나라도 다르면 보고서와 비용 파일을 만들지 않습니다. 채점을 실행하지 않아 비용 파일이 없으면 비용은 null로 남기며 0으로 추정하지 않습니다.
+`evaluation-cost.json`에는 실행 기록 해시와 사용한 코드·AI 채점 파일의 해시도 남깁니다.
 
 ## AI 채점기 검증
 

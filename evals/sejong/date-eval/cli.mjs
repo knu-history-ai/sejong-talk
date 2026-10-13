@@ -206,13 +206,14 @@ export async function main(args = process.argv.slice(2)) {
     assert(/^[a-zA-Z0-9가-힣_-]+$/.test(reviewer), '검토자 ID는 한글/영문/숫자/_/-만 허용');
     const reviews = await read(requireFlag(flags, 'file'));
     assert(Array.isArray(reviews) && reviews.length > 0 && reviews.every((r) => r.reviewerId === reviewer), '검토자 ID 불일치');
-    const existing = await maybe(join(dir, 'reviews', reviewer + '.json'));
-    assert(!existing, '첫 판정은 덮어쓸 수 없습니다. 이견은 별도 합의 파일에 기록하세요');
     const bundle = await read(join(dir, 'review-private.json'));
     let prior = [];
     try { prior = await reviewFiles(join(dir, 'reviews')); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+    const submitted = new Set(prior.filter(r => r.reviewerId === reviewer).map(r => r.packetId));
+    assert(reviews.every(r => !submitted.has(r.packetId)), '이미 제출한 첫 판정은 덮어쓸 수 없습니다. 미제출 항목만 보내고 이견은 별도 합의 파일에 기록하세요');
     finalizeReviews(plan, run, bundle, [...prior, ...reviews]);
-    await save(join(dir, 'reviews', reviewer + '.json'), reviews);
+    // Keep every submission immutable, including legacy reviewer.json files.
+    await save(join(dir, 'reviews', reviewer + '--' + hash(reviews) + '.json'), reviews);
     console.log('독립 첫 판정 원본 저장. 덮어쓰기 금지.');
   } else if (command === 'finalize') {
     const bundle = await read(join(dir, 'review-private.json'));
@@ -226,14 +227,29 @@ export async function main(args = process.argv.slice(2)) {
     const final = await read(flags.final ?? join(dir, 'final.json'));
     validateFinalAudit(plan, run, final);
     const report = buildReport(plan, run, final);
+    const costs = {};
+    for (const kind of ['code', 'ai']) {
+      const artifact = await maybe(join(dir, kind + '.json'));
+      if (artifact) {
+        const expected = { schemaVersion: 1, planId: plan.id, criteriaHash: plan.criteriaHash,
+          runHash: hash(run), type: kind + '-preliminary' };
+        for (const [key, value] of Object.entries(expected)) {
+          assert(artifact[key] === value, `${kind}.json: ${key} 채점 비용 기록 불일치. 같은 실행 기록으로 채점한 파일을 사용하세요`);
+        }
+      }
+      costs[kind] = artifact;
+    }
+    // Validate all cost provenance before creating any report output.
     await save(join(dir, 'report.json'), report);
     await save(join(dir, 'comparison.json'), compareReports(report, report));
     const humanEntries = final.agreement.details.flatMap((d) => [...d.firstReviews, ...(d.adjudication ? [d.adjudication] : [])]);
     const measuredHuman = humanEntries.filter((e) => Number.isFinite(e.elapsedMs) && e.elapsedMs >= 0);
     const humanSum = measuredHuman.reduce((n, e) => n + e.elapsedMs, 0);
     await save(join(dir, 'evaluation-cost.json'), {
-      generationIncluded: false, code: (await maybe(join(dir, 'code.json')))?.elapsedMs ?? null,
-      ai: (await maybe(join(dir, 'ai.json')))?.evaluationCost ?? null,
+      schemaVersion: 1, planId: plan.id, criteriaHash: plan.criteriaHash, runHash: hash(run),
+      generationIncluded: false, code: costs.code?.elapsedMs ?? null,
+      ai: costs.ai?.evaluationCost ?? null,
+      artifacts: Object.fromEntries(['code', 'ai'].map(kind => [kind, costs[kind] ? hash(costs[kind]) : null])),
       human: { elapsedMs: measuredHuman.length === humanEntries.length ? humanSum : null,
         partialKnownSumMs: humanSum, measured: measuredHuman.length, total: humanEntries.length,
         status: '검토자별 실제 작업 시간 합계. 미기록은 0이 아님. 독립 판정과 합의 시간 별도 입력.' },

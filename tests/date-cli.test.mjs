@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, writeFile, readdir } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, readdir, rename } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { createServer } from 'node:http';
@@ -9,8 +9,118 @@ import { fileURLToPath } from 'node:url';
 import { main } from '../evals/sejong/date-eval/cli.mjs';
 import { loadPilot } from '../evals/sejong/date-eval/pilot.mjs';
 import { ruleAnswer } from '../evals/sejong/date-eval/runner.mjs';
+import { hash } from '../evals/sejong/date-eval/core.mjs';
 
 const read = async (p) => JSON.parse(await readFile(p, 'utf8'));
+const mockReview = (packet, reviewerId) => ({
+  packetId: packet.id, packetHash: packet.hash, reviewerId, independent: true, blind: true,
+  date: 1, evidence: 1, reason: '테스트 전용 모의 판정. 실제 사람 채점 아님.',
+  events: packet.input.gold.events.map(e => ({ id: e.id, date: 1,
+    ...Object.fromEntries(Object.entries(e.eligibility).map(([key, eligible]) => [key, eligible ? 0 : null])),
+    reasons: { date: '모의 근거', unsupportedDay: '모의 근거', missingKnownDay: '모의 근거', headerConfusion: '모의 근거' },
+  })),
+});
+async function offlineFixture() {
+  const dir = await mkdtemp(join(tmpdir(), 'date-eval-regression-'));
+  await main(['prepare', '--dir', dir, '--model', 'fixture', '--methods', 'rule-baseline']);
+  await main(['run', '--dir', dir]);
+  return dir;
+}
+async function submit(dir, reviews, reviewer, runArgs = []) {
+  const file = join(dir, 'submission.json');
+  await writeFile(file, JSON.stringify(reviews));
+  return main(['import-review', '--dir', dir, '--file', file, '--reviewer', reviewer, ...runArgs]);
+}
+async function finalFixture(dir, runArgs = []) {
+  await main(['packets', '--dir', dir, ...runArgs]);
+  const packets = await read(join(dir, 'review-share/packets.json'));
+  for (const reviewer of ['A', 'B']) await submit(dir, packets.map(p => mockReview(p, reviewer)), reviewer, runArgs);
+  await main(['finalize', '--dir', dir, ...runArgs]);
+}
+
+test('partial human submissions append only new packets and preserve legacy first-review bytes', async () => {
+  const dir = await offlineFixture();
+  await main(['packets', '--dir', dir]);
+  const packets = await read(join(dir, 'review-share/packets.json'));
+  await submit(dir, [mockReview(packets[0], 'A')], 'A');
+  const [firstFile] = await readdir(join(dir, 'reviews'));
+  const legacyPath = join(dir, 'reviews/A.json');
+  await rename(join(dir, 'reviews', firstFile), legacyPath);
+  const originalBytes = await readFile(legacyPath, 'utf8');
+  await assert.rejects(submit(dir, [mockReview(packets[0], 'A'), mockReview(packets[1], 'A')], 'A'), /덮어/);
+  assert.equal((await readdir(join(dir, 'reviews'))).length, 1);
+  await submit(dir, packets.slice(1).map(p => mockReview(p, 'A')), 'A');
+  assert.equal(await readFile(legacyPath, 'utf8'), originalBytes);
+  const files = await readdir(join(dir, 'reviews'));
+  assert.equal(files.length, 2);
+  const before = await Promise.all(files.map(file => readFile(join(dir, 'reviews', file), 'utf8')));
+  const changed = mockReview(packets[0], 'A'); changed.reason = '원본을 바꾸려는 요청';
+  await assert.rejects(submit(dir, [changed], 'A'), /덮어/);
+  assert.deepEqual(await Promise.all(files.map(file => readFile(join(dir, 'reviews', file), 'utf8'))), before);
+  await submit(dir, packets.map(p => mockReview(p, 'B')), 'B');
+  await main(['finalize', '--dir', dir]);
+  const final = await read(join(dir, 'final.json'));
+  assert.equal(final.items.every(item => item.state === 'final'), true);
+  assert.equal(final.agreement.details.every(detail => detail.firstReviews.length === 2), true);
+  await main(['report', '--dir', dir]);
+});
+
+test('matching and absent grading costs retain run provenance without assuming absent costs are zero', async () => {
+  for (const present of [false, true]) {
+    const dir = await offlineFixture();
+    await finalFixture(dir);
+    let code, ai;
+    if (present) {
+      await main(['code', '--dir', dir]);
+      code = await read(join(dir, 'code.json'));
+      ai = { schemaVersion: 1, planId: code.planId, criteriaHash: code.criteriaHash,
+        runHash: code.runHash, type: 'ai-preliminary', evaluationCost: { calls: 8, elapsedMs: 123 } };
+      await writeFile(join(dir, 'ai.json'), JSON.stringify(ai));
+    }
+    await main(['report', '--dir', dir]);
+    const cost = await read(join(dir, 'evaluation-cost.json'));
+    assert.equal(cost.runHash, hash(await read(join(dir, 'run.json'))));
+    assert.equal(cost.code, present ? code.elapsedMs : null);
+    assert.deepEqual(cost.ai, present ? ai.evaluationCost : null);
+    assert.equal(cost.artifacts.code, present ? hash(code) : null);
+    assert.equal(cost.artifacts.ai, present ? hash(ai) : null);
+  }
+});
+
+test('mismatched code or AI cost provenance rejects reporting before writing any output', async () => {
+  const dir = await offlineFixture();
+  await finalFixture(dir);
+  await main(['code', '--dir', dir]);
+  const code = await read(join(dir, 'code.json'));
+  const ai = { schemaVersion: 1, planId: code.planId, criteriaHash: code.criteriaHash,
+    runHash: code.runHash, type: 'ai-preliminary', evaluationCost: { calls: 8, elapsedMs: 123 } };
+  for (const kind of ['code', 'ai']) for (const field of ['schemaVersion', 'planId', 'criteriaHash', 'runHash', 'type']) {
+    await writeFile(join(dir, 'code.json'), JSON.stringify(code));
+    await writeFile(join(dir, 'ai.json'), JSON.stringify(ai));
+    const bad = structuredClone(kind === 'code' ? code : ai);
+    bad[field] = field === 'schemaVersion' ? 2 : 'different-version';
+    await writeFile(join(dir, kind + '.json'), JSON.stringify(bad));
+    await assert.rejects(main(['report', '--dir', dir]), new RegExp(kind + '\\.json: ' + field));
+    for (const name of ['report.json', 'comparison.json', 'evaluation-cost.json']) {
+      await assert.rejects(readFile(join(dir, name)), { code: 'ENOENT' });
+    }
+  }
+});
+
+test('state-confirmed run cannot use the original run grading costs', async () => {
+  const dir = await offlineFixture();
+  await main(['code', '--dir', dir]);
+  const run = await read(join(dir, 'run.json'));
+  const decisions = join(dir, 'decisions.json'), confirmed = join(dir, 'run-confirmed.json');
+  await writeFile(decisions, JSON.stringify([{ recordId: run.records[0].id,
+    originalRecordHash: hash(run.records[0]), reviewerId: '담당자', state: 'failed',
+    reason: '진단용 상태 확인', evidence: '진단용 원문 확인' }]));
+  await main(['resolve-state', '--dir', dir, '--file', decisions, '--out', confirmed]);
+  await finalFixture(dir, ['--run', confirmed]);
+  await assert.rejects(main(['report', '--dir', dir, '--run', confirmed]), /code.json: runHash/);
+  await assert.rejects(readFile(join(dir, 'report.json')), { code: 'ENOENT' });
+  assert.deepEqual(await read(join(dir, 'run.json')), run);
+});
 test('offline CLI rule run → separate packets → two reviews → report and immutable first reviews', async () => {
   const dir = await mkdtemp(join(tmpdir(), 'date-eval-cli-'));
   await main(['prepare', '--dir', dir, '--model', 'fixture-no-model-call', '--methods', 'rule-baseline']);
