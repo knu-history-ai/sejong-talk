@@ -96,7 +96,10 @@ function blankJudgment(packet, reviewerId = '') {
     })) };
 }
 async function reviewFiles(dir) {
-  const files = (await readdir(dir)).filter((f) => f.endsWith('.json'));
+  let names;
+  try { names = await readdir(dir); }
+  catch (error) { if (error.code === 'ENOENT') return []; throw error; }
+  const files = names.filter((f) => f.endsWith('.json'));
   return (await Promise.all(files.map((f) => read(join(dir, f))))).flat();
 }
 export async function main(args = process.argv.slice(2)) {
@@ -258,15 +261,16 @@ export async function main(args = process.argv.slice(2)) {
     await save(join(dir, 'review-private.json'), bundle);
     await save(join(dir, 'review-share', 'packets.json'), bundle.packets);
     await save(join(dir, 'review-share', 'blank-review.json'), bundle.packets.map((p) => blankJudgment(p)));
-    console.log('검토자 두 명에게 review-share 폴더만 각각 전달하세요. 독립 판정 전 계획·AI 판정·다른 사람 판정은 공유하지 마세요.');
+    console.log(bundle.packets.length
+      ? '검토자 두 명에게 review-share 폴더만 각각 전달하세요. 독립 판정 전 계획·AI 판정·다른 사람 판정은 공유하지 마세요.'
+      : '사람 내용 채점 대상이 없습니다. 담당자가 finalize와 report를 진행하세요. 확정된 실행 실패만 자동 0점이며, 미확인 실행은 집계 전에 확인해야 합니다.');
   } else if (command === 'import-review') {
     const reviewer = requireFlag(flags, 'reviewer');
     assert(/^[a-zA-Z0-9가-힣_-]+$/.test(reviewer), '검토자 ID는 한글/영문/숫자/_/-만 허용');
     const reviews = await read(requireFlag(flags, 'file'));
     assert(Array.isArray(reviews) && reviews.length > 0 && reviews.every((r) => r.reviewerId === reviewer), '검토자 ID 불일치');
     const bundle = await read(join(dir, 'review-private.json'));
-    let prior = [];
-    try { prior = await reviewFiles(join(dir, 'reviews')); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+    const prior = await reviewFiles(join(dir, 'reviews'));
     const submitted = new Set(prior.filter(r => r.reviewerId === reviewer).map(r => r.packetId));
     assert(reviews.every(r => !submitted.has(r.packetId)), '이미 제출한 첫 판정은 덮어쓸 수 없습니다. 미제출 항목만 보내고 이견은 별도 합의 파일에 기록하세요');
     finalizeReviews(plan, run, bundle, [...prior, ...reviews]);

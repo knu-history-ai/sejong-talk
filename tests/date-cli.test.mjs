@@ -8,8 +8,8 @@ import { spawn } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
 import { main } from '../evals/sejong/date-eval/cli.mjs';
 import { loadPilot } from '../evals/sejong/date-eval/pilot.mjs';
-import { ruleAnswer } from '../evals/sejong/date-eval/runner.mjs';
-import { hash } from '../evals/sejong/date-eval/core.mjs';
+import { ruleAnswer, runPlan } from '../evals/sejong/date-eval/runner.mjs';
+import { hash, makePlan } from '../evals/sejong/date-eval/core.mjs';
 
 const read = async (p) => JSON.parse(await readFile(p, 'utf8'));
 const mockAiCost = () => ({ calls: 8, elapsedMs: 123,
@@ -40,6 +40,67 @@ async function finalFixture(dir, runArgs = []) {
   for (const reviewer of ['A', 'B']) await submit(dir, packets.map(p => mockReview(p, reviewer)), reviewer, runArgs);
   await main(['finalize', '--dir', dir, ...runArgs]);
 }
+
+async function failedFixture(mixed = false) {
+  const dir = await mkdtemp(join(tmpdir(), 'date-all-failed-'));
+  const { dataset, gold } = await loadPilot();
+  const plan = makePlan(dataset, gold, { model: 'fixture', endpoint: 'http://127.0.0.1:11434',
+    options: { temperature: 0 }, timeoutMs: 100, retries: 0, repeats: 1, seed: 62,
+    warmup: false, runOrder: 'seeded', methods: [{ id: 'prompt-baseline', version: 'fixture' }] });
+  let calls = 0;
+  const run = await runPlan(plan, { generate: async () => {
+    if (mixed && calls++ === 0) return { answer: '완료된 모의 답변', raw: '{"fixture":true}', inputTokens: 10, outputTokens: 3 };
+    throw Object.assign(new Error('timeout'), { type: 'timeout', raw: '시간초과 부분 답변' });
+  } });
+  await writeFile(join(dir, 'plan.json'), JSON.stringify(plan));
+  await writeFile(join(dir, 'source-run.json'), JSON.stringify(run));
+  await main(['import-run', '--dir', dir, '--file', join(dir, 'source-run.json')]);
+  await main(['packets', '--dir', dir]);
+  return dir;
+}
+
+test('all failed questions finalize and report zero without any human submissions', async () => {
+  const dir = await failedFixture();
+  const original = await readFile(join(dir, 'run.json'), 'utf8');
+  assert.deepEqual(await read(join(dir, 'review-share/packets.json')), []);
+  await assert.rejects(readdir(join(dir, 'reviews')), { code: 'ENOENT' });
+  await main(['finalize', '--dir', dir]);
+  const final = await read(join(dir, 'final.json'));
+  assert.equal(final.items.length, 8);
+  assert.ok(final.items.every(i => i.state === 'execution-failure' && i.date === 0 && i.evidence === 0));
+  assert.deepEqual(final.agreement.details, []);
+  await main(['report', '--dir', dir]);
+  const report = await read(join(dir, 'report.json'));
+  const metrics = report.methods[0].operational;
+  assert.equal(metrics.fixedTotal, 8); assert.equal(metrics.failed, 8);
+  assert.equal(metrics.accuracy.value, 0); assert.equal(metrics.evidence.value, 0);
+  assert.equal(metrics.completion.value, 0); assert.equal(metrics.conditionalAccuracy.value, null);
+  await read(join(dir, 'comparison.json')); await read(join(dir, 'evaluation-cost.json'));
+  assert.equal(await readFile(join(dir, 'run.json'), 'utf8'), original);
+  await assert.rejects(readdir(join(dir, 'reviews')), { code: 'ENOENT' });
+});
+
+test('missing human submissions do not turn completed answers into automatic zero scores', async () => {
+  const dir = await failedFixture(true);
+  await main(['finalize', '--dir', dir]);
+  const final = await read(join(dir, 'final.json'));
+  assert.equal(final.items.filter(i => i.state === 'execution-failure').length, 7);
+  const pending = final.items.filter(i => i.state === 'pending');
+  assert.equal(pending.length, 1); assert.equal(pending[0].date, null);
+  await assert.rejects(main(['report', '--dir', dir]), /pending/);
+  await assert.rejects(readFile(join(dir, 'report.json')), { code: 'ENOENT' });
+});
+
+test('malformed review files are not treated as absent submissions', async () => {
+  const dir = await offlineFixture();
+  await main(['packets', '--dir', dir]);
+  const packets = await read(join(dir, 'review-share/packets.json'));
+  await submit(dir, [mockReview(packets[0], 'A')], 'A');
+  const [file] = await readdir(join(dir, 'reviews'));
+  await writeFile(join(dir, 'reviews', file), '{broken');
+  await assert.rejects(main(['finalize', '--dir', dir]), SyntaxError);
+  await assert.rejects(readFile(join(dir, 'final.json')), { code: 'ENOENT' });
+});
 
 test('invalid code and AI cost values reject all report outputs, not just mismatched hashes', async () => {
   const dir = await offlineFixture(); await finalFixture(dir); await main(['code', '--dir', dir]);
