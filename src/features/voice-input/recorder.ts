@@ -3,7 +3,9 @@ export const MAX_RECORDING_MS = 30_000;
 export const MAX_AUDIO_BYTES = 5_000_000; // Decimal MB, not MiB.
 export const MIME_TYPES = ["audio/webm;codecs=opus", "audio/mp4", "audio/ogg;codecs=opus"] as const;
 export type Phase = "idle" | "permission" | "recording" | "stopping" | "transcribing" | "review" | "error";
-export type Recording = { blob: Blob; mimeType: string; durationMs: number };
+/** pcm: raw mono samples captured live from the microphone, so STT does not depend on decoding the compressed blob. */
+export type CapturedPcm = { samples: Float32Array; sampleRate: number };
+export type Recording = { blob: Blob; mimeType: string; durationMs: number; pcm?: CapturedPcm };
 export type RecordingDebug = Record<string, string | boolean>;
 export type Snapshot = { debug?: RecordingDebug; phase: Phase; elapsedMs: number; message: string; code?: string; mimeType?: string; bytes?: number };
 export type Transcribe = (recording: Recording, signal: AbortSignal) => Promise<string>;
@@ -92,6 +94,10 @@ export class VoiceRecorder {
   private context?: AudioContext;
   private source?: MediaStreamAudioSourceNode;
   private analyser?: AnalyserNode;
+  private capture?: ScriptProcessorNode;
+  private mute?: GainNode;
+  private pcm: Float32Array[] = [];
+  private pcmRate = 0;
   private interval?: ReturnType<typeof setInterval>;
   private deadline?: ReturnType<typeof setTimeout>;
   private stopDeadline?: ReturnType<typeof setTimeout>;
@@ -136,6 +142,11 @@ export class VoiceRecorder {
     this.stream = undefined;
     this.source?.disconnect();
     this.analyser?.disconnect();
+    if (this.capture) this.capture.onaudioprocess = null;
+    this.capture?.disconnect();
+    this.mute?.disconnect();
+    this.capture = undefined;
+    this.mute = undefined;
     this.source = undefined;
     this.analyser = undefined;
     if (this.context && this.context.state !== "closed") void this.context.close().catch(() => {});
@@ -157,6 +168,7 @@ export class VoiceRecorder {
     this.releaseMicrophone();
     this.chunks = [];
     this.bytes = 0;
+    this.pcm = [];
   }
 
   private fail(code: string, message: string) {
@@ -212,6 +224,7 @@ export class VoiceRecorder {
       analyser.fftSize = 2048;
       this.analyser = analyser;
       this.source.connect(analyser); // Never connect microphone to speakers.
+      this.startPcmCapture(context, token);
       const samples = new Float32Array(analyser.fftSize);
       this.debug({ stage: "MediaRecorder constructor" });
       const recorder = this.env.createRecorder(stream, mimeType);
@@ -253,6 +266,42 @@ export class VoiceRecorder {
     }
   }
 
+  /** Copies raw microphone samples while recording. Output goes through a zero-gain node (silent). */
+  private startPcmCapture(context: AudioContext, token: number) {
+    this.pcm = [];
+    this.pcmRate = context.sampleRate;
+    if (typeof context.createScriptProcessor !== "function" || typeof context.createGain !== "function" || !this.source) return;
+    try {
+      const capture = context.createScriptProcessor(4096, 1, 1);
+      const mute = context.createGain();
+      mute.gain.value = 0;
+      capture.onaudioprocess = (event) => {
+        if (token !== this.token || this.state.phase !== "recording") return;
+        this.pcm.push(new Float32Array(event.inputBuffer.getChannelData(0)));
+      };
+      this.source.connect(capture);
+      capture.connect(mute);
+      mute.connect(context.destination);
+      this.capture = capture;
+      this.mute = mute;
+      this.debug({ pcmCapture: `started (${context.sampleRate} Hz)` });
+    } catch (error) {
+      this.debug({ pcmCapture: "unavailable", ...debugError(error) });
+    }
+  }
+
+  /** Joins the live-captured chunks. Feature-local: conversion to WAV happens in transcription.ts. */
+  private capturedPcm(): CapturedPcm | undefined {
+    const total = this.pcm.reduce((sum, chunk) => sum + chunk.length, 0);
+    this.debug({ pcmSamples: String(total) });
+    if (!total || !this.pcmRate) return undefined;
+    const samples = new Float32Array(total);
+    let offset = 0;
+    for (const chunk of this.pcm) { samples.set(chunk, offset); offset += chunk.length; }
+    this.pcm = [];
+    return { samples, sampleRate: this.pcmRate };
+  }
+
   stop() {
     if (this.state.phase !== "recording") return;
     const durationMs = this.env.now() - this.startedAt;
@@ -271,6 +320,7 @@ export class VoiceRecorder {
     this.releaseMicrophone();
     if (this.state.phase !== "stopping") { this.fail("RECORDING_INTERRUPTED", "녹음이 중단되었어요. 다시 녹음해 주세요."); return; }
     const blob = new Blob(this.chunks, { type: mimeType });
+    const pcm = this.capturedPcm();
     this.chunks = [];
     this.recorder = undefined;
     this.debug({ stage: "blob created", "blob.type": blob.type || "(empty)", "blob.size": String(blob.size), durationMs: String(Math.round(this.state.elapsedMs)) });
@@ -285,7 +335,7 @@ export class VoiceRecorder {
       if (token === this.token) this.fail("TRANSCRIPTION_TIMEOUT", "글로 바꾸는 시간이 오래 걸려요. 다시 시도하거나 글로 질문해 주세요.");
     }, 20_000);
     try {
-      const text = await this.transcribe({ blob, mimeType, durationMs: this.state.elapsedMs }, abort.signal);
+      const text = await this.transcribe({ blob, mimeType, durationMs: this.state.elapsedMs, pcm }, abort.signal);
       if (token !== this.token) return;
       if (!text.trim()) { this.fail("TRANSCRIPT_EMPTY", "인식된 글이 없어요. 다시 녹음하거나 글로 질문해 주세요."); return; }
       this.onTranscript(text);

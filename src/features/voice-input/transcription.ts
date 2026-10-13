@@ -1,9 +1,31 @@
-import type { Transcribe } from "./recorder";
+import type { CapturedPcm, Transcribe } from "./recorder";
+import { encodePcmWav, PCM_MAX_SAMPLES, PCM_RATE } from "./pcm-wav";
 import { normalizeAudio } from "./normalize-audio";
 
 /** Error with the server's contract code (e.g. SESSION_EXPIRED) for the recorder and chat screen. */
 export class TranscriptionError extends Error {
   constructor(message: string, readonly code: string, readonly retryable: boolean) { super(message); }
+}
+
+/** Resamples live-captured PCM to 16kHz mono PCM16 WAV. Undefined if too short, silent or unusable. */
+export function capturedPcmToWav(pcm: CapturedPcm | undefined): Blob | undefined {
+  if (!pcm || !pcm.samples.length || !(pcm.sampleRate >= PCM_RATE)) return undefined;
+  const { samples, sampleRate } = pcm;
+  const ratio = sampleRate / PCM_RATE;
+  const length = Math.min(Math.floor(samples.length / ratio), PCM_MAX_SAMPLES);
+  if (length < PCM_RATE / 4) return undefined;
+  const output = new Float32Array(length);
+  let energy = 0;
+  for (let i = 0; i < length; i++) {
+    // Average over the source window: simple anti-aliasing for 48k/44.1k -> 16k.
+    const start = Math.floor(i * ratio), end = Math.max(start + 1, Math.floor((i + 1) * ratio));
+    let sum = 0;
+    for (let j = start; j < end && j < samples.length; j++) sum += samples[j];
+    output[i] = sum / (end - start);
+    energy += output[i] * output[i];
+  }
+  if (!Number.isFinite(energy) || Math.sqrt(energy / length) < 0.001) return undefined;
+  try { return new Blob([encodePcmWav(output)], { type: "audio/wav" }); } catch { return undefined; }
 }
 
 export function audioForm(blob: Blob) {
@@ -14,7 +36,8 @@ export function audioForm(blob: Blob) {
 }
 
 export const serverTranscribe: Transcribe = async (recording, signal) => {
-  const wav = await normalizeAudio(recording.blob, signal, recording.durationMs);
+  // Prefer PCM captured live; decoding the compressed blob is the fallback (and the path for uploaded files).
+  const wav = capturedPcmToWav(recording.pcm) ?? await normalizeAudio(recording.blob, signal, recording.durationMs);
   signal.throwIfAborted();
   // Same-origin request: the session cookie is sent automatically. Do not set Content-Type.
   const response = await fetch("/api/transcriptions", { method: "POST", body: audioForm(wav), signal, credentials: "same-origin" });
