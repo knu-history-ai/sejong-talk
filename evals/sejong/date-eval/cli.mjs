@@ -1,12 +1,13 @@
 import { readFile, writeFile, mkdir, readdir, rename } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hash, assert, makePlan, validatePlan, validateRun } from './core.mjs';
+import { hash, assert, makePlan, validatePlan, validateRun, validateRecordedInputs } from './core.mjs';
 import { loadPilot } from './pilot.mjs';
 import { runPlan, ollamaGenerate, localEndpoint, METHOD_VERSION, modelIdentity } from './runner.mjs';
 import { codeGrade, aiGrade, createReviewPackets, finalizeReviews, validateJudge, validateFinalAudit } from './grading.mjs';
 import { buildReport, compareReports } from './report.mjs';
 import { resolveRunState } from './state.mjs';
+import { bindCost, interruptedAiCost, humanCost } from './costs.mjs';
 
 const read = async (path) => JSON.parse(await readFile(path, 'utf8'));
 async function save(path, value) {
@@ -26,9 +27,22 @@ async function implementationHash() {
 }
 function parse(args) {
   const [command, ...rest] = args, flags = {};
+  const accepted = {
+    help: [], prepare: ['dir', 'model', 'methods', 'dataset', 'gold', 'options', 'endpoint', 'timeout', 'retries', 'repeats', 'seed', 'warmup'],
+    run: ['dir'], 'import-run': ['dir', 'file'], code: ['dir', 'run'],
+    ai: ['dir', 'run', 'model', 'endpoint', 'timeout', 'retries'], packets: ['dir', 'run'],
+    'import-review': ['dir', 'run', 'file', 'reviewer'], finalize: ['dir', 'run', 'adjudications', 'out'],
+    report: ['dir', 'run', 'final'], 'resolve-state': ['dir', 'run', 'file', 'out'],
+    'validate-judge': ['dir', 'run', 'groups', 'final'], compare: ['before', 'after', 'out'],
+  };
+  assert(!command || Object.hasOwn(accepted, command), `알 수 없는 명령: ${command}`);
   for (let i = 0; i < rest.length; i++) {
     assert(rest[i].startsWith('--'), `알 수 없는 인수: ${rest[i]}`);
-    flags[rest[i].slice(2)] = rest[i + 1]?.startsWith('--') || rest[i + 1] === undefined ? true : rest[++i];
+    const name = rest[i].slice(2);
+    assert(accepted[command].includes(name) && !Object.hasOwn(flags, name), `알 수 없거나 중복된 옵션: --${name}`);
+    const value = rest[i + 1]?.startsWith('--') || rest[i + 1] === undefined ? true : rest[++i];
+    assert(name === 'warmup' ? value === true : typeof value === 'string', `--${name} 옵션 값 오류`);
+    flags[name] = value;
   }
   return { command, flags };
 }
@@ -92,13 +106,7 @@ export async function main(args = process.argv.slice(2)) {
   const plan = validatePlan(await read(join(dir, 'plan.json')));
   if (command === 'import-run') {
     const run = validateRun(plan, await read(requireFlag(flags, 'file')));
-    for (const record of run.records) {
-      if (!['completed', 'failed'].includes(record.state)) continue;
-      const c = plan.dataset.cases.find((c) => c.id === record.caseId);
-      const inputs = Array.isArray(record.rawInput) ? record.rawInput : [{ prompt: record.rawInput }];
-      assert(inputs.some((input) => (input.prompt?.includes(c.sourceText) && input.prompt?.includes(c.question))
-        || (input.sourceText === c.sourceText && input.question === c.question)), '실제로 보낸 전체 자료·질문이 없습니다. 옛 기록을 임의로 보충하지 마세요');
-    }
+    validateRecordedInputs(plan, run);
     await save(join(dir, 'run.json'), run);
     console.log('기존 원문 기록을 재사용합니다. 모델을 다시 실행하지 않았습니다.');
     return;
@@ -175,23 +183,32 @@ export async function main(args = process.argv.slice(2)) {
     assert(!(await maybe(join(dir, 'ai-start.json'))), 'AI 실행을 시작한 기록이 있습니다. 중단된 호출·비용을 확인한 뒤 새 채점 폴더를 준비하세요');
     const model = requireFlag(flags, 'model');
     const judgeConfig = { model, endpoint: localEndpoint(flags.endpoint), options: { temperature: 0, seed: 62, num_ctx: 16384, num_predict: 4096 }, timeoutMs: Number(flags.timeout ?? 120000), retries: Number(flags.retries ?? 0), codeHash: hash(await readFile(new URL('grading.mjs', import.meta.url), 'utf8')) };
+    assert(Number.isFinite(judgeConfig.timeoutMs) && judgeConfig.timeoutMs > 0 && judgeConfig.timeoutMs <= 2147483647, 'invalid judge timeoutMs');
+    assert(Number.isInteger(judgeConfig.retries) && judgeConfig.retries >= 0 && judgeConfig.retries <= 5, 'invalid judge retries');
     judgeConfig.modelIdentity = await modelIdentity(model, judgeConfig.endpoint);
-    await save(join(dir, 'ai-start.json'), { runHash: hash(run), judgeConfig, startedAt: new Date().toISOString() });
+    const start = { schemaVersion: 1, planId: plan.id, criteriaHash: plan.criteriaHash,
+      runHash: hash(run), judgeConfig, startedAt: new Date().toISOString() };
+    await save(join(dir, 'ai-start.json'), start);
+    async function persistAi(write) {
+      try { return await write(); } catch (error) { error.auditStorageFailure = true; throw error; }
+    }
     let call = 0;
     const ai = await aiGrade(plan, run, { judgeConfig, judge: async (input, { judgeConfig, signal }) => {
       const id = ++call, path = join(dir, 'ai-calls', String(id).padStart(4, '0') + '.json');
       const request = { model: judgeConfig.model, options: judgeConfig.options, stage: 'judge', prompt: JSON.stringify(input) };
-      const entry = { request, startedAt: new Date().toISOString(), state: 'in-flight' };
-      await save(path, entry);
+      const entry = { planId: plan.id, runHash: hash(run), startHash: hash(start),
+        request, startedAt: new Date().toISOString(), state: 'in-flight' };
+      await persistAi(() => save(path, entry));
+      let result;
       try {
-        const result = await ollamaGenerate(request, { ...judgeConfig, signal });
-        await checkpoint(path, { ...entry, state: 'completed', result });
-        return result;
+        result = await ollamaGenerate(request, { ...judgeConfig, signal });
       } catch (error) {
-        await checkpoint(path, { ...entry, state: 'failed', error: error.message, raw: error.raw ?? null,
-          inputTokens: error.inputTokens ?? null, outputTokens: error.outputTokens ?? null });
+        await persistAi(() => checkpoint(path, { ...entry, state: 'failed', error: error.message, raw: error.raw ?? null,
+          elapsedMs: error.elapsedMs ?? null, inputTokens: error.inputTokens ?? null, outputTokens: error.outputTokens ?? null }));
         throw error;
       }
+      await persistAi(() => checkpoint(path, { ...entry, state: 'completed', result }));
+      return result;
     } });
     await save(join(dir, 'ai.json'), ai);
     console.log('AI 예비 판정 저장. 최종 점수가 아닙니다. 사람 검토자에게 이 파일을 보여주지 마세요.');
@@ -224,35 +241,46 @@ export async function main(args = process.argv.slice(2)) {
     await save(output, final);
     console.log(`최종 미확정 ${final.items.filter((i) => i.state === 'pending').length}개. 합의 전 일치율도 기록했습니다.`);
   } else if (command === 'report') {
+    validateRecordedInputs(plan, run);
     const final = await read(flags.final ?? join(dir, 'final.json'));
     validateFinalAudit(plan, run, final);
     const report = buildReport(plan, run, final);
     const costs = {};
     for (const kind of ['code', 'ai']) {
       const artifact = await maybe(join(dir, kind + '.json'));
-      if (artifact) {
-        const expected = { schemaVersion: 1, planId: plan.id, criteriaHash: plan.criteriaHash,
-          runHash: hash(run), type: kind + '-preliminary' };
-        for (const [key, value] of Object.entries(expected)) {
-          assert(artifact[key] === value, `${kind}.json: ${key} 채점 비용 기록 불일치. 같은 실행 기록으로 채점한 파일을 사용하세요`);
-        }
-      }
+      if (artifact !== null) bindCost(plan, run, artifact, kind);
       costs[kind] = artifact;
     }
+    const start = await maybe(join(dir, 'ai-start.json'));
+    let callFiles = [];
+    try { callFiles = (await readdir(join(dir, 'ai-calls'))).filter(file => /^\d+\.json$/.test(file))
+      .sort((left, right) => Number(left.slice(0, -5)) - Number(right.slice(0, -5))); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    assert(!callFiles.length || start, 'AI 호출 기록은 있지만 시작 기록이 없습니다. 담당자가 출처를 확인하세요');
+    let partial = null;
+    if (start) {
+      partial = interruptedAiCost(plan, run, start,
+        await Promise.all(callFiles.map(async file => ({ file, entry: await read(join(dir, 'ai-calls', file)) }))));
+      if (costs.ai) assert(partial.cost.inFlightCalls === 0 && partial.cost.recordedAttempts === costs.ai.evaluationCost.calls,
+        '완료 AI 비용과 호출 기록 수/상태 불일치');
+      if (costs.ai) for (const field of ['inputTokens', 'outputTokens']) {
+        assert(hash(partial.cost[field]) === hash(costs.ai.evaluationCost[field]), '완료 AI 토큰 비용과 호출 기록 불일치');
+      }
+    }
+    const humanEntries = final.agreement.details.flatMap((d) => [...d.firstReviews, ...(d.adjudication ? [d.adjudication] : [])]);
+    const human = humanCost(humanEntries);
     // Validate all cost provenance before creating any report output.
     await save(join(dir, 'report.json'), report);
     await save(join(dir, 'comparison.json'), compareReports(report, report));
-    const humanEntries = final.agreement.details.flatMap((d) => [...d.firstReviews, ...(d.adjudication ? [d.adjudication] : [])]);
-    const measuredHuman = humanEntries.filter((e) => Number.isFinite(e.elapsedMs) && e.elapsedMs >= 0);
-    const humanSum = measuredHuman.reduce((n, e) => n + e.elapsedMs, 0);
     await save(join(dir, 'evaluation-cost.json'), {
       schemaVersion: 1, planId: plan.id, criteriaHash: plan.criteriaHash, runHash: hash(run),
       generationIncluded: false, code: costs.code?.elapsedMs ?? null,
-      ai: costs.ai?.evaluationCost ?? null,
+      ai: costs.ai?.evaluationCost ?? partial?.cost ?? null,
+      aiExecution: costs.ai ? { status: 'completed', interrupted: false,
+        startHash: partial?.execution.startHash ?? null, ledgerHashes: partial?.execution.ledgerHashes ?? {} }
+        : partial?.execution ?? { status: 'not-started', interrupted: false },
       artifacts: Object.fromEntries(['code', 'ai'].map(kind => [kind, costs[kind] ? hash(costs[kind]) : null])),
-      human: { elapsedMs: measuredHuman.length === humanEntries.length ? humanSum : null,
-        partialKnownSumMs: humanSum, measured: measuredHuman.length, total: humanEntries.length,
-        status: '검토자별 실제 작업 시간 합계. 미기록은 0이 아님. 독립 판정과 합의 시간 별도 입력.' },
+      human,
     });
     console.log('결과와 방법별 쌍 비교 저장. 예비시험은 논문 최종 결과가 아닙니다.');
   } else if (command === 'validate-judge') {

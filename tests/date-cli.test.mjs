@@ -12,6 +12,9 @@ import { ruleAnswer } from '../evals/sejong/date-eval/runner.mjs';
 import { hash } from '../evals/sejong/date-eval/core.mjs';
 
 const read = async (p) => JSON.parse(await readFile(p, 'utf8'));
+const mockAiCost = () => ({ calls: 8, elapsedMs: 123,
+  inputTokens: { sum: 80, partialKnownSum: 80, known: 8, total: 8 },
+  outputTokens: { sum: null, partialKnownSum: 0, known: 0, total: 8 } });
 const mockReview = (packet, reviewerId) => ({
   packetId: packet.id, packetHash: packet.hash, reviewerId, independent: true, blind: true,
   date: 1, evidence: 1, reason: '테스트 전용 모의 판정. 실제 사람 채점 아님.',
@@ -37,6 +40,71 @@ async function finalFixture(dir, runArgs = []) {
   for (const reviewer of ['A', 'B']) await submit(dir, packets.map(p => mockReview(p, reviewer)), reviewer, runArgs);
   await main(['finalize', '--dir', dir, ...runArgs]);
 }
+
+test('invalid code and AI cost values reject all report outputs, not just mismatched hashes', async () => {
+  const dir = await offlineFixture(); await finalFixture(dir); await main(['code', '--dir', dir]);
+  const code = await read(join(dir, 'code.json'));
+  for (const badTime of [-1, '100', null]) {
+    await writeFile(join(dir, 'code.json'), JSON.stringify({ ...code, elapsedMs: badTime }));
+    await assert.rejects(main(['report', '--dir', dir]), /code.elapsedMs/);
+    await assert.rejects(readFile(join(dir, 'report.json')), { code: 'ENOENT' });
+  }
+  await writeFile(join(dir, 'code.json'), JSON.stringify(code));
+  const ai = { schemaVersion: 1, planId: code.planId, criteriaHash: code.criteriaHash,
+    runHash: code.runHash, type: 'ai-preliminary', evaluationCost: mockAiCost() };
+  for (const change of [{ calls: -2 }, { elapsedMs: '비용 아님' }, { inputTokens: { sum: -1 } }]) {
+    await writeFile(join(dir, 'ai.json'), JSON.stringify({ ...ai, evaluationCost: { ...mockAiCost(), ...change } }));
+    await assert.rejects(main(['report', '--dir', dir]));
+    for (const file of ['report.json', 'comparison.json', 'evaluation-cost.json']) {
+      await assert.rejects(readFile(join(dir, file)), { code: 'ENOENT' });
+    }
+  }
+});
+
+test('SIGKILL during AI grading reports interruption and known partial transport costs without resuming calls', async () => {
+  const dir = await offlineFixture(); await finalFixture(dir);
+  const originalRun = await read(join(dir, 'run.json'));
+  let calls = 0, beginSecond;
+  const secondStarted = new Promise(resolve => { beginSecond = resolve; });
+  const server = createServer((req, res) => {
+    if (req.url === '/api/tags') return res.end(JSON.stringify({ models: [{ name: 'fixture:latest', digest: 'fixed', details: {} }] }));
+    req.resume();
+    req.on('end', () => {
+      calls++;
+      if (calls === 1) res.end(JSON.stringify({ done: true, response: '{"date":null}', prompt_eval_count: 20, eval_count: 7 }));
+      else { res.writeHead(200); res.write('{"response":"중단된 출력'); beginSecond(); }
+    });
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  const endpoint = `http://127.0.0.1:${server.address().port}`;
+  let child, exited, timer;
+  try {
+    child = spawn(process.execPath, [fileURLToPath(new URL('../evals/sejong/date-eval/cli.mjs', import.meta.url)),
+      'ai', '--dir', dir, '--model', 'fixture', '--endpoint', endpoint]);
+    let output = ''; child.stdout.on('data', data => { output += data; }); child.stderr.on('data', data => { output += data; });
+    exited = new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', (code, signal) => resolve({ code, signal })); });
+    await Promise.race([secondStarted, exited.then(value => { throw new Error('AI ended before second call: ' + JSON.stringify(value) + output); }),
+      new Promise((_, reject) => { timer = setTimeout(() => reject(new Error('AI second call not started: ' + output)), 5000); })]);
+    clearTimeout(timer); child.kill('SIGKILL'); assert.equal((await exited).signal, 'SIGKILL');
+    await assert.rejects(readFile(join(dir, 'ai.json')), { code: 'ENOENT' });
+    await main(['report', '--dir', dir]);
+    const cost = await read(join(dir, 'evaluation-cost.json'));
+    assert.equal(cost.aiExecution.status, 'interrupted'); assert.equal(cost.aiExecution.interrupted, true);
+    assert.equal(cost.ai.calls, null); assert.equal(cost.ai.recordedAttempts, 2);
+    assert.equal(cost.ai.confirmedTerminalCalls, 1); assert.equal(cost.ai.inFlightCalls, 1);
+    assert.equal(cost.ai.elapsedMs, null); assert.ok(cost.ai.partialKnownElapsedMs >= 0);
+    assert.deepEqual(cost.ai.inputTokens, { sum: null, partialKnownSum: 20, known: 1, total: 2 });
+    assert.deepEqual(cost.ai.outputTokens, { sum: null, partialKnownSum: 7, known: 1, total: 2 });
+    assert.equal(Object.keys(cost.aiExecution.ledgerHashes).length, 2);
+    assert.deepEqual(await read(join(dir, 'run.json')), originalRun);
+    await assert.rejects(main(['ai', '--dir', dir, '--model', 'fixture', '--endpoint', endpoint]), /시작한 기록/);
+    assert.equal(calls, 2);
+  } finally {
+    clearTimeout(timer);
+    if (child && child.exitCode === null && !child.signalCode) { child.kill('SIGKILL'); await exited; }
+    server.closeAllConnections(); await new Promise(resolve => server.close(resolve));
+  }
+});
 
 test('partial human submissions append only new packets and preserve legacy first-review bytes', async () => {
   const dir = await offlineFixture();
@@ -74,7 +142,7 @@ test('matching and absent grading costs retain run provenance without assuming a
       await main(['code', '--dir', dir]);
       code = await read(join(dir, 'code.json'));
       ai = { schemaVersion: 1, planId: code.planId, criteriaHash: code.criteriaHash,
-        runHash: code.runHash, type: 'ai-preliminary', evaluationCost: { calls: 8, elapsedMs: 123 } };
+        runHash: code.runHash, type: 'ai-preliminary', evaluationCost: mockAiCost() };
       await writeFile(join(dir, 'ai.json'), JSON.stringify(ai));
     }
     await main(['report', '--dir', dir]);
@@ -93,7 +161,7 @@ test('mismatched code or AI cost provenance rejects reporting before writing any
   await main(['code', '--dir', dir]);
   const code = await read(join(dir, 'code.json'));
   const ai = { schemaVersion: 1, planId: code.planId, criteriaHash: code.criteriaHash,
-    runHash: code.runHash, type: 'ai-preliminary', evaluationCost: { calls: 8, elapsedMs: 123 } };
+    runHash: code.runHash, type: 'ai-preliminary', evaluationCost: mockAiCost() };
   for (const kind of ['code', 'ai']) for (const field of ['schemaVersion', 'planId', 'criteriaHash', 'runHash', 'type']) {
     await writeFile(join(dir, 'code.json'), JSON.stringify(code));
     await writeFile(join(dir, 'ai.json'), JSON.stringify(ai));
@@ -206,6 +274,12 @@ test('real HTTP CLI locks model digest, records three methods and separate AI at
     await assert.rejects(main(['ai', '--dir', dir, '--model', 'fixture', '--endpoint', endpoint]), /이미 있습니다/);
     assert.equal(calls, 48);
     assert.equal((await read(join(dir, 'run.json'))).records.every((r) => r.state === 'completed'), true);
+    await finalFixture(dir);
+    await main(['report', '--dir', dir]);
+    const cost = await read(join(dir, 'evaluation-cost.json'));
+    assert.deepEqual(cost.ai, ai.evaluationCost);
+    assert.equal(cost.aiExecution.status, 'completed');
+    assert.equal(Object.keys(cost.aiExecution.ledgerHashes).length, 24);
   } finally { server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); }
 });
 

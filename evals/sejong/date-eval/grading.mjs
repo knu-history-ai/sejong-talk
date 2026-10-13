@@ -268,6 +268,7 @@ export async function aiGrade(plan, run, { judge, judgeConfig = {} } = {}) {
         const response = settlement.response;
         const wrapped = response && typeof response === 'object' && Object.hasOwn(response, 'answer');
         const raw = wrapped ? response.answer : response;
+        log.judgmentOutput = clone(raw);
         log.rawOutput = clone(wrapped ? (response.raw ?? raw) : raw);
         for (const f of ['inputTokens', 'outputTokens']) {
           log[f] = wrapped && Number.isInteger(response[f]) && response[f] >= 0 ? response[f] : null;
@@ -277,6 +278,7 @@ export async function aiGrade(plan, run, { judge, judgeConfig = {} } = {}) {
         Object.assign(item, judgment, { state: complete(judgment, gold) ? 'preliminary' : 'partial-failure' });
         log.state = item.state;
       } catch (error) {
+        if (error?.auditStorageFailure) throw error;
         log.state = 'grading-failure'; log.error = String(error?.message ?? error);
         if (error?.raw !== undefined) log.rawOutput = clone(error.raw);
         for (const f of ['inputTokens', 'outputTokens']) {
@@ -472,6 +474,28 @@ export function validateJudge(plan, run, ai, final, { calibrationGroups = [], va
       continue;
     }
     assert(['preliminary', 'partial-failure', 'grading-failure'].includes(a.state), 'invalid AI grading state');
+    assert(Array.isArray(a.attempts) && a.attempts.length > 0
+      && a.attempts.length <= ai.judgeConfig.retries + 1, 'AI attempt audit missing/invalid');
+    assert(a.attempts.every((attempt, i) => attempt.attempt === i + 1
+      && (i === a.attempts.length - 1 || attempt.state === 'grading-failure')), 'AI retry audit mismatch');
+    const last = a.attempts.at(-1);
+    assert(last.state === a.state, 'AI state differs from last attempt');
+    if (a.state === 'grading-failure') {
+      assert(a.date === null && a.evidence === null && a.events.every(event =>
+        ['date', ...FLAGS].every(field => event[field] === null)), 'AI failed attempt contains scores');
+    } else {
+      const decode = value => {
+        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
+        return typeof parsed?.response === 'string' ? JSON.parse(parsed.response) : parsed;
+      };
+      const output = decode(last.rawOutput);
+      if (last.judgmentOutput !== undefined) assert(hash(decode(last.judgmentOutput)) === hash(output),
+        'AI judgment copy differs from transport raw output');
+      const reproduced = normalizeJudgment(output, gold, false, a.rawInput);
+      const stored = Object.fromEntries(Object.keys(reproduced).map(key => [key, a[key]]));
+      assert(hash(reproduced) === hash(stored), 'AI judgment differs from preserved raw output');
+      assert(a.state === (complete(reproduced, gold) ? 'preliminary' : 'partial-failure'), 'AI interpreted state mismatch');
+    }
     assert(hash(a.rawInput) === hash({ instructions: ai.prompt, ...restrictedInput(plan, record) }), 'AI input provenance mismatch');
     assert(h.state === 'final', 'pending human review prevents judge validation');
     const human = normalizeJudgment(h, gold, true);

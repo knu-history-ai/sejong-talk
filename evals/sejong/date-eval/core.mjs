@@ -39,6 +39,7 @@ export function validatePlan(plan) {
   unique(plan.slots.map((s) => s.id), '실행 자리');
   assert(plan.dataset.cases.length > 0 && plan.config.methods.length > 0, '빈 계획');
   for (const c of plan.dataset.cases) {
+    assert(Array.isArray(c.targets) && c.targets.length > 0, `${c.id}: 대상 사건이 없습니다`);
     assert(c.sourceText && c.question && c.articleId && c.groupId, `${c.id}: 자료/질문/그룹 누락`);
     const key = plan.gold.cases.find((g) => g.id === c.id);
     assert(key && key.events.length === c.targets.length, `${c.id}: 정답 사건 수 불일치`);
@@ -102,4 +103,25 @@ export function makePlan(dataset, gold, config) {
       methodId: m.id, caseId: c.id, repeat: i + 1,
     }))));
   return validatePlan(plan);
+}
+
+/** Imported or status-confirmed runs must retain actual requests, not just copied plan hashes. */
+export function validateRecordedInputs(plan, run) {
+  for (const record of run.records) {
+    if (record.state === 'unexecuted') continue;
+    const c = plan.dataset.cases.find(c => c.id === record.caseId);
+    assert(Array.isArray(record.rawInput) && record.rawInput.length > 0, '실제로 보낸 전체 자료·질문이 없습니다');
+    if (record.methodId === 'rule-baseline') {
+      assert(record.rawInput.length === 1 && record.rawInput[0].sourceText === c.sourceText
+        && record.rawInput[0].question === c.question && hash(record.rawInput[0].targets) === hash(c.targets), '규칙 입력 자료·질문·대상 불일치');
+    } else {
+      const requests = [...record.rawInput, ...(record.attempts ?? []).map(attempt => attempt.request)];
+      for (const request of requests) {
+        assert(request?.model === plan.config.model && hash(request.options) === hash(plan.config.options), '실제 요청 모델·옵션이 고정 계획과 다릅니다');
+        assert(typeof request.prompt === 'string' && request.prompt.includes(c.sourceText)
+          && request.prompt.includes(c.question), '실제로 보낸 전체 자료·질문이 없습니다');
+      }
+    }
+  }
+  return run;
 }

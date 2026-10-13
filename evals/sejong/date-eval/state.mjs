@@ -1,4 +1,4 @@
-import { hash, assert, validateRun } from './core.mjs';
+import { hash, assert, validateRun, validateRecordedInputs } from './core.mjs';
 
 /** Execution-status inspection is not content grading. Preserve original data and audit. */
 export function resolveRunState(plan, original, decisions) {
@@ -18,5 +18,5 @@ export function resolveRunState(plan, original, decisions) {
     record.executionInspection = { ...d, beforeState: original.records.find((r) => r.id === d.recordId).state };
   }
   run.stateResolution = { sourceRunHash: hash(original), decisions: structuredClone(decisions) };
-  return validateRun(plan, run);
+  return validateRecordedInputs(plan, validateRun(plan, run));
 }

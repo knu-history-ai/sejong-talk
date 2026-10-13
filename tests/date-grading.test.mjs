@@ -45,6 +45,36 @@ function reviewSetup(plan, run) {
   return { bundle, reviews };
 }
 
+test('AI validation reconstructs first interpretable scores from the preserved output', async () => {
+  const { plan, run } = fixture(['B01'], ['strong']);
+  const ai = await aiGrade(plan, run, { judge: input => aiJudgment(input, 0, 0) });
+  const { bundle, reviews } = reviewSetup(plan, run), final = finalizeReviews(plan, run, bundle, reviews);
+  assert.equal(validateJudge(plan, run, ai, final).metrics.date.matched, 0);
+  const changed = structuredClone(ai);
+  changed.items[0].date = 1; changed.items[0].evidence = 1; changed.items[0].events[0].date = 1;
+  assert.throws(() => validateJudge(plan, run, changed, final), /preserved raw output/);
+  const legacy = structuredClone(ai); delete legacy.items[0].attempts[0].judgmentOutput;
+  assert.deepEqual(validateJudge(plan, run, legacy, final).metrics, validateJudge(plan, run, ai, final).metrics);
+  const http = await aiGrade(plan, run, { judge: input => {
+    const j = aiJudgment(input, 0, 0);
+    return { answer: JSON.stringify(j), raw: JSON.stringify({ done: true, response: JSON.stringify(j) }) };
+  } });
+  assert.equal(validateJudge(plan, run, http, final).metrics.date.matched, 0);
+  const copiesChanged = structuredClone(http), item = copiesChanged.items[0];
+  item.date = 1; item.evidence = 1; item.events[0].date = 1;
+  const copy = JSON.parse(item.attempts[0].judgmentOutput); copy.date = 1; copy.evidence = 1; copy.events[0].date = 1;
+  item.attempts[0].judgmentOutput = JSON.stringify(copy);
+  assert.throws(() => validateJudge(plan, run, copiesChanged, final), /transport raw output/);
+});
+
+test('AI audit storage failure stops immediately without converting it to a grading retry', async () => {
+  const { plan, run } = fixture(['B01'], ['strong']); let calls = 0;
+  await assert.rejects(aiGrade(plan, run, { judgeConfig: { retries: 2 }, judge: () => {
+    calls++; const error = new Error('audit storage failed'); error.auditStorageFailure = true; throw error;
+  } }), /audit storage/);
+  assert.equal(calls, 1);
+});
+
 test('pilot gold snapshot preserves unknown days, allowed omissions and exact source quotes', () => {
   assert.deepEqual(pilot.gold.cases.map(c => c.events.map(e => e.expected.day)),
     [[null], [null], [30], [null], [null], [15], [15], [null, 15]]);
