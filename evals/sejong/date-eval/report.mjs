@@ -224,6 +224,7 @@ export function buildReport(plan, run, final) {
     datasetHash: plan.datasetHash, goldHash: plan.goldHash, criteriaHash: plan.criteriaHash,
     configHash: plan.configHash, runHash: final.runHash, finalHash: hash(final),
     datasetVersion: plan.dataset.version, criteriaVersion: plan.gold.criteriaVersion,
+    datasetSnapshot: structuredClone(plan.dataset),
     reviewStatus: plan.gold.reviewStatus,
     pilot: plan.dataset.split !== 'final' || plan.gold.reviewStatus !== 'approved',
     datasetEligible: plan.dataset.split === 'final' && plan.gold.reviewStatus === 'approved',
@@ -268,6 +269,12 @@ function validateReport(report) {
   assert(report?.schemaVersion === 1 && report.type === 'date-evaluation-report', 'unsupported report version');
   assert(Array.isArray(report.unresolved) && report.unresolved.length === 0, 'unresolved report');
   assert(hash(report.config) === report.configHash, 'report config hash mismatch');
+  assert(report.datasetSnapshot && hash(report.datasetSnapshot) === report.datasetHash,
+    'incompatible dataset snapshot; regenerate older reports from original records');
+  assert(report.datasetSnapshot.version === report.datasetVersion, 'incompatible dataset version');
+  const cases = unique(report.datasetSnapshot.cases, 'id', 'frozen question');
+  assert(cases.size > 0 && Number.isInteger(report.config.repeats) && report.config.repeats > 0,
+    'invalid fixed population');
   const methods = unique(report.methods, 'id', 'report method');
   const definitions = unique(report.config.methods, 'id', 'configured method');
   assert(methods.size === definitions.size, 'report method population mismatch');
@@ -278,13 +285,36 @@ function validateReport(report) {
     'report method version/code hash mismatch');
   }
   const keys = new Set();
+  const expected = new Set();
+  for (const method of methods.values()) for (const question of cases.values()) {
+    for (let repeat = 1; repeat <= report.config.repeats; repeat++) {
+      expected.add(JSON.stringify([question.id, repeat, method.id]));
+    }
+  }
   for (const entry of report.entries) {
     const key = JSON.stringify([entry.caseId, entry.repeat, entry.methodId]);
     assert(!keys.has(key), 'duplicate report population');
     keys.add(key);
+    const question = cases.get(entry.caseId);
+    assert(expected.has(key) && question && entry.articleId === question.articleId && entry.kind === question.kind,
+      'different fixed question/repeat/method population');
     assert(methods.has(entry.methodId), 'unknown report method');
     assert(['completed', 'failed'].includes(entry.state) && [0, 1].includes(entry.date), 'unresolved report entry');
     assert(entry.state !== 'failed' || entry.date === 0, 'failed report entry must score zero');
+  }
+  assert(keys.size === expected.size && [...expected].every(key => keys.has(key)),
+    'missing fixed question/repeat/method population');
+  for (const method of methods.values()) {
+    const rows = report.entries.filter(entry => entry.methodId === method.id);
+    for (const [name, selected] of [
+      ['core', rows.filter(entry => entry.kind === 'event')],
+      ['control', rows.filter(entry => entry.kind === 'control')],
+      ['operational', rows],
+    ]) {
+      assert(hash(method[name]) === hash(aggregate(selected)), 'report aggregate differs from fixed population');
+    }
+    assert(hash(method.primary) === hash(articleWeighted(rows.filter(entry => entry.kind === 'event'))),
+      'article weighting differs from fixed population');
   }
 }
 export function compareReports(left, right) {

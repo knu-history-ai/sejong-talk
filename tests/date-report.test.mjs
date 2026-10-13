@@ -358,3 +358,35 @@ test('within-report comparison supports methods with stable version and optional
   tampered.methods[0].codeHash = 'changed';
   assert.throws(() => compareReports(r, tampered), /method version\/code hash/);
 });
+
+test('both reports losing the same question, repeat or whole method cannot shrink the frozen denominator', () => {
+  for (const remove of [
+    entry => entry.caseId === 'q1',
+    entry => entry.repeat === 2,
+    entry => entry.methodId === 'b',
+  ]) {
+    const broken = report(fixture({ core: 4, controls: 1, repeats: 2, methods: ['a', 'b'] }));
+    broken.entries = broken.entries.filter(entry => !remove(entry));
+    assert.throws(() => compareReports(broken, structuredClone(broken)), /fixed.*population/);
+  }
+});
+
+test('comparison binds the original dataset and recomputes fixed aggregates, not just matching two files', () => {
+  const valid = report(fixture());
+  for (const mutate of [
+    r => { r.entries[0].caseId = 'not-planned'; },
+    r => { r.entries[0].repeat = 100; },
+    r => { r.entries[0].articleId = 'other-article'; },
+    r => { r.entries[0].kind = 'control'; },
+    r => { r.entries.push(structuredClone(r.entries[0])); },
+    r => { r.methods[0].core.accuracy.value = 0; },
+    r => { r.entries[0].date = 0; },
+    r => { r.datasetSnapshot.cases.pop(); },
+    r => { delete r.datasetSnapshot; },
+  ]) {
+    const broken = structuredClone(valid);
+    mutate(broken);
+    assert.throws(() => compareReports(broken, structuredClone(broken)));
+  }
+  assert.equal(compareReports(valid, valid).comparisons[0].core.total, 4);
+});

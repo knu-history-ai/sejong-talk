@@ -116,11 +116,40 @@ export async function main(args = process.argv.slice(2)) {
     assert(!progress || progress.planId === plan.id, '다른 계획의 진행 기록');
     assert(!progress?.inFlight, '실행 중 끊긴 호출이 있습니다. 같은 자리를 자동 재실행하지 않습니다. 담당자가 실제 상태·비용을 확인한 뒤 새 계획 또는 기록을 확정하세요');
     const records = progress?.records ?? [];
+    let files = [];
+    try { files = await readdir(join(dir, 'generation-calls')); } catch (e) { if (e.code !== 'ENOENT') throw e; }
+    const callIds = files.filter(f => /^\d+\.json$/.test(f)).map(f => Number(f.slice(0, -5)));
+    assert(!callIds.length || progress, '기존 호출 기록은 있지만 진행 기록이 없습니다. 확인 전 재실행하지 않습니다');
+    let callId = Math.max(0, ...callIds);
     let active = null;
-    const generate = async (request, config) => {
-      await checkpoint(progressPath, { planId: plan.id, records, inFlight: { request, startedAt: new Date().toISOString() } });
+    async function persist(write) {
+      try { return await write(); } catch (error) {
+        error.auditStorageFailure = true;
+        error.message = '호출 기록 저장 실패. 자동 재시도를 중단합니다: ' + error.message;
+        throw error;
+      }
+    }
+    const generate = async (request, config, context) => {
+      const id = ++callId;
+      const file = join('generation-calls', String(id).padStart(4, '0') + '.json');
+      const path = join(dir, file);
+      const entry = { schemaVersion: 1, planId: plan.id, callId: id, context, request,
+        startedAt: new Date().toISOString(), state: 'in-flight' };
+      await persist(() => save(path, entry));
+      await persist(() => checkpoint(progressPath, { planId: plan.id, records,
+        inFlight: { request, callFile: file, context, startedAt: entry.startedAt } }));
       active = request;
-      return ollamaGenerate(request, config);
+      let result;
+      try { result = await ollamaGenerate(request, config); }
+      catch (error) {
+        await persist(() => checkpoint(path, { ...entry, state: 'failed', endedAt: new Date().toISOString(),
+          error: error.message, type: error.type ?? 'call-failure', raw: error.raw ?? null,
+          inputTokens: error.inputTokens ?? null, outputTokens: error.outputTokens ?? null,
+          elapsedMs: error.elapsedMs ?? null }));
+        throw error;
+      }
+      await persist(() => checkpoint(path, { ...entry, state: 'completed', endedAt: new Date().toISOString(), result }));
+      return result;
     };
     const result = await runPlan(plan, { existingRecords: records, generate,
       onRecord: async (record) => {

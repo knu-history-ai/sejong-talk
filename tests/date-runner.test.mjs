@@ -62,6 +62,20 @@ test('month rule does not erase explicit start/end day; fresh independent questi
 test('local provider rejects external endpoints', () => {
   assert.throws(() => localEndpoint('https://api.example.com'), /로컬/);
 });
+
+test('audit storage failure stops generation without pretending it was a model failure or retrying', async () => {
+  const p = await plan(['prompt-baseline'], 3);
+  let calls = 0, terminalRecords = 0;
+  await assert.rejects(runPlan(p, {
+    generate: async () => {
+      calls++;
+      throw Object.assign(new Error('audit cannot persist'), { auditStorageFailure: true });
+    },
+    onRecord: async () => { terminalRecords++; },
+  }), /audit cannot persist/);
+  assert.equal(calls, 1);
+  assert.equal(terminalRecords, 0);
+});
 test('actual HTTP transport records raw output, timeout priority and malformed/empty/nonterminal failures', async () => {
   const server = createServer((req, res) => {
     let input = '';
