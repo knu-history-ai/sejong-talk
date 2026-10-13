@@ -14,6 +14,44 @@ async function save(path, value) {
   await mkdir(resolve(path, '..'), { recursive: true });
   await writeFile(path, JSON.stringify(value, null, 2) + '\n', { flag: 'wx' });
 }
+async function prepareOperatorBundle(dir) {
+  const modules = ['core.mjs', 'runner.mjs', 'pilot.mjs', 'grading.mjs', 'report.mjs', 'state.mjs', 'costs.mjs', 'cli.mjs'];
+  await mkdir(join(dir, 'execution-code'), { recursive: true });
+  for (const name of modules) {
+    await writeFile(join(dir, 'execution-code', name), await readFile(new URL(name, import.meta.url)), { flag: 'wx' });
+  }
+  // The entry point locates the transferred folder from its own URL, never a sender's path.
+  const launcher = `import { fileURLToPath } from 'node:url';
+import { main } from './execution-code/cli.mjs';
+if (Number(process.versions.node.split('.')[0]) !== 24) {
+  console.error('Node.js 24가 필요합니다. 설치·설정 담당자에게 오류를 전달하세요.');
+  process.exitCode = 1;
+} else if (process.argv.length !== 2) {
+  console.error('추가 설정 없이 안내된 명령만 실행하세요.');
+  process.exitCode = 1;
+} else {
+  main(['run', '--dir', fileURLToPath(new URL('.', import.meta.url))]).catch(error => {
+    console.error(error.message);
+    process.exitCode = 1;
+  });
+}
+`;
+  await writeFile(join(dir, 'run-evaluation.mjs'), launcher, { flag: 'wx' });
+  await writeFile(join(dir, '실행안내.md'), `# 유진님 실행 안내
+
+Node.js 24와 담당자가 지정한 Ollama 모델은 미리 준비되어 있어야 합니다.
+이 폴더에서 터미널을 열고 아래 명령을 그대로 실행하세요. 폴더 이름이나 위치가 바뀌어도 명령은 같습니다.
+
+\x60\x60\x60sh
+node "./run-evaluation.mjs"
+\x60\x60\x60
+
+이 명령은 답변 생성·원문/환경/오류 기록만 수행합니다. 내용 채점은 하지 않습니다.
+완료 후 이 폴더 전체를 담당자에게 전달하세요. 기록을 수정하거나 삭제하지 마세요.
+오류가 나거나 실행이 중단되면 같은 폴더와 터미널 오류를 그대로 전달하세요. 미확인 호출을 임의로 재실행하지 마세요.
+설치·설정·상태 확인·채점·집계는 담당자가 진행합니다.
+`, { flag: 'wx' });
+}
 async function checkpoint(path, value) {
   const temporary = path + '.tmp';
   await writeFile(temporary, JSON.stringify(value, null, 2) + '\n');
@@ -94,11 +132,14 @@ export async function main(args = process.argv.slice(2)) {
     config.methods.forEach((m) => { m.codeHash = codeHash; });
     const plan = makePlan(dataset, gold, config);
     await save(join(dir, 'plan.json'), plan);
+    await prepareOperatorBundle(dir);
     await save(join(dir, 'operator.json'), {
       planId: plan.id, slots: plan.slots.length, model: config.model, dataset: dataset.version,
       split: dataset.split, goldReviewStatus: gold.reviewStatus,
       role: '유진: run 명령 실행·원문/환경/오류 기록·앱 동작 확인만. 자료·정답·채점 칸을 편집하지 않음.',
-      generationOnly: true, next: 'npm run eval:date -- run --dir ' + dir,
+      generationOnly: true, next: 'node "./run-evaluation.mjs"',
+      workingDirectory: '전달받은 이 평가 폴더에서 터미널을 여세요. 위치·이름이 바뀌어도 명령은 같습니다.',
+      handoff: '완료·오류·중단 모두 이 폴더 전체와 터미널 오류를 담당자에게 전달. 채점·기록 수정·설정 변경은 하지 않음.',
     });
     console.log(`계획 고정: ${plan.slots.length}회 / ${dataset.split} / 정답 검토 ${gold.reviewStatus}. 유진님은 run만 실행하세요.`);
     return;
