@@ -146,15 +146,15 @@ test("date source drafts stay out of prompts until they are approved", async () 
 
   const hunminFacts = selectReviewedFactsForQuestion(
     knowledgeBase,
-    "훈민정음은 12월 30일에 만든 게 맞아요?",
+    "그러면 훈민정음을 정확히 12월 30일에 만든 것이 맞나요?",
   );
   assert.ok(hunminFacts.every((fact) => !fact.id.startsWith("sejong_date_")));
   assert.deepEqual(
-    selectReviewedFactsForQuestion(knowledgeBase, "치평요람은 3월 30일에 완성됐어요?"),
+    selectReviewedFactsForQuestion(knowledgeBase, "치평요람은 정확히 몇 월 며칠에 완성되었나요?"),
     [],
   );
   assert.deepEqual(
-    selectReviewedFactsForQuestion(knowledgeBase, "의주 읍성터 공사는 언제 시작하고 끝났어요?"),
+    selectReviewedFactsForQuestion(knowledgeBase, "정이한 파견과 공사 시작이 모두 1월 28일에 일어났나요? 각각 알려주세요."),
     [],
   );
 
@@ -169,21 +169,21 @@ test("date source drafts stay out of prompts until they are approved", async () 
 
   const uijuFacts = selectReviewedFactsForQuestion(
     approvedKnowledgeBase,
-    "의주 읍성터 공사는 언제 시작하고 끝났어요?",
+    "정이한 파견과 공사 시작이 모두 1월 28일에 일어났나요? 각각 알려주세요.",
   ).map((fact) => fact.id);
 
+  assert.ok(uijuFacts.includes("sejong_date_uiju_dispatch_month"));
   assert.ok(uijuFacts.includes("sejong_date_uiju_construction_start"));
-  assert.ok(uijuFacts.includes("sejong_date_uiju_construction_end"));
 
   const promptInput = buildSejongPromptInput({
     knowledgeBase,
     request: {
       requestId: "turn_date_pending",
-      text: "훈민정음을 만든 날이 12월 30일 맞아요?",
+      text: "그러면 훈민정음을 정확히 12월 30일에 만든 것이 맞나요?",
     },
     reviewedFacts: selectReviewedFactsForQuestion(
       knowledgeBase,
-      "훈민정음을 만든 날이 12월 30일 맞아요?",
+      "그러면 훈민정음을 정확히 12월 30일에 만든 것이 맞나요?",
     ),
   });
   const prompt = buildSejongAnswerPrompt(promptInput);
