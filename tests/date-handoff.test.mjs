@@ -16,7 +16,9 @@ async function copyPaste(dir) {
   const windows = process.platform === 'win32';
   const pathKey = Object.keys(process.env).find(key => key.toUpperCase() === 'PATH') ?? 'PATH';
   const child = spawn(windows ? (process.env.ComSpec ?? 'cmd.exe') : '/bin/sh',
-    windows ? ['/d', '/s', '/c', next] : ['-c', next], { cwd: dir,
+    // cmd.exe /s strips the outer pair; keep the operator command's inner quotes literal.
+    windows ? ['/d', '/s', '/c', `"${next}"`] : ['-c', next], { cwd: dir,
+      windowsVerbatimArguments: windows,
       env: { ...process.env, [pathKey]: dirname(process.execPath) + delimiter + (process.env[pathKey] ?? '') } });
   let stdout = '', stderr = '';
   child.stdout.on('data', data => { stdout += data; }); child.stderr.on('data', data => { stderr += data; });
