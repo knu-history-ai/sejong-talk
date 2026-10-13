@@ -298,6 +298,7 @@ test('real HTTP CLI locks model digest, records three methods and separate AI at
     req.on('end', () => {
       calls++;
       const input = JSON.parse(raw);
+      assert.equal(input.think, false);
       const c = dataset.cases.find((c) => input.prompt.includes(c.question));
       const answer = input.prompt.startsWith('{"instructions"') ? JSON.stringify({ date: 1, reason: 'missing proofs: intentionally invalid AI fixture' })
         : c ? ruleAnswer(c) : '준비';
@@ -321,6 +322,7 @@ test('real HTTP CLI locks model digest, records three methods and separate AI at
     const logs = await readdir(join(dir, 'generation-calls'));
     assert.equal(logs.filter(f => f.endsWith('.json')).length, 24);
     const firstCall = await read(join(dir, 'generation-calls', '0001.json'));
+    assert.equal(firstCall.request.think, false);
     assert.equal(firstCall.state, 'completed');
     assert.equal(firstCall.result.inputTokens, 12);
     assert.equal(firstCall.result.outputTokens, 9);
@@ -329,6 +331,8 @@ test('real HTTP CLI locks model digest, records three methods and separate AI at
     await main(['ai', '--dir', dir, '--model', 'fixture', '--endpoint', endpoint]);
     assert.equal(calls, 48);
     const ai = await read(join(dir, 'ai.json'));
+    assert.equal((await read(join(dir, 'ai-start.json'))).judgeConfig.think, false);
+    assert.equal((await read(join(dir, 'ai-calls/0001.json'))).request.think, false);
     assert.equal(ai.items.every((i) => i.state === 'partial-failure' && i.date === null), true);
     assert.equal(ai.evaluationCost.calls, 24);
     assert.equal((await read(join(dir, 'ai-calls/0001.json'))).state, 'completed');

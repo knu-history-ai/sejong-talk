@@ -33,6 +33,7 @@ export function validatePlan(plan) {
   assert(Number.isInteger(plan.config.retries) && plan.config.retries >= 0 && plan.config.retries <= 5, '재시도 횟수는 0~5회');
   assert(Number.isFinite(plan.config.timeoutMs) && plan.config.timeoutMs > 0 && plan.config.timeoutMs <= 2147483647, '시간 제한 오류');
   assert(typeof plan.config.model === 'string' && plan.config.model.length > 0, '모델 누락');
+  if (Object.hasOwn(plan.config, 'think')) assert(typeof plan.config.think === 'boolean', 'thinking 설정은 boolean이어야 합니다');
   unique(plan.dataset.cases.map((c) => c.id), '질문');
   unique(plan.gold.cases.map((c) => c.id), '정답');
   unique(plan.config.methods.map((m) => m.id), '방법');
@@ -92,6 +93,7 @@ export function validateRun(plan, run) {
   return run;
 }
 export function makePlan(dataset, gold, config) {
+  config = { think: false, ...config };
   const datasetHash = hash(dataset);
   const goldHash = hash(gold);
   const configHash = hash(config);
@@ -118,6 +120,7 @@ export function validateRecordedInputs(plan, run) {
       const requests = [...record.rawInput, ...(record.attempts ?? []).map(attempt => attempt.request)];
       for (const request of requests) {
         assert(request?.model === plan.config.model && hash(request.options) === hash(plan.config.options), '실제 요청 모델·옵션이 고정 계획과 다릅니다');
+        if (Object.hasOwn(plan.config, 'think')) assert(request.think === plan.config.think, '실제 요청 thinking 설정이 고정 계획과 다릅니다');
         assert(typeof request.prompt === 'string' && request.prompt.includes(c.sourceText)
           && request.prompt.includes(c.question), '실제로 보낸 전체 자료·질문이 없습니다');
       }

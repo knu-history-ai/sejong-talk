@@ -123,7 +123,7 @@ export async function main(args = process.argv.slice(2)) {
     const methods = (typeof flags.methods === 'string' ? flags.methods : 'prompt-baseline,rule-baseline,evidence-first').split(',');
     assert(methods.every((id) => ['prompt-baseline','rule-baseline','evidence-first'].includes(id)), '방법 ID 오류');
     const config = {
-      model: requireFlag(flags, 'model'), endpoint: localEndpoint(flags.endpoint),
+      model: requireFlag(flags, 'model'), endpoint: localEndpoint(flags.endpoint), think: false,
       options: flags.options ? await read(flags.options) : { temperature: 0, seed: 62, num_ctx: 8192, num_predict: 1024 },
       timeoutMs: Number(flags.timeout ?? 120000), retries: Number(flags.retries ?? 0),
       repeats: Number(flags.repeats ?? 1), seed: Number(flags.seed ?? 62), runOrder: 'seeded',
@@ -226,7 +226,7 @@ export async function main(args = process.argv.slice(2)) {
     assert(!(await maybe(join(dir, 'ai.json'))), 'AI 원본이 이미 있습니다. 다시 호출하지 않습니다. 새 채점 버전은 별도 실행 폴더를 준비하세요');
     assert(!(await maybe(join(dir, 'ai-start.json'))), 'AI 실행을 시작한 기록이 있습니다. 중단된 호출·비용을 확인한 뒤 새 채점 폴더를 준비하세요');
     const model = requireFlag(flags, 'model');
-    const judgeConfig = { model, endpoint: localEndpoint(flags.endpoint), options: { temperature: 0, seed: 62, num_ctx: 16384, num_predict: 4096 }, timeoutMs: Number(flags.timeout ?? 120000), retries: Number(flags.retries ?? 0), codeHash: hash(await readFile(new URL('grading.mjs', import.meta.url), 'utf8')) };
+    const judgeConfig = { model, endpoint: localEndpoint(flags.endpoint), think: false, options: { temperature: 0, seed: 62, num_ctx: 16384, num_predict: 4096 }, timeoutMs: Number(flags.timeout ?? 120000), retries: Number(flags.retries ?? 0), codeHash: hash(await readFile(new URL('grading.mjs', import.meta.url), 'utf8')) };
     assert(Number.isFinite(judgeConfig.timeoutMs) && judgeConfig.timeoutMs > 0 && judgeConfig.timeoutMs <= 2147483647, 'invalid judge timeoutMs');
     assert(Number.isInteger(judgeConfig.retries) && judgeConfig.retries >= 0 && judgeConfig.retries <= 5, 'invalid judge retries');
     judgeConfig.modelIdentity = await modelIdentity(model, judgeConfig.endpoint);
@@ -239,7 +239,7 @@ export async function main(args = process.argv.slice(2)) {
     let call = 0;
     const ai = await aiGrade(plan, run, { judgeConfig, judge: async (input, { judgeConfig, signal }) => {
       const id = ++call, path = join(dir, 'ai-calls', String(id).padStart(4, '0') + '.json');
-      const request = { model: judgeConfig.model, options: judgeConfig.options, stage: 'judge', prompt: JSON.stringify(input) };
+      const request = { model: judgeConfig.model, options: judgeConfig.options, think: judgeConfig.think, stage: 'judge', prompt: JSON.stringify(input) };
       const entry = { planId: plan.id, runHash: hash(run), startHash: hash(start),
         request, startedAt: new Date().toISOString(), state: 'in-flight' };
       await persistAi(() => save(path, entry));

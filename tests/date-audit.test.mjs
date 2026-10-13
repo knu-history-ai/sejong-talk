@@ -31,13 +31,13 @@ test('mistyped, duplicated and valueless experiment flags fail instead of silent
 test('actual import rejects model/option mismatches in raw inputs and individual attempts', async () => {
   const { plan, run } = await fixture();
   assert.equal(validateRecordedInputs(plan, run), run);
-  for (const location of ['rawInput', 'attempts']) for (const field of ['model', 'options']) {
+  for (const location of ['rawInput', 'attempts']) for (const field of ['model', 'options', 'think']) {
     const bad = structuredClone(run);
     const request = location === 'rawInput' ? bad.records[0].rawInput[0] : bad.records[0].attempts[0].request;
-    request[field] = field === 'model' ? 'different-model' : { temperature: 1 };
+    request[field] = field === 'model' ? 'different-model' : field === 'think' ? true : { temperature: 1 };
     const dir = await mkdtemp(join(tmpdir(), 'date-import-audit-')), file = join(dir, 'input.json');
     await writeFile(join(dir, 'plan.json'), JSON.stringify(plan)); await writeFile(file, JSON.stringify(bad));
-    await assert.rejects(main(['import-run', '--dir', dir, '--file', file]), /모델·옵션/);
+    await assert.rejects(main(['import-run', '--dir', dir, '--file', file]), field === 'think' ? /thinking/ : /모델·옵션/);
     await assert.rejects(readFile(join(dir, 'run.json')), { code: 'ENOENT' });
   }
 });

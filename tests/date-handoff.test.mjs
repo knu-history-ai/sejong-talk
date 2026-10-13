@@ -1,10 +1,11 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, mkdir, rename } from 'node:fs/promises';
+import { mkdtemp, readFile, mkdir, rename, cp } from 'node:fs/promises';
 import { join, dirname } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
+import { pathToFileURL } from 'node:url';
 import { main } from '../evals/sejong/date-eval/cli.mjs';
 import { ruleAnswer } from '../evals/sejong/date-eval/runner.mjs';
 import { loadPilot } from '../evals/sejong/date-eval/pilot.mjs';
@@ -79,5 +80,48 @@ test('transferred bundle runs all three methods through actual local HTTP and re
     assert.equal(ledger.state, 'completed'); assert.equal(ledger.result.inputTokens, 20);
     assert.equal((await read(join(moved, 'progress.json'))).inFlight, null);
     await assert.rejects(readFile(join(moved, 'final.json')), { code: 'ENOENT' });
+  } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
+});
+
+test('fixed pilot command prepares and records nonthinking Qwen calls without grading or overwriting', async () => {
+  const parent = await mkdtemp(join(tmpdir(), 'date-one-command-'));
+  const root = join(parent, '유진님 컴퓨터 공백 & 한글');
+  for (const relative of ['scripts/run-date-pilot.mjs', 'evals/sejong/date-questions.json',
+    'docs/date-pilot-v1/model-inputs.md', ...['cli','core','runner','pilot','grading','report','state','costs'].map(name => `evals/sejong/date-eval/${name}.mjs`)]) {
+    await mkdir(dirname(join(root, relative)), { recursive: true });
+    await cp(new URL('../' + relative, import.meta.url), join(root, relative));
+  }
+  const { runPilot } = await import(pathToFileURL(join(root, 'scripts/run-date-pilot.mjs')).href);
+  await assert.rejects(readFile(join(root, 'package.json')), { code: 'ENOENT' });
+  const seen = [];
+  let quantization = 'Q8_0';
+  const server = createServer((req, res) => {
+    if (req.url === '/api/tags') return res.end(JSON.stringify({ models: [{ name: 'qwen3.5:4b', digest: 'fixture-q4', details: { quantization_level: quantization } }] }));
+    let raw = ''; req.on('data', chunk => { raw += chunk; });
+    req.on('end', () => {
+      const request = JSON.parse(raw); seen.push(request);
+      // Reproduce the reported failure unless thinking is explicitly off at top level.
+      res.end(JSON.stringify({ done: true, done_reason: request.think === false ? 'stop' : 'length',
+        response: request.think === false ? '모의 완료 답변' : '', prompt_eval_count: 20, eval_count: 7 }));
+    });
+  });
+  await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
+  try {
+    const endpoint = `http://127.0.0.1:${server.address().port}`;
+    const dir = join(root, 'evals/sejong/date-eval/results/yujin-pilot');
+    await assert.rejects(runPilot({ endpoint }), /Q4_K_M/);
+    await assert.rejects(readFile(join(dir, 'plan.json')), { code: 'ENOENT' });
+    assert.equal(seen.length, 0);
+    quantization = 'Q4_K_M';
+    await runPilot({ endpoint });
+    const plan = await read(join(dir, 'plan.json')), run = await read(join(dir, 'run.json'));
+    assert.equal(plan.config.think, false);
+    assert.equal(run.records.length, 24); assert.ok(run.records.every(r => r.state === 'completed'));
+    assert.equal(seen.length, 25); assert.ok(seen.every(r => r.think === false && !Object.hasOwn(r.options, 'think')));
+    assert.ok(run.records.flatMap(r => r.attempts).every(a => a.request.think === false));
+    const original = await readFile(join(dir, 'run.json'), 'utf8');
+    await assert.rejects(runPilot(), /기존 평가 폴더/);
+    assert.equal(await readFile(join(dir, 'run.json'), 'utf8'), original); assert.equal(seen.length, 25);
+    for (const file of ['code.json', 'ai.json', 'final.json', 'report.json']) await assert.rejects(readFile(join(dir, file)), { code: 'ENOENT' });
   } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });

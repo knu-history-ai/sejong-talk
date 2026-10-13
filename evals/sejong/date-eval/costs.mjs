@@ -45,6 +45,7 @@ export function interruptedAiCost(plan, run, start, entries) {
     assert(entry.startHash === hash(start), 'AI 호출 시작 기록 해시 누락/불일치');
     assert(entry.request?.model === start.judgeConfig?.model
       && hash(entry.request?.options) === hash(start.judgeConfig?.options), 'AI 호출 설정 불일치');
+    if (Object.hasOwn(start.judgeConfig ?? {}, 'think')) assert(entry.request?.think === start.judgeConfig.think, 'AI 호출 thinking 설정 불일치');
     const cost = entry.state === 'completed' ? entry.result : entry;
     if (entry.state === 'completed') assert(object(cost), '완료 AI 호출의 비용 기록 누락');
     for (const field of ['inputTokens', 'outputTokens']) optional(cost?.[field], `AI 호출 ${field}`, true);

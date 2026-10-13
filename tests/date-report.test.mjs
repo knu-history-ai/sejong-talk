@@ -23,7 +23,7 @@ function fixture({ core = 4, controls = 0, repeats = 1, methods = ['a'],
       eligibility: { unsupportedDay: true, missingKnownDay: false, headerConfusion: true },
       evidence: [{ quote: 'date', start: 2, end: 6 }],
     })) })) };
-  const conditions = { model: 'fixture-model', endpoint: 'fixture-endpoint', options: { temperature: 0 },
+  const conditions = { model: 'fixture-model', endpoint: 'fixture-endpoint', options: { temperature: 0 }, think: false,
     timeoutMs: 30000, retries: 0, methods: methods.map(id => ({ id, version: 'v1' })),
     repeats, seed: 1, runOrder: 'seeded', warmup: 0, ...config };
   const goldHash = hash(gold);
@@ -252,7 +252,7 @@ test('comparison rejects full data, gold, criteria and execution condition misma
     assert.throws(() => compareReports(left, right), /incompatible/);
   }
   for (const config of [{ model: 'other' }, { endpoint: 'other' }, { options: { temperature: 1 } },
-    { retries: 1 }, { timeoutMs: 1000 }, { seed: 2 }, { warmup: 1 }, { runOrder: 'reverse' }]) {
+    { retries: 1 }, { timeoutMs: 1000 }, { seed: 2 }, { warmup: 1 }, { runOrder: 'reverse' }, { think: true }]) {
     assert.throws(() => compareReports(left, report(fixture({ config }))), /incompatible/);
   }
   const missing = structuredClone(left);

@@ -5,7 +5,7 @@ import { bindCost, validateAiCost, interruptedAiCost, humanCost } from '../evals
 
 const plan = { id: 'plan', criteriaHash: 'criteria' }, run = { records: [] };
 const start = { planId: plan.id, criteriaHash: plan.criteriaHash, runHash: hash(run),
-  judgeConfig: { model: 'fixture', options: { temperature: 0 } } };
+  judgeConfig: { model: 'fixture', options: { temperature: 0 }, think: false } };
 const entry = (state, cost = {}) => ({ request: { ...start.judgeConfig }, runHash: hash(run),
   planId: plan.id, startHash: hash(start), state,
   ...(state === 'completed' ? { result: cost } : cost) });
@@ -55,6 +55,10 @@ test('interruption before first call or after last call does not fabricate wall 
 
 test('AI ledger provenance, state and damaged costs cannot enter partial totals', () => {
   const good = { file: '0001.json', entry: entry('completed', { inputTokens: 20, outputTokens: 7, elapsedMs: 100 }) };
+  for (const value of [true, undefined]) {
+    const bad = structuredClone(good); bad.entry.request.think = value;
+    assert.throws(() => interruptedAiCost(plan, run, start, [bad]), /thinking/);
+  }
   for (const field of ['runHash', 'planId', 'startHash', 'state']) {
     const bad = structuredClone(good); bad.entry[field] = 'wrong';
     assert.throws(() => interruptedAiCost(plan, run, start, [bad]));
