@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { mkdtemp, readFile, mkdir, rename, cp } from 'node:fs/promises';
-import { join, dirname } from 'node:path';
+import { join, dirname, delimiter } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
 import { createServer } from 'node:http';
@@ -13,8 +13,11 @@ import { loadPilot } from '../evals/sejong/date-eval/pilot.mjs';
 const read = async path => JSON.parse(await readFile(path, 'utf8'));
 async function copyPaste(dir) {
   const { next } = await read(join(dir, 'operator.json'));
-  const child = spawn('/bin/sh', ['-c', next], { cwd: dir,
-    env: { ...process.env, PATH: dirname(process.execPath) + ':' + process.env.PATH } });
+  const windows = process.platform === 'win32';
+  const pathKey = Object.keys(process.env).find(key => key.toUpperCase() === 'PATH') ?? 'PATH';
+  const child = spawn(windows ? (process.env.ComSpec ?? 'cmd.exe') : '/bin/sh',
+    windows ? ['/d', '/s', '/c', next] : ['-c', next], { cwd: dir,
+      env: { ...process.env, [pathKey]: dirname(process.execPath) + delimiter + (process.env[pathKey] ?? '') } });
   let stdout = '', stderr = '';
   child.stdout.on('data', data => { stdout += data; }); child.stderr.on('data', data => { stderr += data; });
   const code = await new Promise((resolve, reject) => { child.once('error', reject); child.once('exit', resolve); });
@@ -22,7 +25,9 @@ async function copyPaste(dir) {
 }
 async function moveBundle(source) {
   const recipient = await mkdtemp(join(tmpdir(), 'date-recipient-'));
-  const moved = join(recipient, '유진 컴퓨터', '평가 자료 $ & " 한글');
+  // Windows forbids double quotes in file names; retain valid shell metacharacters there.
+  const name = process.platform === 'win32' ? "평가 자료 $ & ' 한글" : '평가 자료 $ & " 한글';
+  const moved = join(recipient, '유진 컴퓨터', name);
   await mkdir(dirname(moved), { recursive: true });
   await rename(source, moved);
   return moved;

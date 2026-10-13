@@ -397,7 +397,7 @@ test('abrupt process termination during final answer preserves the completed ext
     assert.equal(second.context.stage, 'answer');
     assert.equal(second.context.recordId, first.context.recordId);
     const progress = await read(join(dir, 'progress.json'));
-    assert.equal(progress.inFlight.callFile, 'generation-calls/0002.json');
+    assert.equal(progress.inFlight.callFile, join('generation-calls', '0002.json'));
     assert.equal(progress.records.length, 0);
     await assert.rejects(main(['run', '--dir', dir]), /끊긴 호출/);
     assert.equal(calls, 2, 'unknown interrupted call must not be replayed');
