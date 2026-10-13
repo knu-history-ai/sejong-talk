@@ -16,6 +16,30 @@
     "checkedAt": "2026-10-04T00:00:00Z"
   },
   {
+    "id": "source_sillok_hunminjeongeum_creation_month",
+    "title": "훈민정음을 창제하다",
+    "institution": "국사편찬위원회 조선왕조실록",
+    "url": "https://sillok.history.go.kr/id/kda_12512030_002",
+    "locator": "세종실록102권, 세종 25년 12월 30일 경술 2/2 기사. 국역 첫 문장의 '이달에 임금이 친히 언문 28자를 지었는데' 부분. 기사 표제일과 본문의 '이달' 표현을 구분한다.",
+    "checkedAt": "2026-10-12T00:00:00+09:00"
+  },
+  {
+    "id": "source_sillok_chipyeongyoram_completion_month",
+    "title": "《치평요람》에 대한 우참찬 정인지 등의 전문",
+    "institution": "국사편찬위원회 조선왕조실록",
+    "url": "https://sillok.history.go.kr/id/kda_12703030_003",
+    "locator": "세종실록107권, 세종 27년 3월 30일 계묘 3/4 기사. 국역 첫 문장의 '이달에 《치평요람》이 이루어졌다' 부분. 기사 표제일 3월 30일을 완성일로 복사하지 않는다.",
+    "checkedAt": "2026-10-12T00:00:00+09:00"
+  },
+  {
+    "id": "source_sillok_uiju_fortress_expansion",
+    "title": "지병조사 정이한을 평안도에 보내 의주의 읍성터를 넓히게 하다",
+    "institution": "국사편찬위원회 조선왕조실록",
+    "url": "https://sillok.history.go.kr/id/kda_13001028_004",
+    "locator": "세종실록119권, 세종 30년 1월 28일 을묘 4/4 기사. 국역 첫 문장의 '이달에 지병조사 정이한을 평안도에 보내어'와 '2월 15일에 공사를 시작하여 3월 15일에 끝마치었다' 부분. 파견·공사 시작·공사 종료를 별개 사건으로 구분한다.",
+    "checkedAt": "2026-10-12T00:00:00+09:00"
+  },
+  {
     "id": "source_pending_story",
     "title": "검토 전 일화 메모",
     "institution": "팀 내부 메모",
