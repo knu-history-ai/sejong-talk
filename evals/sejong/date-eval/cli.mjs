@@ -1,8 +1,8 @@
 import { readFile, writeFile, mkdir, readdir, rename } from 'node:fs/promises';
 import { resolve, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hash, assert, makePlan, validatePlan, validateRun, validateRecordedInputs } from './core.mjs';
-import { loadPilot } from './pilot.mjs';
+import { hash, assert, makePlan, validatePlan, validateRun, validateRecordedInputs, executionPlan, validateExecutionPlan, validateExecutionRun } from './core.mjs';
+import { DERIVED_METHODS } from './postprocess.mjs';
 import { runPlan, ollamaGenerate, localEndpoint, METHOD_VERSION, modelIdentity } from './runner.mjs';
 import { codeGrade, aiGrade, createReviewPackets, finalizeReviews, validateJudge, validateFinalAudit } from './grading.mjs';
 import { buildReport, compareReports } from './report.mjs';
@@ -15,7 +15,7 @@ async function save(path, value) {
   await writeFile(path, JSON.stringify(value, null, 2) + '\n', { flag: 'wx' });
 }
 async function prepareOperatorBundle(dir) {
-  const modules = ['core.mjs', 'runner.mjs', 'pilot.mjs', 'grading.mjs', 'report.mjs', 'state.mjs', 'costs.mjs', 'cli.mjs'];
+  const modules = ['core.mjs', 'runner.mjs', 'postprocess.mjs', 'grading.mjs', 'report.mjs', 'state.mjs', 'costs.mjs', 'cli.mjs'];
   await mkdir(join(dir, 'execution-code'), { recursive: true });
   for (const name of modules) {
     await writeFile(join(dir, 'execution-code', name), await readFile(new URL(name, import.meta.url)), { flag: 'wx' });
@@ -60,14 +60,14 @@ async function checkpoint(path, value) {
 async function maybe(path) {
   try { return await read(path); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
 }
-async function implementationHash() {
-  return hash(await Promise.all(['core.mjs', 'runner.mjs', 'pilot.mjs'].map(async (name) => [name, await readFile(new URL(name, import.meta.url), 'utf8')])));
+export async function implementationHash() {
+  return hash(await Promise.all(['core.mjs', 'runner.mjs', 'postprocess.mjs', 'grading.mjs', 'report.mjs', 'state.mjs', 'costs.mjs', 'cli.mjs'].map(async (name) => [name, await readFile(new URL(name, import.meta.url), 'utf8')])));
 }
 function parse(args) {
   const [command, ...rest] = args, flags = {};
   const accepted = {
-    help: [], prepare: ['dir', 'model', 'methods', 'dataset', 'gold', 'options', 'endpoint', 'timeout', 'retries', 'repeats', 'seed', 'warmup'],
-    run: ['dir'], 'import-run': ['dir', 'file'], code: ['dir', 'run'],
+    help: [], prepare: ['dir', 'model', 'model-identity', 'methods', 'dataset', 'gold', 'options', 'endpoint', 'timeout', 'retries', 'repeats', 'seed', 'warmup'],
+    run: ['dir'], 'export-operator': ['dir', 'out'], 'import-run': ['dir', 'file'], code: ['dir', 'run'],
     ai: ['dir', 'run', 'model', 'endpoint', 'timeout', 'retries'], packets: ['dir', 'run'],
     'import-review': ['dir', 'run', 'file', 'reviewer'], finalize: ['dir', 'run', 'adjudications', 'out'],
     report: ['dir', 'run', 'final'], 'resolve-state': ['dir', 'run', 'file', 'out'],
@@ -116,12 +116,15 @@ export async function main(args = process.argv.slice(2)) {
   await mkdir(dir, { recursive: true });
   if (command === 'prepare') {
     assert(!(await maybe(join(dir, 'plan.json'))), '이미 준비된 계획은 덮어쓰지 않습니다. 새 폴더를 쓰세요');
-    const pilot = await loadPilot();
+    const { loadPilot } = await import('./pilot.mjs');
+    const pilot = flags.dataset ? null : await loadPilot();
     const dataset = flags.dataset ? await read(flags.dataset) : pilot.dataset;
     const gold = flags.gold ? await read(flags.gold) : pilot.gold;
     assert(Boolean(flags.dataset) === Boolean(flags.gold), '자료와 정답표는 함께 지정하세요');
+    assert(dataset.split !== 'final' || gold.reviewStatus === 'approved', '본실험은 원문·정답표 검수 승인 후 준비하세요');
     const methods = (typeof flags.methods === 'string' ? flags.methods : 'prompt-baseline,rule-baseline,evidence-first').split(',');
-    assert(methods.every((id) => ['prompt-baseline','rule-baseline','evidence-first'].includes(id)), '방법 ID 오류');
+    assert(methods.every((id) => ['prompt-baseline','rule-baseline','evidence-first', ...DERIVED_METHODS].includes(id)), '방법 ID 오류');
+    assert(!methods.some(id => DERIVED_METHODS.includes(id)) || methods.includes('prompt-baseline'), 'T·V는 같은 계획의 P가 필요합니다');
     const config = {
       model: requireFlag(flags, 'model'), endpoint: localEndpoint(flags.endpoint), think: false,
       options: flags.options ? await read(flags.options) : { temperature: 0, seed: 62, num_ctx: 8192, num_predict: 1024 },
@@ -131,7 +134,12 @@ export async function main(args = process.argv.slice(2)) {
       methods: methods.map((id) => ({ id, version: METHOD_VERSION, codeHash: null })),
     };
     const codeHash = await implementationHash();
-    config.modelIdentity = methods.some((m) => m !== 'rule-baseline') ? await modelIdentity(config.model, config.endpoint) : null;
+    config.modelIdentity = methods.some((m) => m !== 'rule-baseline')
+      ? flags['model-identity'] ? await read(flags['model-identity']) : await modelIdentity(config.model, config.endpoint) : null;
+    if (config.modelIdentity) {
+      assert(config.modelIdentity.name === config.model || config.modelIdentity.name === config.model + ':latest', '준비용 모델 이름이 지정 모델과 다릅니다');
+      assert(typeof config.modelIdentity.digest === 'string' && config.modelIdentity.digest.trim(), '모델 파일 식별 정보가 없습니다');
+    }
     config.methods.forEach((m) => { m.codeHash = codeHash; });
     const plan = makePlan(dataset, gold, config);
     await save(join(dir, 'plan.json'), plan);
@@ -147,7 +155,25 @@ export async function main(args = process.argv.slice(2)) {
     console.log(`계획 고정: ${plan.slots.length}회 / ${dataset.split} / 정답 검토 ${gold.reviewStatus}. 유진님은 run만 실행하세요.`);
     return;
   }
-  const plan = validatePlan(await read(join(dir, 'plan.json')));
+  const plan = (command === 'run' ? validateExecutionPlan : validatePlan)(await read(join(dir, 'plan.json')));
+  if (command === 'export-operator') {
+    assert(plan.dataset.split !== 'final' || plan.gold.reviewStatus === 'approved', '검수 전 본실험 자료는 전달할 수 없습니다');
+    const out = resolve(requireFlag(flags, 'out'));
+    assert(out !== dir, '담당자 폴더와 실행 폴더는 분리하세요');
+    assert(plan.config.methods.every(m => m.codeHash === plan.config.methods[0].codeHash)
+      && plan.config.methods[0].codeHash === await implementationHash(), '준비 후 코드가 바뀌었습니다. 새 계획으로 실행 폴더를 준비하세요');
+    let existing = [];
+    try { existing = await readdir(out); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    assert(existing.length === 0, '실행 폴더는 새 폴더 또는 빈 폴더여야 합니다. 기존 정답·결과와 섞지 않습니다');
+    await save(join(out, 'plan.json'), executionPlan(plan));
+    await prepareOperatorBundle(out);
+    await save(join(out, 'operator.json'), { planId: plan.id, slots: plan.slots.length, generationOnly: true,
+      next: 'node "./run-evaluation.mjs"', model: plan.config.model, split: plan.dataset.split,
+      role: '유진: 실행·원문/환경/오류 기록·폴더 전달만. 검수·채점·설정 변경 없음.',
+      answerKeyIncluded: false, privatePlanRequiredForGrading: true });
+    console.log('정답표를 제외한 실행 전용 폴더를 만들었습니다. 담당자용 원본 계획은 보관하세요.');
+    return;
+  }
   if (command === 'import-run') {
     const run = validateRun(plan, await read(requireFlag(flags, 'file')));
     validateRecordedInputs(plan, run);
@@ -172,6 +198,21 @@ export async function main(args = process.argv.slice(2)) {
     try { files = await readdir(join(dir, 'generation-calls')); } catch (e) { if (e.code !== 'ENOENT') throw e; }
     const callIds = files.filter(f => /^\d+\.json$/.test(f)).map(f => Number(f.slice(0, -5)));
     assert(!callIds.length || progress, '기존 호출 기록은 있지만 진행 기록이 없습니다. 확인 전 재실행하지 않습니다');
+    const previousWarmup = [];
+    for (const id of callIds.sort((a, b) => a - b)) {
+      const entry = await read(join(dir, 'generation-calls', String(id).padStart(4, '0') + '.json'));
+      assert(entry.planId === plan.id, '다른 계획의 호출 기록');
+      if (entry.context?.stage === 'warmup') {
+        assert(entry.state === 'completed' && entry.result, '이전 준비 호출 상태 확인이 필요합니다');
+        previousWarmup.push({ request: entry.request, result: entry.result });
+      }
+    }
+    // The CLI owns the durable, sequential call ledger. A nonempty array from
+    // an arbitrary API caller alone is not evidence that earlier calls exist.
+    const warmupHistoryComplete = progress?.warmupHistoryComplete
+      ?? (!plan.config.warmup || records.length === 0
+        || (previousWarmup.length > 0 && callIds.every((id, index) => id === index + 1)));
+    assert(typeof warmupHistoryComplete === 'boolean', '준비 호출 이력 상태 오류');
     let callId = Math.max(0, ...callIds);
     let active = null;
     async function persist(write) {
@@ -188,7 +229,7 @@ export async function main(args = process.argv.slice(2)) {
       const entry = { schemaVersion: 1, planId: plan.id, callId: id, context, request,
         startedAt: new Date().toISOString(), state: 'in-flight' };
       await persist(() => save(path, entry));
-      await persist(() => checkpoint(progressPath, { planId: plan.id, records,
+      await persist(() => checkpoint(progressPath, { planId: plan.id, records, warmupHistoryComplete,
         inFlight: { request, callFile: file, context, startedAt: entry.startedAt } }));
       active = request;
       let result;
@@ -203,14 +244,15 @@ export async function main(args = process.argv.slice(2)) {
       await persist(() => checkpoint(path, { ...entry, state: 'completed', endedAt: new Date().toISOString(), result }));
       return result;
     };
-    const result = await runPlan(plan, { existingRecords: records, generate,
+    const result = await runPlan(plan, { existingRecords: records, existingWarmup: previousWarmup,
+      existingWarmupHistoryComplete: warmupHistoryComplete, generate,
       onRecord: async (record) => {
         records.push(record); active = null;
-        await checkpoint(progressPath, { planId: plan.id, records, inFlight: null });
+        await checkpoint(progressPath, { planId: plan.id, records, warmupHistoryComplete, inFlight: null });
         console.log(`${records.length}/${plan.slots.length}: ${record.caseId} ${record.methodId} ${record.state}`);
       } });
     assert(!active, '확인되지 않은 실행 상태');
-    validateRun(plan, result);
+    validateExecutionRun(plan, result);
     await save(join(dir, 'run.json'), result);
     console.log('실행·원문 기록 완료. 채점은 담당자가 진행합니다. 진행 기록은 삭제하지 마세요.');
     return;

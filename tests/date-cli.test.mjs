@@ -29,6 +29,17 @@ async function offlineFixture() {
   await main(['run', '--dir', dir]);
   return dir;
 }
+test('CLI resume preserves an explicit partial warmup ledger instead of inferring completeness', async () => {
+  const dir = await mkdtemp(join(tmpdir(), 'date-warmup-resume-'));
+  await main(['prepare', '--dir', dir, '--model', 'fixture', '--methods', 'rule-baseline', '--warmup']);
+  await main(['run', '--dir', dir]);
+  await rename(join(dir, 'run.json'), join(dir, 'original-run.json'));
+  const progress = await read(join(dir, 'progress.json'));
+  await writeFile(join(dir, 'progress.json'), JSON.stringify({ ...progress, warmupHistoryComplete: false }));
+  await main(['run', '--dir', dir]);
+  assert.equal((await read(join(dir, 'run.json'))).warmupHistoryComplete, false);
+  assert.equal((await read(join(dir, 'progress.json'))).warmupHistoryComplete, false);
+});
 async function submit(dir, reviews, reviewer, runArgs = []) {
   const file = join(dir, 'submission.json');
   await writeFile(file, JSON.stringify(reviews));

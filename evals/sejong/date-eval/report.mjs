@@ -1,4 +1,5 @@
 import { assert, hash, validatePlan, validateRun } from './core.mjs';
+import { DERIVED_METHODS } from './postprocess.mjs';
 
 const FLAGS = ['unsupportedDay', 'missingKnownDay', 'headerConfusion'];
 const sum = values => values.reduce((a, b) => a + b, 0);
@@ -184,6 +185,18 @@ export function buildReport(plan, run, final) {
       inputTokens: record.inputTokens, outputTokens: record.outputTokens,
       attempts: structuredClone(record.attempts),
     });
+    if (DERIVED_METHODS.includes(record.methodId)) {
+      const parent = records.get(record.derivation.parentRecordId);
+      Object.assign(entries.at(-1), {
+        elapsedMs: parent.elapsedMs + record.elapsedMs, calls: parent.calls,
+        inputTokens: parent.inputTokens, outputTokens: parent.outputTokens,
+        attempts: structuredClone(parent.attempts),
+        sharedGeneration: { parentRecordId: parent.id, parentRecordHash: hash(parent),
+          incrementalElapsedMs: record.elapsedMs, physicalCalls: 0,
+          inspectionElapsedMs: sum((record.postprocessInspections ?? []).map(i => i.elapsedMs)),
+          source: 'same P generation plus measured deterministic postprocessing; not a fresh model call' },
+      });
+    }
   }
   assert(Number.isInteger(plan.config.repeats) && plan.config.repeats > 0, 'invalid repeats');
   assert(population.size === cases.size * methods.size * plan.config.repeats,
@@ -216,7 +229,8 @@ export function buildReport(plan, run, final) {
         totalItemElapsed: { sum: sum(rows.map(entry => entry.elapsedMs)),
           mean: average(rows.map(entry => entry.elapsedMs)), count: rows.length, includesFailures: true } },
       usage: { calls: sum(rows.map(entry => entry.calls)), inputTokens: usage(rows, 'inputTokens'),
-        outputTokens: usage(rows, 'outputTokens'), evaluationCostsIncluded: false },
+        outputTokens: usage(rows, 'outputTokens'), evaluationCostsIncluded: false,
+        scope: 'standalone service cost; shared P generation included in each T/V; do not sum methods' },
     };
   });
   return {
@@ -233,6 +247,17 @@ export function buildReport(plan, run, final) {
     agreement: structuredClone(final.agreement), config: structuredClone(plan.config), environment: structuredClone(run.environment),
     batchWallMs: run.batchElapsedMs, batchWallScope: run.batchWallScope ?? 'whole run; not allocated to methods',
     batchWallComplete: !run.resumed,
+    physicalBatchUsage: {
+      calls: sum(run.records.map(r => r.calls)), inputTokens: usage(run.records, 'inputTokens'),
+      outputTokens: usage(run.records, 'outputTokens'),
+      itemElapsedMs: sum(run.records.map(r => r.elapsedMs + sum((r.postprocessInspections ?? []).map(i => i.elapsedMs)))),
+      postprocessInspectionElapsedMs: sum(run.records.flatMap(r => r.postprocessInspections ?? []).map(i => i.elapsedMs)),
+      warmup: structuredClone(run.warmup ?? []),
+      warmupHistoryComplete: run.warmupHistoryComplete ?? !run.resumed,
+      warmupCostScope: (run.warmupHistoryComplete ?? !run.resumed) ? 'all recorded warmup calls retained separately'
+        : 'earlier warmup history unavailable; listed warmup is only a known partial history, not total cost',
+      scope: 'actual generation counted once; original item work and extra status-inspection postprocessing retained; warmup separate; AI/human grading excluded',
+    },
     methods: methodReports, entries,
     population: {
       articles: new Set(plan.dataset.cases.map(c => c.articleId)).size,
@@ -301,6 +326,16 @@ function validateReport(report) {
     assert(methods.has(entry.methodId), 'unknown report method');
     assert(['completed', 'failed'].includes(entry.state) && [0, 1].includes(entry.date), 'unresolved report entry');
     assert(entry.state !== 'failed' || entry.date === 0, 'failed report entry must score zero');
+    if (DERIVED_METHODS.includes(entry.methodId)) {
+      const parent = report.entries.find(p => p.recordId === entry.sharedGeneration?.parentRecordId);
+      assert(parent?.methodId === 'prompt-baseline' && parent.caseId === entry.caseId && parent.repeat === entry.repeat
+        && entry.sharedGeneration.parentRecordHash === parent.recordHash, 'report shared P provenance mismatch');
+      assert(Number.isFinite(entry.sharedGeneration.incrementalElapsedMs) && entry.sharedGeneration.incrementalElapsedMs >= 0
+        && Number.isFinite(entry.sharedGeneration.inspectionElapsedMs) && entry.sharedGeneration.inspectionElapsedMs >= 0
+        && entry.sharedGeneration.physicalCalls === 0, 'report postprocess cost mismatch');
+      assert(entry.elapsedMs === parent.elapsedMs + entry.sharedGeneration.incrementalElapsedMs
+        && ['calls', 'inputTokens', 'outputTokens', 'attempts'].every(field => hash(entry[field]) === hash(parent[field])), 'report shared generation cost mismatch');
+    }
   }
   assert(keys.size === expected.size && [...expected].every(key => keys.has(key)),
     'missing fixed question/repeat/method population');
@@ -315,7 +350,21 @@ function validateReport(report) {
     }
     assert(hash(method.primary) === hash(articleWeighted(rows.filter(entry => entry.kind === 'event'))),
       'article weighting differs from fixed population');
+    assert(method.usage.calls === sum(rows.map(row => row.calls))
+      && hash(method.usage.inputTokens) === hash(usage(rows, 'inputTokens'))
+      && hash(method.usage.outputTokens) === hash(usage(rows, 'outputTokens')), 'report usage differs from records');
   }
+  if (report.physicalBatchUsage) {
+    const physical = report.entries.map(entry => entry.sharedGeneration ? { ...entry, calls: 0,
+      inputTokens: 0, outputTokens: 0, attempts: [],
+      elapsedMs: entry.sharedGeneration.incrementalElapsedMs + entry.sharedGeneration.inspectionElapsedMs } : entry);
+    assert(report.physicalBatchUsage.calls === sum(physical.map(entry => entry.calls))
+      && hash(report.physicalBatchUsage.inputTokens) === hash(usage(physical, 'inputTokens'))
+      && hash(report.physicalBatchUsage.outputTokens) === hash(usage(physical, 'outputTokens'))
+      && report.physicalBatchUsage.postprocessInspectionElapsedMs === sum(report.entries.map(e => e.sharedGeneration?.inspectionElapsedMs ?? 0))
+      && Math.abs(report.physicalBatchUsage.itemElapsedMs - sum(physical.map(entry => entry.elapsedMs))) < 0.000001,
+    'report physical batch cost mismatch');
+  } else assert(!report.entries.some(entry => entry.sharedGeneration), 'report physical batch costs missing for T/V');
 }
 export function compareReports(left, right) {
   validateReport(left);

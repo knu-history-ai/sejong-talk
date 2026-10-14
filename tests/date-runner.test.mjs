@@ -77,6 +77,7 @@ test('audit storage failure stops generation without pretending it was a model f
   assert.equal(terminalRecords, 0);
 });
 test('actual HTTP transport records raw output, timeout priority and malformed/empty/nonterminal failures', async () => {
+  let notifyPartial;
   const server = createServer((req, res) => {
     let input = '';
     req.on('data', (chunk) => { input += chunk; });
@@ -84,7 +85,7 @@ test('actual HTTP transport records raw output, timeout priority and malformed/e
       const prompt = JSON.parse(input).prompt;
       if (prompt === 'timeout') {
         res.writeHead(200, { 'Content-Type': 'application/json' });
-        res.write('{"response":"partial"');
+        res.write('{"response":"partial"', () => notifyPartial?.());
         return;
       }
       res.end(prompt === 'bad' ? 'invalid' : JSON.stringify({ done: prompt !== 'truncated', response: prompt === 'empty' ? '' : '형식이 잘못돼도 읽을 수 있는 답변', prompt_eval_count: 8, eval_count: 4 }));
@@ -98,9 +99,13 @@ test('actual HTTP transport records raw output, timeout priority and malformed/e
     assert.match(result.raw, /response/);
     for (const prompt of ['bad','empty','truncated']) await assert.rejects(ollamaGenerate({ model: 'fixture', prompt }, { endpoint, timeoutMs: 500 }),
       (error) => prompt !== 'truncated' || (error.inputTokens === 8 && error.outputTokens === 4 && error.raw.includes('response')));
-    await assert.rejects(ollamaGenerate({ model: 'fixture', prompt: 'timeout' }, { endpoint, timeoutMs: 30 }), (error) => error.type === 'timeout' && error.raw.includes('partial'));
+    // This verifies preserved partial transport, not 30ms localhost scheduling under a busy full suite.
+    await assert.rejects(ollamaGenerate({ model: 'fixture', prompt: 'timeout' }, { endpoint, timeoutMs: 500 }), (error) => error.type === 'timeout' && error.raw.includes('partial'));
     const controller = new AbortController();
+    const partialSent = new Promise(resolve => { notifyPartial = resolve; });
+    const pending = ollamaGenerate({ model: 'fixture', prompt: 'timeout' }, { endpoint, timeoutMs: 5000, signal: controller.signal });
+    await partialSent;
     setTimeout(() => controller.abort(), 30);
-    await assert.rejects(ollamaGenerate({ model: 'fixture', prompt: 'timeout' }, { endpoint, timeoutMs: 500, signal: controller.signal }), (error) => error.type === 'timeout' && error.raw.includes('partial'));
+    await assert.rejects(pending, (error) => error.type === 'timeout' && error.raw.includes('partial'));
   } finally { server.closeAllConnections(); await new Promise((resolve) => server.close(resolve)); }
 });

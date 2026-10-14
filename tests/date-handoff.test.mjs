@@ -59,7 +59,7 @@ test('operator command survives spaces, shell characters and relocation without 
   assert.equal(await readFile(join(moved, 'run.json'), 'utf8'), bytes);
 });
 
-test('transferred bundle runs all three methods through actual local HTTP and retains raw call records', async () => {
+test('gold-free transferred bundle runs five methods through local HTTP and joins private grading without extra P calls', async () => {
   const { dataset } = await loadPilot(); let calls = 0;
   const server = createServer((req, res) => {
     if (req.url === '/api/tags') return res.end(JSON.stringify({ models: [{ name: 'fixture:latest', digest: 'frozen-q4', details: { quantization_level: 'Q4' } }] }));
@@ -73,12 +73,17 @@ test('transferred bundle runs all three methods through actual local HTTP and re
   await new Promise(resolve => server.listen(0, '127.0.0.1', resolve));
   const endpoint = `http://127.0.0.1:${server.address().port}`;
   try {
-    const sender = await mkdtemp(join(tmpdir(), 'date-sender-http-')), source = join(sender, '준비 평가');
-    await main(['prepare', '--dir', source, '--model', 'fixture', '--endpoint', endpoint]);
+    const sender = await mkdtemp(join(tmpdir(), 'date-sender-http-')), source = join(sender, '준비 평가'), privateDir = join(sender, '담당자 전용');
+    await main(['prepare', '--dir', privateDir, '--model', 'fixture', '--endpoint', endpoint,
+      '--methods', 'rule-baseline,prompt-baseline,evidence-first,render-only,evidence-validated']);
+    const privateBytes = await readFile(join(privateDir, 'plan.json'), 'utf8');
+    await main(['export-operator', '--dir', privateDir, '--out', source]);
+    assert.equal(Object.hasOwn(await read(join(source, 'plan.json')), 'gold'), false);
+    await assert.rejects(readFile(join(source, 'execution-code/pilot.mjs')), { code: 'ENOENT' });
     const moved = await moveBundle(source), result = await copyPaste(moved);
     assert.equal(result.code, 0, result.stderr + result.stdout);
     const run = await read(join(moved, 'run.json'));
-    assert.equal(run.records.length, 24); assert.equal(calls, 24);
+    assert.equal(run.records.length, 40); assert.equal(calls, 24);
     assert.equal(run.records.every(row => row.state === 'completed'), true);
     assert.equal(run.records.reduce((sum, row) => sum + row.calls, 0), calls);
     assert.equal(run.records.reduce((sum, row) => sum + row.inputTokens, 0), 480);
@@ -87,6 +92,10 @@ test('transferred bundle runs all three methods through actual local HTTP and re
     assert.equal(ledger.state, 'completed'); assert.equal(ledger.result.inputTokens, 20);
     assert.equal((await read(join(moved, 'progress.json'))).inFlight, null);
     await assert.rejects(readFile(join(moved, 'final.json')), { code: 'ENOENT' });
+    await main(['import-run', '--dir', privateDir, '--file', join(moved, 'run.json')]);
+    await main(['code', '--dir', privateDir]);
+    assert.equal((await read(join(privateDir, 'code.json'))).items.length, 40);
+    assert.equal(await readFile(join(privateDir, 'plan.json'), 'utf8'), privateBytes);
   } finally { server.closeAllConnections(); await new Promise(resolve => server.close(resolve)); }
 });
 
@@ -94,7 +103,7 @@ test('fixed pilot command prepares and records nonthinking Qwen calls without gr
   const parent = await mkdtemp(join(tmpdir(), 'date-one-command-'));
   const root = join(parent, '유진님 컴퓨터 공백 & 한글');
   for (const relative of ['scripts/run-date-pilot.mjs', 'evals/sejong/date-questions.json',
-    'docs/date-pilot-v1/model-inputs.md', ...['cli','core','runner','pilot','grading','report','state','costs'].map(name => `evals/sejong/date-eval/${name}.mjs`)]) {
+    'docs/date-pilot-v1/model-inputs.md', ...['cli','core','runner','postprocess','pilot','grading','report','state','costs'].map(name => `evals/sejong/date-eval/${name}.mjs`)]) {
     await mkdir(dirname(join(root, relative)), { recursive: true });
     await cp(new URL('../' + relative, import.meta.url), join(root, relative));
   }
