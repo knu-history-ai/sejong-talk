@@ -22,10 +22,14 @@ const ANSWER_KINDS = new Set<AnswerKind>([
   "insufficient",
   "fallback",
 ]);
-const THIRD_PERSON_SELF_REFERENCES = [
-  /세종\s*(?:대왕|임금)?(?:님)?\s*(?:은|는|이|가|께서는|께서)/,
-  /세종\s*(?:대왕|임금)?(?:님)?\s*(?:의|에게|께)/,
-];
+const SELF_REFERENCE_NAME = String.raw`세종\s*(?:(?:대왕|임금)\s*)?(?:님)?(?:\s*\([^)]*\))?`;
+const THIRD_PERSON_SELF_SUBJECT = new RegExp(
+  String.raw`(?:["'“‘]\s*${SELF_REFERENCE_NAME}\s*["'”’]\s*|${SELF_REFERENCE_NAME}\s*)(?:께서는|께서|은|는|가|도|이(?=\s|,|\.|!|\?|$))`,
+);
+const THIRD_PERSON_SELF_POSSESSIVE = new RegExp(
+  String.raw`${SELF_REFERENCE_NAME}\s*(?:의|에게|께)(?=\s|,|\.|!|\?|$)`,
+);
+const ATTRIBUTED_QUOTE = /(["'“‘])(.{1,120}?)(["'”’])\s*(?:이라고|라고)\s*(?:물었|질문했|말했|하였|했|적었|기록했|썼|적혀|기록되어|쓰여|나와|되어|있)/g;
 
 function stripJsonFence(text: string): string {
   const trimmed = text.trim();
@@ -71,8 +75,16 @@ function fallbackAnswer(input: SejongPromptInput, answerId: string): Answer {
   };
 }
 
+function maskAttributedQuotes(text: string): string {
+  return text.replace(ATTRIBUTED_QUOTE, (match) => " ".repeat(match.length));
+}
+
 function hasThirdPersonSelfReference(text: string): boolean {
-  return THIRD_PERSON_SELF_REFERENCES.some((pattern) => pattern.test(text));
+  const answerText = maskAttributedQuotes(text);
+  return (
+    THIRD_PERSON_SELF_SUBJECT.test(answerText) ||
+    THIRD_PERSON_SELF_POSSESSIVE.test(answerText)
+  );
 }
 
 export function validateAnswerDraft(
