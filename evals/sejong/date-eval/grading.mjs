@@ -235,9 +235,16 @@ export async function aiGrade(plan, run, { judge, judgeConfig = {} } = {}) {
         })).then(response => ({ state: 'resolved', response }), error => ({ state: 'rejected', error }));
         let settlement = await Promise.race([
           callback,
-          new Promise(resolve => { timer = setTimeout(() => {
-            timedOut = true; controller.abort(); resolve({ state: 'timeout' });
-          }, config.timeoutMs); }),
+          new Promise(resolve => {
+            const expire = () => {
+              // Timers can wake before their nominal delay (rounding/scheduling).
+              // Recheck the monotonic deadline instead of logging an early timeout.
+              const remaining = began + config.timeoutMs - performance.now();
+              if (remaining > 0) { timer = setTimeout(expire, Math.ceil(remaining)); return; }
+              timedOut = true; controller.abort(); resolve({ state: 'timeout' });
+            };
+            timer = setTimeout(expire, config.timeoutMs);
+          }),
         ]);
         // Elapsed time also catches callbacks that block the timer's event-loop turn.
         if (timedOut || settlement.state === 'timeout' || performance.now() - began >= config.timeoutMs) {

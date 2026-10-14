@@ -413,6 +413,25 @@ test('genuine audited timeouts keep valid late raw replies unscored and preserve
   }
 });
 
+test('an early timer wakeup is rearmed until the monotonic judge deadline before recording timeout', async t => {
+  const plan = fixture({ repeats: 1, methods: ['prompt-baseline'] }), run = await execute(plan);
+  const nativeTimer = globalThis.setTimeout;
+  let earlyWakeups = 0;
+  t.mock.method(globalThis, 'setTimeout', (callback, delay, ...args) => {
+    if (delay === 25 && earlyWakeups === 0) {
+      earlyWakeups++;
+      return nativeTimer(callback, 0, ...args);
+    }
+    return nativeTimer(callback, delay, ...args);
+  });
+  const ai = await aiGrade(plan, run, { judgeConfig: { timeoutMs: 25, cancelGraceMs: 0 },
+    judge: () => new Promise(() => {}) });
+  assert.equal(earlyWakeups, 1);
+  assert.ok(ai.items.every(i => i.attempts[0].timedOut && i.attempts[0].elapsedMs >= 25));
+  const report = buildAutomaticReport(plan, run, ai);
+  assert.equal(report.ai.metrics.date.scored, 0); assert.equal(report.ai.metrics.date.failures, 4);
+});
+
 test('explicit failed Ollama envelopes outrank an interpretable partial judgment without hiding valid completed output', async () => {
   const plan = fixture({ repeats: 1, methods: ['prompt-baseline'] }), run = await execute(plan);
   for (const mode of ['incomplete', 'error']) {
