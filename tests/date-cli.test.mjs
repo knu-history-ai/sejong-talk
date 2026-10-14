@@ -87,6 +87,14 @@ test('all failed questions finalize and report zero without any human submission
   assert.equal(metrics.accuracy.value, 0); assert.equal(metrics.evidence.value, 0);
   assert.equal(metrics.completion.value, 0); assert.equal(metrics.conditionalAccuracy.value, null);
   await read(join(dir, 'comparison.json')); await read(join(dir, 'evaluation-cost.json'));
+  assert.equal(report.metricVersion, 2);
+  assert.deepEqual(report.methods[0].primary, report.methods[0].core.accuracy);
+  assert.equal(report.methods[0].supplementary.articleEqualWeight.value, 0);
+  const preserved = await Promise.all(['report.json', 'comparison.json', 'evaluation-cost.json']
+    .map(name => readFile(join(dir, name), 'utf8')));
+  await assert.rejects(main(['report', '--dir', dir]), { code: 'EEXIST' });
+  assert.deepEqual(await Promise.all(['report.json', 'comparison.json', 'evaluation-cost.json']
+    .map(name => readFile(join(dir, name), 'utf8'))), preserved);
   assert.equal(await readFile(join(dir, 'run.json'), 'utf8'), original);
   await assert.rejects(readdir(join(dir, 'reviews')), { code: 'ENOENT' });
 });

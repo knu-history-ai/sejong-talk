@@ -138,16 +138,71 @@ test('event diagnostics exclude execution failures; failure content is never gra
   assert.throws(() => report(f), /automatically scored zero/);
 });
 
-test('primary score averages repeats then questions then articles equally', () => {
+test('primary is fixed core question accuracy; article-equal weighting is supplementary', () => {
   const r = report(fixture({ core: 3, controls: 1, repeats: 2, articles: ['A', 'A', 'B', 'C'],
     outcome: (i, repeat) => ({ date: i === 0 || (i === 1 && repeat === 1) ? 1 : 0 }) }));
   const m = r.methods[0];
   assert.equal(m.core.accuracy.value, .5);
-  assert.equal(m.primary.value, .375); // A=(1+.5)/2=.75, B=0 => .375
-  assert.deepEqual(m.primary.questionMeans.map(q => q.value), [1, .5, 0]);
-  assert.deepEqual(m.primary.articleMeans.map(a => a.value), [.75, 0]);
-  assert.equal(m.primary.repeatsIndependent, false);
+  assert.deepEqual(m.primary, m.core.accuracy);
+  assert.equal(m.primary.value, .5);
+  assert.equal(m.primary.numerator, 3); assert.equal(m.primary.denominator, 6);
+  const articleEqual = m.supplementary.articleEqualWeight;
+  assert.equal(articleEqual.value, .375); // A=(1+.5)/2=.75, B=0 => .375
+  assert.deepEqual(articleEqual.questionMeans.map(q => q.value), [1, .5, 0]);
+  assert.deepEqual(articleEqual.articleMeans.map(a => a.value), [.75, 0]);
+  assert.equal(articleEqual.repeatsIndependent, false);
+  assert.equal(r.metricVersion, 2);
+  assert.equal(r.metricDefinitions.primary.source, 'core.accuracy');
+  assert.equal(r.metricDefinitions.primary.label, '전체 사건 문항 최종 정답률');
+  assert.equal(r.metricDefinitions.supplementary.articleEqualWeight.label, '기사 동일 가중 평균');
   assert.equal(r.repeatsIndependent, false);
+});
+
+test('legacy article-weighted reports compare with new reports without rewriting original results', () => {
+  const current = report(fixture({ core: 3, articles: ['A', 'A', 'B'], outcome: i => ({ date: i < 2 ? 1 : 0 }) }));
+  const legacy = structuredClone(current);
+  delete legacy.metricVersion; delete legacy.metricDefinitions;
+  for (const method of legacy.methods) {
+    method.primary = method.supplementary.articleEqualWeight; delete method.supplementary;
+  }
+  const original = JSON.stringify(legacy), currentBytes = JSON.stringify(current);
+  assert.equal(legacy.methods[0].primary.value, .5);
+  assert.equal(current.methods[0].primary.value, 2 / 3);
+  const forward = compareReports(legacy, current), backward = compareReports(current, legacy);
+  assert.deepEqual(forward.sourceMetricVersions, { left: 1, right: 2 });
+  assert.deepEqual(backward.sourceMetricVersions, { left: 2, right: 1 });
+  assert.equal(forward.comparisons[0].core.netChange.value, 0);
+  assert.equal(forward.leftReportHash, hash(legacy));
+  assert.equal(JSON.stringify(legacy), original);
+  assert.equal(JSON.stringify(current), currentBytes);
+  legacy.methods[0].primary.value = 2 / 3;
+  assert.throws(() => compareReports(legacy, current), /legacy article weighting/);
+});
+
+test('changed metric labels, swapped values, missing versions and unknown versions cannot silently change meaning', () => {
+  const current = report(fixture({ core: 3, articles: ['A', 'A', 'B'], outcome: i => ({ date: i < 2 ? 1 : 0 }) }));
+  for (const mutate of [
+    r => { r.methods[0].primary = r.methods[0].supplementary.articleEqualWeight; },
+    r => { r.methods[0].supplementary.articleEqualWeight.value = 2 / 3; },
+    r => { r.metricDefinitions.primary.source = 'supplementary.articleEqualWeight'; },
+    r => { delete r.metricVersion; },
+    r => { r.metricVersion = 999; },
+  ]) {
+    const changed = structuredClone(current); mutate(changed);
+    assert.throws(() => compareReports(changed, current), /metric definitions|primary accuracy|supplementary article weighting/);
+  }
+});
+
+test('representative and supplementary scores preserve failure zero and explicit empty-core N/A', () => {
+  const failed = report(fixture({ core: 2, controls: 1, articles: ['A', 'A', 'B'], outcome: i => i < 2 ? { state: 'failed' } : {} }));
+  assert.equal(failed.methods[0].primary.value, 0);
+  assert.equal(failed.methods[0].primary.denominator, 2);
+  assert.equal(failed.methods[0].supplementary.articleEqualWeight.value, 0);
+  const controlOnly = report(fixture({ core: 0, controls: 1 }));
+  assert.equal(controlOnly.methods[0].primary.value, null);
+  assert.equal(controlOnly.methods[0].primary.denominator, 0);
+  assert.equal(controlOnly.methods[0].supplementary.articleEqualWeight.value, null);
+  compareReports(failed, failed); compareReports(controlOnly, controlOnly);
 });
 
 test('completed latency differs from total operational time and costs', () => {

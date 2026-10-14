@@ -2,6 +2,11 @@ import { assert, hash, validatePlan, validateRun } from './core.mjs';
 import { DERIVED_METHODS } from './postprocess.mjs';
 
 const FLAGS = ['unsupportedDay', 'missingKnownDay', 'headerConfusion'];
+const METRIC_VERSION = 2;
+const METRIC_DEFINITIONS = {
+  primary: { label: '전체 사건 문항 최종 정답률', source: 'core.accuracy' },
+  supplementary: { articleEqualWeight: { label: '기사 동일 가중 평균' } },
+};
 const sum = values => values.reduce((a, b) => a + b, 0);
 const average = values => values.length ? sum(values) / values.length : null;
 const ratio = (numerator, denominator, reason = 'no eligible observations') => ({
@@ -219,12 +224,14 @@ export function buildReport(plan, run, final) {
     const control = rows.filter(entry => entry.kind === 'control');
     const completed = rows.filter(entry => entry.state === 'completed');
     const modelUsed = rows.some(entry => entry.calls > 0);
+    const coreMetrics = aggregate(core);
     return {
       ...structuredClone(method),
       model: modelUsed ? plan.config.model : null,
       modelReason: modelUsed ? null : 'N/A: no model calls (rule baseline)',
-      core: aggregate(core), control: aggregate(control), operational: aggregate(rows),
-      primary: articleWeighted(core),
+      core: coreMetrics, control: aggregate(control), operational: aggregate(rows),
+      primary: structuredClone(coreMetrics.accuracy),
+      supplementary: { articleEqualWeight: articleWeighted(core) },
       timing: { completion: latency(completed.map(entry => entry.elapsedMs)),
         totalItemElapsed: { sum: sum(rows.map(entry => entry.elapsedMs)),
           mean: average(rows.map(entry => entry.elapsedMs)), count: rows.length, includesFailures: true } },
@@ -235,6 +242,7 @@ export function buildReport(plan, run, final) {
   });
   return {
     schemaVersion: 1, type: 'date-evaluation-report', planId: plan.id,
+    metricVersion: METRIC_VERSION, metricDefinitions: structuredClone(METRIC_DEFINITIONS),
     datasetHash: plan.datasetHash, goldHash: plan.goldHash, criteriaHash: plan.criteriaHash,
     configHash: plan.configHash, runHash: final.runHash, finalHash: hash(final),
     datasetVersion: plan.dataset.version, criteriaVersion: plan.gold.criteriaVersion,
@@ -292,6 +300,11 @@ function criticalEnvironment(environment) {
 }
 function validateReport(report) {
   assert(report?.schemaVersion === 1 && report.type === 'date-evaluation-report', 'unsupported report version');
+  // Old reports retain their article-weighted `primary`; never relabel or mutate them.
+  const legacyMetrics = report.metricVersion === undefined;
+  assert(legacyMetrics ? report.metricDefinitions === undefined
+    : report.metricVersion === METRIC_VERSION && hash(report.metricDefinitions) === hash(METRIC_DEFINITIONS),
+  'unsupported or inconsistent report metric definitions');
   assert(Array.isArray(report.unresolved) && report.unresolved.length === 0, 'unresolved report');
   assert(hash(report.config) === report.configHash, 'report config hash mismatch');
   assert(report.datasetSnapshot && hash(report.datasetSnapshot) === report.datasetHash,
@@ -348,8 +361,16 @@ function validateReport(report) {
     ]) {
       assert(hash(method[name]) === hash(aggregate(selected)), 'report aggregate differs from fixed population');
     }
-    assert(hash(method.primary) === hash(articleWeighted(rows.filter(entry => entry.kind === 'event'))),
-      'article weighting differs from fixed population');
+    const core = rows.filter(entry => entry.kind === 'event');
+    if (legacyMetrics) {
+      assert(method.supplementary === undefined && hash(method.primary) === hash(articleWeighted(core)),
+        'legacy article weighting differs from fixed population');
+    } else {
+      assert(hash(method.primary) === hash(aggregate(core).accuracy),
+        'primary accuracy differs from fixed core population');
+      assert(hash(method.supplementary) === hash({ articleEqualWeight: articleWeighted(core) }),
+        'supplementary article weighting differs from fixed population');
+    }
     assert(method.usage.calls === sum(rows.map(row => row.calls))
       && hash(method.usage.inputTokens) === hash(usage(rows, 'inputTokens'))
       && hash(method.usage.outputTokens) === hash(usage(rows, 'outputTokens')), 'report usage differs from records');
@@ -416,6 +437,7 @@ export function compareReports(left, right) {
     schemaVersion: 1, type: 'paired-date-evaluation-report',
     datasetHash: left.datasetHash, goldHash: left.goldHash, criteriaHash: left.criteriaHash,
     leftReportHash: hash(left), rightReportHash: hash(right),
+    sourceMetricVersions: { left: left.metricVersion ?? 1, right: right.metricVersion ?? 1 },
     pilot: left.pilot || right.pilot,
     datasetEligible: left.datasetEligible && right.datasetEligible,
     paperEligible: false, paperReadiness: 'not-established-by-tool',
