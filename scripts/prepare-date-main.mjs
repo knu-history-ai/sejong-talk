@@ -34,6 +34,12 @@ export async function prepareMain(args) {
   // Freeze the maintainer-only audit selection before any operator execution.
   // The answer-free operator bundle does not expose the selected questions.
   await main(['sample-freeze', '--dir', values['--private-dir']]);
+  const sample = JSON.parse(await readFile(resolve(values['--private-dir'], 'sample-manifest.json'), 'utf8'));
+  assert(sample.version === 'type-balanced-twelve-v2' && sample.caseIds.length === 12
+    && sample.plannedOutputs === 60 && Object.values(sample.methodOutputCounts).every(count => count === 12)
+    && ['known-day', 'unknown-day', 'false-date-premise', 'mixed-events', 'header-control']
+      .every(type => sample.questionTypes.selected[type] > 0),
+  '본실험 검증은 5날짜유형을 포함한 12문항·5방식·1회로 60개를 고정합니다. 자료·표본을 담당자가 확인하세요. 실행 폴더는 내보내지 않았습니다');
   await main(['export-operator', '--dir', values['--private-dir'], '--out', values['--out']]);
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

@@ -22,12 +22,14 @@ function typeCounts(plan, cases) {
     [type, types.filter(t => t === type).length]));
 }
 
-/** Outcome-free selection: lowest SHA-256 rank within each article. All method/repeat
+/** Outcome-free selection: balanced type quotas, retaining legacy article ranks.
+ * All method/repeat
  * slots follow the selected question. This JSON cannot prove when it was frozen;
  * the CLI must persist it before executing any slots and refuse replacement. */
-export function createSampleManifest(plan, { seed = 62 } = {}) {
+export function createSampleManifest(plan, { seed = 62, version = 'type-balanced-twelve-v2' } = {}) {
   validatePlan(plan);
   assert(Number.isSafeInteger(seed) && seed >= 0, 'sample seed must be a nonnegative safe integer');
+  assert(['article-one-v1', 'type-balanced-twelve-v2'].includes(version), 'unsupported sample selection version');
   const articles = new Map();
   for (const c of plan.dataset.cases) {
     assert(text(c.id) && text(c.articleId) && ['event', 'control'].includes(c.kind), 'invalid sample article/case/kind');
@@ -35,25 +37,68 @@ export function createSampleManifest(plan, { seed = 62 } = {}) {
     rows.push({ caseId: c.id, rank: hash({ seed, articleId: c.articleId, caseId: c.id }) });
     articles.set(c.articleId, rows);
   }
-  const caseIds = [...articles.values()].map(rows => rows.sort((a, b) =>
-    compare(a.rank, b.rank) || compare(a.caseId, b.caseId))[0].caseId).sort();
-  const selected = plan.dataset.cases.filter(c => caseIds.includes(c.id));
   const available = typeCounts(plan, plan.dataset.cases);
+  const balanced = version === 'type-balanced-twelve-v2';
+  const quotas = Object.fromEntries(Object.keys(available).map(type => [type, 0]));
+  let caseIds;
+  if (balanced) {
+    const budget = Math.min(12, plan.dataset.cases.length);
+    assert(Object.keys(available).length <= budget, 'sample question budget cannot cover every date question type');
+    const typeOrder = Object.keys(available).sort((a, b) =>
+      compare(hash({ seed, type: a }), hash({ seed, type: b })) || compare(a, b));
+    for (let i = 0; i < budget; i++) {
+      const type = [...typeOrder].filter(t => quotas[t] < available[t])
+        .sort((a, b) => quotas[a] - quotas[b] || typeOrder.indexOf(a) - typeOrder.indexOf(b))[0];
+      quotas[type]++;
+    }
+    const byType = new Map(typeOrder.map(type => [type, plan.dataset.cases
+      .filter(c => questionType(plan, c) === type).map(c => ({ ...c,
+        rank: hash({ seed, articleId: c.articleId, caseId: c.id }) }))]));
+    const selected = [], articleUse = new Map();
+    // Take scarce types first, then spread articles whenever the type permits it.
+    // This is a coverage preference, not a claim of statistically independent draws.
+    const selectionOrder = [...typeOrder].sort((a, b) => available[a] - available[b]
+      || typeOrder.indexOf(a) - typeOrder.indexOf(b));
+    for (let round = 0; selected.length < budget; round++) {
+      for (const type of selectionOrder.filter(t => quotas[t] > round)) {
+        const rows = byType.get(type);
+        rows.sort((a, b) => (articleUse.get(a.articleId) ?? 0) - (articleUse.get(b.articleId) ?? 0)
+          || compare(a.rank, b.rank) || compare(a.id, b.id));
+        const chosen = rows.shift();
+        selected.push(chosen.id);
+        articleUse.set(chosen.articleId, (articleUse.get(chosen.articleId) ?? 0) + 1);
+      }
+    }
+    caseIds = selected.sort();
+  } else {
+    caseIds = [...articles.values()].map(rows => rows.sort((a, b) =>
+      compare(a.rank, b.rank) || compare(a.caseId, b.caseId))[0].caseId).sort();
+  }
+  const selected = plan.dataset.cases.filter(c => caseIds.includes(c.id));
   const selectedCounts = typeCounts(plan, selected);
   const payload = { schemaVersion: 1, type: 'date-sample-manifest', planId: plan.id,
     datasetHash: plan.datasetHash, goldHash: plan.goldHash, criteriaHash: plan.criteriaHash,
-    configHash: plan.configHash, seed, version: 'article-one-v1', caseIds,
+    configHash: plan.configHash, seed, version, caseIds,
     articleCount: articles.size, candidateIds: plan.dataset.cases.map(c => c.id).sort(),
     eligibility: { kinds: ['control', 'event'], rule: 'all-questions-no-outcomes' },
-    selectionRule: 'lowest-sha256(seed,articleId,caseId)-per-article;caseId-tiebreak;all-methods-and-repeats',
+    selectionRule: balanced
+      ? 'max-12-questions;balanced-type-quotas;seeded-type-tiebreak;scarce-types-first;least-used-article-then-sha256;all-methods-and-repeats'
+      : 'lowest-sha256(seed,articleId,caseId)-per-article;caseId-tiebreak;all-methods-and-repeats',
     questionTypes: { available, selected: Object.fromEntries(Object.keys(available).map(type => [type, selectedCounts[type] ?? 0])) },
     plannedOutputs: plan.slots.filter(s => caseIds.includes(s.caseId)).length };
+  if (balanced) {
+    payload.questionBudget = 12;
+    payload.selectedArticleCount = new Set(selected.map(c => c.articleId)).size;
+    payload.questionTypes.quotas = quotas;
+    payload.methodOutputCounts = Object.fromEntries(plan.config.methods.map(m => m.id).sort().map(id =>
+      [id, plan.slots.filter(s => s.methodId === id && caseIds.includes(s.caseId)).length]));
+  }
   return freeze({ ...payload, manifestHash: hash(payload) });
 }
 
 export function validateSampleManifest(plan, manifest) {
   assert(manifest && typeof manifest === 'object' && !Array.isArray(manifest), 'invalid sample manifest');
-  const expected = createSampleManifest(plan, { seed: manifest.seed });
+  const expected = createSampleManifest(plan, { seed: manifest.seed, version: manifest.version });
   assert(isDeepStrictEqual(manifest, expected), 'sample manifest differs from deterministic selection/binding');
   return manifest;
 }

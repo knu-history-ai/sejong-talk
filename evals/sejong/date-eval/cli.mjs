@@ -207,7 +207,7 @@ export async function main(args = process.argv.slice(2)) {
     const { createSampleManifest } = await import('./sampling.mjs');
     const manifest = createSampleManifest(plan, { seed: 62 });
     await save(join(dir, 'sample-manifest.json'), manifest);
-    console.log('기사별 1문항과 모든 방식·회차의 검증 표본을 고정했습니다. 담당자 전용 기록이며 유진님은 실행만 합니다.');
+    console.log(`날짜 유형을 균형 있게 선정한 ${manifest.caseIds.length}문항·${manifest.plannedOutputs}개 예정 출력의 검증 표본을 고정했습니다. 담당자 전용 기록이며 유진님은 실행만 합니다.`);
     return;
   }
   if (command === 'export-operator') {

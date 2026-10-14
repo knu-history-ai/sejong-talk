@@ -1,6 +1,6 @@
 # V·T 비교 계약과 검증
 
-현재 평가 기준은 [구조화 날짜 자동 평가와 독립 표본 검증](date-automatic-sample.md)입니다. 전체 예정 출력의 strict structured-date 코드 대표값, AI 의미 판정 보조값, 실행 전 고정한 100개 예정 출력의 두 사람 독립 검증을 구분합니다. 아래 파생·상태·비용 계약은 유지하며, 전체 완료 답변의 사람 최종 판정과 `metricVersion: 2` 보고서는 기존(legacy) 경로입니다. P/E 최종 응답은 같은 필수 JSON 계약의 `date-methods-v5-structured`로 고정하며 이전 선택적 JSON 실행과 섞지 않습니다.
+현재 평가 기준은 [구조화 날짜 자동 평가와 독립 표본 검증](date-automatic-sample.md)입니다. 전체 예정 출력의 strict structured-date 코드 대표값, AI 의미 판정 보조값, 실행 전에 날짜 유형을 균형 있게 선정한 12문항·5방식·60개 예정 출력의 두 사람 독립 검증을 구분합니다. 아래 파생·상태·비용 계약은 유지하며, 전체 완료 답변의 사람 최종 판정과 `metricVersion: 2` 보고서는 기존(legacy) 경로입니다. P/E 최종 응답은 같은 필수 JSON 계약의 `date-methods-v5-structured`로 고정하며 이전 선택적 JSON 실행과 섞지 않습니다.
 
 관련: #62 평가도구, #71 자료 검수, #76 독립 사람 채점. 앱 통합시험과 별개인 MODEL 실험입니다.
 

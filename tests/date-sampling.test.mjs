@@ -5,6 +5,8 @@ import { createReviewPackets, finalizeReviews, validateFinalAudit } from '../eva
 import { createSampleManifest, validateSampleManifest, createSamplePackets, validateSampleFinal } from '../evals/sejong/date-eval/sampling.mjs';
 import { runPlan } from '../evals/sejong/date-eval/runner.mjs';
 
+const LEGACY = { version: 'article-one-v1' };
+
 // Entirely synthetic: reviewer labels test plumbing, never historical correctness
 // or real human independence. No private dataset/gold files or model calls.
 function fixture({ onePerArticle = false, repeats = 2, methods = ['strong', 'rule'] } = {}) {
@@ -46,7 +48,7 @@ function judgment(events, { structuredDate = 1, date = 1, evidence = 1 } = {}) {
       reasons: { date: 'Date meaning matches', unsupportedDay: 'No unsupported day',
         missingKnownDay: 'Required day retained', headerConfusion: 'Header distinguished' } })) };
 }
-function setup(plan, run, manifest = createSampleManifest(plan), options) {
+function setup(plan, run, manifest = createSampleManifest(plan, LEGACY), options) {
   const bundle = createSamplePackets(plan, run, manifest);
   const reviews = bundle.packets.flatMap(p => ['alice', 'bob'].map(reviewerId => ({
     packetId: p.id, packetHash: p.hash, reviewerId, independent: true, blind: true,
@@ -61,12 +63,13 @@ function resolution(bundle, reviews, options) {
     reason: 'Both reviewers rechecked the semantic and structured scores independently' };
 }
 
-test('manifest uses sorted seeded article hash ranks, reports coverage and deeply freezes JSON', () => {
+test('explicit legacy manifest preserves v1 JSON bytes, article hash ranks and frozen coverage', () => {
   const { plan } = fixture(), before = JSON.stringify(plan);
-  const manifest = createSampleManifest(plan);
+  const manifest = createSampleManifest(plan, LEGACY);
   const expected = ['A', 'B', 'C'].map(articleId => plan.dataset.cases.filter(c => c.articleId === articleId)
     .sort((a, b) => hash({ seed: 62, articleId, caseId: a.id }).localeCompare(hash({ seed: 62, articleId, caseId: b.id })))[0].id).sort();
   assert.deepEqual(manifest.caseIds, expected);
+  assert.deepEqual(manifest.caseIds, ['A3', 'B2', 'C1']);
   assert.equal(manifest.articleCount, 3);
   assert.equal(manifest.plannedOutputs, 12);
   assert.equal(manifest.version, 'article-one-v1');
@@ -74,9 +77,20 @@ test('manifest uses sorted seeded article hash ranks, reports coverage and deepl
   assert.deepEqual(manifest.questionTypes.available, { 'false-date-premise': 2, 'known-day': 3, 'mixed-events': 2, 'unknown-day': 1 });
   assert.equal(Object.values(manifest.questionTypes.selected).reduce((n, v) => n + v, 0), 3);
   assert.deepEqual(Object.keys(manifest.questionTypes.available), Object.keys(manifest.questionTypes.selected));
-  assert.deepEqual(createSampleManifest(plan), manifest);
+  const oldPayload = { schemaVersion: 1, type: 'date-sample-manifest', planId: plan.id,
+    datasetHash: plan.datasetHash, goldHash: plan.goldHash, criteriaHash: plan.criteriaHash,
+    configHash: plan.configHash, seed: 62, version: 'article-one-v1', caseIds: ['A3', 'B2', 'C1'],
+    articleCount: 3, candidateIds: ['A1', 'A2', 'A3', 'B1', 'B2', 'B3', 'B4', 'C1'],
+    eligibility: { kinds: ['control', 'event'], rule: 'all-questions-no-outcomes' },
+    selectionRule: 'lowest-sha256(seed,articleId,caseId)-per-article;caseId-tiebreak;all-methods-and-repeats',
+    questionTypes: { available: { 'false-date-premise': 2, 'known-day': 3, 'mixed-events': 2, 'unknown-day': 1 },
+      selected: { 'false-date-premise': 1, 'known-day': 1, 'mixed-events': 1, 'unknown-day': 0 } },
+    plannedOutputs: 12 };
+  assert.equal(JSON.stringify(manifest, null, 2) + '\n',
+    JSON.stringify({ ...oldPayload, manifestHash: hash(oldPayload) }, null, 2) + '\n');
+  assert.deepEqual(createSampleManifest(plan, LEGACY), manifest);
   assert.equal(validateSampleManifest(plan, manifest), manifest);
-  assert.throws(() => createSampleManifest(executionPlan(plan)), /담당자용 계획/);
+  assert.throws(() => createSampleManifest(executionPlan(plan), LEGACY), /담당자용 계획/);
   assert.deepEqual(manifest.candidateIds, plan.dataset.cases.map(c => c.id).sort());
   assert.deepEqual(manifest.eligibility, { kinds: ['control', 'event'], rule: 'all-questions-no-outcomes' });
   const { manifestHash, ...payload } = manifest;
@@ -92,12 +106,12 @@ test('manifest uses sorted seeded article hash ranks, reports coverage and deepl
 });
 
 test('selection survives reordered cases/methods/slots while preserving each exact plan binding', () => {
-  const { plan } = fixture(), manifest = createSampleManifest(plan);
+  const { plan } = fixture(), manifest = createSampleManifest(plan, LEGACY);
   const shuffledSlots = structuredClone(plan); shuffledSlots.slots.reverse();
-  assert.deepEqual(createSampleManifest(shuffledSlots), manifest);
+  assert.deepEqual(createSampleManifest(shuffledSlots, LEGACY), manifest);
   const dataset = structuredClone(plan.dataset), gold = structuredClone(plan.gold), config = structuredClone(plan.config);
   dataset.cases.reverse(); gold.cases.reverse(); config.methods.reverse(); gold.datasetHash = hash(dataset);
-  const reordered = makePlan(dataset, gold, config), other = createSampleManifest(reordered);
+  const reordered = makePlan(dataset, gold, config), other = createSampleManifest(reordered, LEGACY);
   assert.deepEqual(other.caseIds, manifest.caseIds);
   assert.deepEqual(other.questionTypes, manifest.questionTypes);
   assert.equal(other.plannedOutputs, manifest.plannedOutputs);
@@ -106,12 +120,12 @@ test('selection survives reordered cases/methods/slots while preserving each exa
 });
 
 test('manifest validator rejects altered deterministic fields, bindings, extra outcomes and invalid seeds', () => {
-  const { plan } = fixture(), manifest = createSampleManifest(plan);
+  const { plan } = fixture(), manifest = createSampleManifest(plan, LEGACY);
   for (const [field, value] of Object.entries({ schemaVersion: 2, type: 'other', planId: 'bad',
     datasetHash: 'bad', goldHash: 'bad', criteriaHash: 'bad', configHash: 'bad', version: 'other',
     caseIds: [], articleCount: 4, candidateIds: [], eligibility: {}, selectionRule: 'other',
     questionTypes: {}, plannedOutputs: 1, outcomes: [1], manifestHash: 'bad' })) {
-    assert.throws(() => validateSampleManifest(plan, { ...structuredClone(manifest), [field]: value }), /manifest/);
+    assert.throws(() => validateSampleManifest(plan, { ...structuredClone(manifest), [field]: value }), /manifest|version/);
   }
   const unselected = plan.dataset.cases.find(c => !manifest.caseIds.includes(c.id));
   const changed = structuredClone(manifest);
@@ -120,10 +134,10 @@ test('manifest validator rejects altered deterministic fields, bindings, extra o
   const extraUndefined = structuredClone(manifest); extraUndefined.questionTypes.selected.extra = undefined;
   assert.throws(() => validateSampleManifest(plan, extraUndefined), /manifest/);
   for (const seed of [-1, 1.5, NaN, Infinity, '62', Number.MAX_SAFE_INTEGER + 1]) {
-    assert.throws(() => createSampleManifest(plan, { seed }), /seed/);
+    assert.throws(() => createSampleManifest(plan, { ...LEGACY, seed }), /seed/);
   }
   let seed = 63;
-  while (hash(createSampleManifest(plan, { seed }).caseIds) === hash(manifest.caseIds)) seed++;
+  while (hash(createSampleManifest(plan, { ...LEGACY, seed }).caseIds) === hash(manifest.caseIds)) seed++;
   assert.throws(() => validateSampleManifest(plan, { ...manifest, seed }), /manifest/);
 });
 
@@ -133,16 +147,16 @@ test('private manifest coverage follows trimmed gold categories, then dataset ty
   delete gold.cases[1].category;
   gold.cases[2].category = null; delete dataset.cases[2].type;
   dataset.cases[2].kind = 'control'; gold.datasetHash = hash(dataset);
-  const modified = makePlan(dataset, gold, plan.config), manifest = createSampleManifest(modified);
+  const modified = makePlan(dataset, gold, plan.config), manifest = createSampleManifest(modified, LEGACY);
   assert.equal(manifest.questionTypes.available['gold-known-day'], 1);
   assert.equal(manifest.questionTypes.available['false-date-premise'], 2);
   assert.equal(manifest.questionTypes.available.unspecified, 1);
   assert.ok(manifest.candidateIds.includes(dataset.cases[2].id));
   for (const category of ['', '   ', 3]) {
     const invalidGold = structuredClone(gold); invalidGold.cases[0].category = category;
-    assert.throws(() => createSampleManifest(makePlan(dataset, invalidGold, plan.config)), /question type/);
+    assert.throws(() => createSampleManifest(makePlan(dataset, invalidGold, plan.config), LEGACY), /question type/);
   }
-  const all = fixture({ onePerArticle: true }).plan, original = createSampleManifest(all);
+  const all = fixture({ onePerArticle: true }).plan, original = createSampleManifest(all, LEGACY);
   // Even an unchanged one-question-per-article selection binds its original seed.
   assert.throws(() => validateSampleManifest(all, { ...original, seed: 63 }), /manifest/);
   const changed = structuredClone(manifest); changed.candidateIds.reverse();
@@ -194,7 +208,7 @@ test('paired P/T/V records and all repeats follow the same sampled questions wit
 });
 
 test('selected failures have automatic zero on both tracks and receive no human packet', () => {
-  const { plan, run } = fixture(), manifest = createSampleManifest(plan);
+  const { plan, run } = fixture(), manifest = createSampleManifest(plan, LEGACY);
   const failed = run.records.find(r => manifest.caseIds.includes(r.caseId)); failed.state = 'failed';
   failed.error = 'synthetic failure with partial text';
   const { bundle, reviews } = setup(plan, run, manifest);
@@ -208,7 +222,7 @@ test('selected failures have automatic zero on both tracks and receive no human 
 });
 
 test('all selected failures honestly have zero reviewers and legacy all-failed audit still passes', () => {
-  const { plan, run } = fixture(), manifest = createSampleManifest(plan);
+  const { plan, run } = fixture(), manifest = createSampleManifest(plan, LEGACY);
   for (const record of run.records) record.state = 'failed';
   const { bundle, reviews } = setup(plan, run, manifest);
   assert.deepEqual(bundle.packets, []); assert.deepEqual(reviews, []);
@@ -225,7 +239,7 @@ test('all selected failures honestly have zero reviewers and legacy all-failed a
 
 test('unselected unresolved slots are excluded but selected unknown/unexecuted slots block sample audit', () => {
   for (const state of ['unknown', 'unexecuted']) {
-    const { plan, run } = fixture(), manifest = createSampleManifest(plan);
+    const { plan, run } = fixture(), manifest = createSampleManifest(plan, LEGACY);
     const outside = run.records.find(r => !manifest.caseIds.includes(r.caseId)); outside.state = state;
     const { bundle, reviews } = setup(plan, run, manifest);
     const final = finalizeReviews(plan, run, bundle, reviews);

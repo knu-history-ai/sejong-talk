@@ -76,7 +76,8 @@ export function buildSampleReport(plan, run, manifest, final, automatic, ai = nu
   const group = subset => ({ event: aggregate(subset.filter(r => r.kind === 'event')),
     control: aggregate(subset.filter(r => r.kind === 'control')), graderValidation: comparisons(subset, boundAi !== null) });
   const questionTypes = Object.keys(manifest.questionTypes.available).sort();
-  return { schemaVersion: 1, type: 'date-sample-report', evaluationVersion: 'sample-audit-v1',
+  return { schemaVersion: 1, type: 'date-sample-report', evaluationVersion: manifest.version === 'article-one-v1'
+    ? 'sample-audit-v1' : 'sample-audit-v2',
     evaluatorHash: hash(['sample-report.mjs', 'sampling.mjs', 'automatic.mjs', 'core.mjs', 'grading.mjs', 'costs.mjs']
       .map(name => [name, readFileSync(new URL(name, import.meta.url), 'utf8')])),
     planId: plan.id, datasetHash: plan.datasetHash, goldHash: plan.goldHash, criteriaHash: plan.criteriaHash,
@@ -86,10 +87,13 @@ export function buildSampleReport(plan, run, manifest, final, automatic, ai = nu
     humanValidationComplete: rows.some(r => r.state === 'completed'),
     humanValidationStatus: rows.some(r => r.state === 'completed') ? 'completed-sample-only' : 'not-assessable-no-completed-sample',
     paperEligible: false,
-    scope: { articleCount: manifest.articleCount, selectedQuestions: manifest.caseIds.length,
+    scope: { articleCount: manifest.selectedArticleCount ?? manifest.articleCount,
+      populationArticleCount: manifest.articleCount, selectedQuestions: manifest.caseIds.length,
       selectedPlannedOutputs: rows.length, populationQuestions: plan.dataset.cases.length,
       populationPlannedOutputs: run.records.length, independentUnit: 'article, not method outputs or repeats',
-      questionTypes: manifest.questionTypes, selectionVersion: manifest.version, seed: manifest.seed },
+      questionTypes: manifest.questionTypes, selectionVersion: manifest.version, seed: manifest.seed,
+      ...(manifest.version === 'article-one-v1' ? {} : {
+        questionBudget: manifest.questionBudget, methodOutputCounts: manifest.methodOutputCounts }) },
     methods: plan.config.methods.map(m => { const selected = rows.filter(r => r.methodId === m.id);
       return { id: m.id, ...group(selected), byQuestionType: Object.fromEntries(questionTypes.map(type =>
         [type, group(selected.filter(r => r.questionType === type))])),
@@ -110,7 +114,9 @@ export function buildSampleReport(plan, run, manifest, final, automatic, ai = nu
       reconciliations: humanCost(resolutions), total: humanCost([...firsts, ...resolutions]) },
     limitations: [
       'Human semantic results and grader confusion matrices apply only to the frozen sample, not the unreviewed population.',
-      'One question per article can omit rare types; coverage is reported, not guaranteed.',
+      manifest.version === 'article-one-v1'
+        ? 'One question per article can omit rare types; coverage is reported, not guaranteed.'
+        : 'At most 12 type-balanced questions retain every method/repeat. Type presence does not guarantee rare-error coverage or statistical sufficiency; article spread is preferred, not guaranteed.',
       'No pass threshold, population debiasing/PPI, confidence interval or publication approval is inferred.',
       'Inspect false acceptances and method-specific errors. If conclusions depend on disagreements or small differences, expand validation or narrow claims.',
       'R/P/E/T/V from the same question and repeated outputs are correlated, not independent samples.',
