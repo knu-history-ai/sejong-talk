@@ -24,6 +24,9 @@ test('main preparation fixes all five methods/nonthinking/retries; exports only 
   const privatePlan = JSON.parse(await readFile(join(dir, 'private/plan.json')));
   const publicPlan = JSON.parse(await readFile(join(dir, 'operator/plan.json')));
   assert.equal(privatePlan.slots.length, 40); assert.equal(publicPlan.id, privatePlan.id);
+  const manifest = JSON.parse(await readFile(join(dir, 'private/sample-manifest.json')));
+  assert.equal(manifest.articleCount, 3); assert.equal(manifest.plannedOutputs, 15);
+  await assert.rejects(readFile(join(dir, 'operator/sample-manifest.json')), { code: 'ENOENT' });
   assert.equal(Object.hasOwn(publicPlan, 'gold'), false);
   assert.equal(privatePlan.config.think, false); assert.equal(privatePlan.config.retries, 0);
   assert.equal(privatePlan.config.warmup, true); assert.equal(privatePlan.config.repeats, 1);

@@ -7,7 +7,6 @@ import { pathToFileURL } from 'node:url';
 import { hash } from '../evals/sejong/date-eval/core.mjs';
 import { buildReport, compareReports } from '../evals/sejong/date-eval/report.mjs';
 import { implementationHash } from '../evals/sejong/date-eval/cli.mjs';
-import { METHOD_VERSION } from '../evals/sejong/date-eval/runner.mjs';
 
 const PRE_REPORT_HASH = '6eeb82fa794300e4aa28e5ee582a9d55c4961f5c6ae8d38b37864b3acf5ff84d';
 const METRIC_V2_HASH = 'c9dce3e4e3a5bc39975de4a478381dc0beb82b686583124e27c7765f78150941';
@@ -202,12 +201,12 @@ test('changed metric labels, swapped values, missing versions and unknown versio
   }
 });
 
-test('audited old executions compare with newly prepared code without rewriting their full hashes or scores', async () => {
+test('audited report-only old pair stays compatible, but new prompts and sampling code require a new experiment', async () => {
   const currentHash = await implementationHash();
-  const make = codeHash => report(fixture({ core: 3, articles: ['A', 'A', 'B'],
-    config: { methods: [{ id: 'a', version: METHOD_VERSION, codeHash }] },
+  const make = (codeHash, version = 'date-methods-v4-vt') => report(fixture({ core: 3, articles: ['A', 'A', 'B'],
+    config: { methods: [{ id: 'a', version, codeHash }] },
     outcome: i => ({ date: i < 2 ? 1 : 0 }) }));
-  const current = make(currentHash);
+  const current = make(METRIC_V2_HASH);
   for (const codeHash of [PRE_REPORT_HASH, METRIC_V2_HASH]) {
     const previous = make(codeHash);
     if (codeHash === PRE_REPORT_HASH) {
@@ -219,7 +218,8 @@ test('audited old executions compare with newly prepared code without rewriting 
     for (const [left, right] of [[previous, current], [current, previous]]) {
       const comparison = compareReports(left, right);
       assert.equal(comparison.comparisons[0].core.netChange.value, 0);
-      assert.equal(comparison.implementationCompatibility.length, 1);
+      assert.equal(comparison.implementationCompatibility.length, left.methods[0].codeHash === right.methods[0].codeHash ? 0 : 1);
+      if (left.methods[0].codeHash === right.methods[0].codeHash) continue;
       const proof = comparison.implementationCompatibility[0];
       assert.equal(proof.beforeCodeHash, left.methods[0].codeHash);
       assert.equal(proof.afterCodeHash, right.methods[0].codeHash);
@@ -229,13 +229,14 @@ test('audited old executions compare with newly prepared code without rewriting 
     assert.equal(current.methods[0].primary.value, 2 / 3);
     assert.equal(previous.methods[0].primary.value, codeHash === PRE_REPORT_HASH ? .5 : 2 / 3);
   }
+  assert.throws(() => compareReports(current, make(currentHash)), /compatib/i);
 });
 
-test('report-only source edits remain compatible but every non-report module edit is rejected', async () => {
+test('unknown source hashes cannot reuse an old compatibility proof, even when the latest edit only changes reporting', async () => {
   const modules = ['core.mjs', 'runner.mjs', 'postprocess.mjs', 'grading.mjs', 'report.mjs', 'state.mjs', 'costs.mjs', 'cli.mjs'];
   const originalSources = await Promise.all(modules.map(async name => [name,
     await readFile(new URL('../evals/sejong/date-eval/' + name, import.meta.url), 'utf8')]));
-  const make = codeHash => report(fixture({ config: { methods: [{ id: 'a', version: METHOD_VERSION, codeHash }] } }));
+  const make = codeHash => report(fixture({ config: { methods: [{ id: 'a', version: 'date-methods-v4-vt', codeHash }] } }));
   const previous = make(PRE_REPORT_HASH), snapshot = JSON.stringify(previous);
   const root = await mkdtemp(join(tmpdir(), 'date-report-compat-'));
   try {
@@ -246,11 +247,9 @@ test('report-only source edits remain compatible but every non-report module edi
         name === changedName ? text + '\n// Synthetic source change for compatibility regression.\n' : text]);
       for (const [name, text] of sources) await writeFile(join(root, name), text);
       const current = make(hash(sources)), currentSnapshot = JSON.stringify(current);
-      if (changedName === 'report.mjs') {
-        assert.equal(compareCopied(previous, current).comparisons[0].core.netChange.value, 0);
-      } else {
-        assert.throws(() => compareCopied(previous, current), /no verified report-only compatibility/);
-      }
+      // These sources now include an actual prompt/CLI/grading change relative to
+      // the historical execution. Even a report-only edit cannot erase that fact.
+      assert.throws(() => compareCopied(previous, current), /no verified report-only compatibility/);
       assert.equal(JSON.stringify(current), currentSnapshot);
     }
     const unknown = make(hash('unknown historical source'));

@@ -31,6 +31,9 @@ export async function prepareMain(args) {
     '--repeats', '1', '--retries', '0', '--timeout', '120000', '--seed', '62', '--warmup', ...identityArgs]);
   const prepared = JSON.parse(await readFile(resolve(values['--private-dir'], 'plan.json'), 'utf8'));
   assert(prepared.config.modelIdentity.details?.quantization_level === 'Q4_K_M', '본실험은 지정한 Q4_K_M 모델을 사용합니다. 실행 폴더는 내보내지 않았습니다');
+  // Freeze the maintainer-only audit selection before any operator execution.
+  // The answer-free operator bundle does not expose the selected questions.
+  await main(['sample-freeze', '--dir', values['--private-dir']]);
   await main(['export-operator', '--dir', values['--private-dir'], '--out', values['--out']]);
 }
 if (process.argv[1] && resolve(process.argv[1]) === fileURLToPath(import.meta.url)) {

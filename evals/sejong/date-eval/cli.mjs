@@ -72,6 +72,10 @@ function parse(args) {
     'import-review': ['dir', 'run', 'file', 'reviewer'], finalize: ['dir', 'run', 'adjudications', 'out'],
     report: ['dir', 'run', 'final'], 'resolve-state': ['dir', 'run', 'file', 'out'],
     'validate-judge': ['dir', 'run', 'groups', 'final'], compare: ['before', 'after', 'out'],
+    'sample-freeze': ['dir'], 'sample-packets': ['dir', 'run'],
+    'import-sample-review': ['dir', 'run', 'file', 'reviewer'],
+    'sample-finalize': ['dir', 'run', 'adjudications', 'out'],
+    'automatic-report': ['dir', 'run'], 'sample-report': ['dir', 'run', 'final'],
   };
   assert(!command || Object.hasOwn(accepted, command), `알 수 없는 명령: ${command}`);
   for (let i = 0; i < rest.length; i++) {
@@ -102,10 +106,46 @@ async function reviewFiles(dir) {
   const files = names.filter((f) => f.endsWith('.json'));
   return (await Promise.all(files.map((f) => read(join(dir, f))))).flat();
 }
+async function evaluationCosts(dir, plan, run, humanEntries = null) {
+  const costs = {};
+  for (const kind of ['code', 'ai']) {
+    const artifact = await maybe(join(dir, kind + '.json'));
+    if (artifact !== null) bindCost(plan, run, artifact, kind);
+    costs[kind] = artifact;
+  }
+  const start = await maybe(join(dir, 'ai-start.json'));
+  let files = [];
+  try { files = (await readdir(join(dir, 'ai-calls'))).filter(file => /^\d+\.json$/.test(file))
+    .sort((a, b) => Number(a.slice(0, -5)) - Number(b.slice(0, -5))); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  assert(!files.length || start, 'AI 호출 기록은 있지만 시작 기록이 없습니다. 담당자가 출처를 확인하세요');
+  const entries = await Promise.all(files.map(async file => ({ file, entry: await read(join(dir, 'ai-calls', file)) })));
+  const partial = start ? interruptedAiCost(plan, run, start, entries) : null;
+  const provenance = costs.ai
+    ? (await import('./ai-provenance.mjs')).validateAiProvenance(plan, run, costs.ai, start, entries) : null;
+  if (costs.ai && partial) {
+    assert(partial.cost.inFlightCalls === 0 && partial.cost.recordedAttempts === costs.ai.evaluationCost.calls,
+      '완료 AI 비용과 호출 기록 수/상태 불일치');
+    for (const field of ['inputTokens', 'outputTokens']) {
+      assert(hash(partial.cost[field]) === hash(costs.ai.evaluationCost[field]), '완료 AI 토큰 비용과 호출 기록 불일치');
+    }
+  }
+  return { schemaVersion: 1, planId: plan.id, criteriaHash: plan.criteriaHash, runHash: hash(run),
+    generationIncluded: false, code: costs.code?.elapsedMs ?? null,
+    ai: costs.ai?.evaluationCost ?? partial?.cost ?? null,
+    aiExecution: costs.ai ? { status: 'completed', interrupted: false,
+      startHash: partial?.execution.startHash ?? null, ledgerHashes: partial?.execution.ledgerHashes ?? {} }
+      : partial?.execution ?? { status: 'not-started', interrupted: false },
+    artifacts: Object.fromEntries(['code', 'ai'].map(kind => [kind, costs[kind] ? hash(costs[kind]) : null])),
+    aiProvenance: provenance?.evidence ?? null,
+    human: humanEntries === null ? null : humanCost(humanEntries),
+    humanScope: humanEntries === null ? 'not assessed by automatic report; see separate sample report' : 'recorded human reviews only',
+  };
+}
 export async function main(args = process.argv.slice(2)) {
   const { command, flags } = parse(args);
   if (!command || command === 'help') {
-    console.log('날짜 평가: prepare --dir 경로 --model 모델 | run --dir 경로 | packets --dir 경로 | code --dir 경로 | ai --dir 경로 --model 채점모델 | import-review --dir 경로 --file 판정.json --reviewer 이름 | finalize --dir 경로 [--adjudications 합의.json] | report --dir 경로 | validate-judge --dir 경로 --groups 구분.json | compare --before 결과.json --after 결과.json --out 비교.json');
+    console.log('날짜 평가: prepare --dir 경로 --model 모델 | run --dir 경로 | sample-freeze --dir 경로 (실행 전) | automatic-report --dir 경로 | sample-packets --dir 경로 | import-sample-review --dir 경로 --file 판정.json --reviewer 이름 | sample-finalize --dir 경로 | sample-report --dir 경로 | 기존 전수 채점: packets / import-review / finalize / report / validate-judge | compare --before 결과.json --after 결과.json --out 비교.json');
     return;
   }
   if (command === 'compare') {
@@ -156,6 +196,20 @@ export async function main(args = process.argv.slice(2)) {
     return;
   }
   const plan = (command === 'run' ? validateExecutionPlan : validatePlan)(await read(join(dir, 'plan.json')));
+  if (command === 'sample-freeze') {
+    assert(!(await maybe(join(dir, 'operator-export.json'))),
+      '실행 폴더를 전달한 뒤 표본을 사전 고정할 수 없습니다. 새 계획에서 표본을 먼저 고정하세요');
+    assert(!(await maybe(join(dir, 'run.json'))) && !(await maybe(join(dir, 'progress.json'))),
+      '표본은 실행 결과·진행 기록이 생기기 전에 고정하세요. 기존 실행에 사전 고정했다고 표시하지 않습니다');
+    let calls = [];
+    try { calls = await readdir(join(dir, 'generation-calls')); } catch (error) { if (error.code !== 'ENOENT') throw error; }
+    assert(calls.length === 0, '호출 기록이 생긴 뒤 표본을 사전 고정할 수 없습니다');
+    const { createSampleManifest } = await import('./sampling.mjs');
+    const manifest = createSampleManifest(plan, { seed: 62 });
+    await save(join(dir, 'sample-manifest.json'), manifest);
+    console.log('기사별 1문항과 모든 방식·회차의 검증 표본을 고정했습니다. 담당자 전용 기록이며 유진님은 실행만 합니다.');
+    return;
+  }
   if (command === 'export-operator') {
     assert(plan.dataset.split !== 'final' || plan.gold.reviewStatus === 'approved', '검수 전 본실험 자료는 전달할 수 없습니다');
     const out = resolve(requireFlag(flags, 'out'));
@@ -165,11 +219,23 @@ export async function main(args = process.argv.slice(2)) {
     let existing = [];
     try { existing = await readdir(out); } catch (error) { if (error.code !== 'ENOENT') throw error; }
     assert(existing.length === 0, '실행 폴더는 새 폴더 또는 빈 폴더여야 합니다. 기존 정답·결과와 섞지 않습니다');
+    const manifest = await maybe(join(dir, 'sample-manifest.json'));
+    if (manifest) {
+      (await import('./sampling.mjs')).validateSampleManifest(plan, manifest);
+      assert(manifest.seed === 62, '이번 표본 검증은 실행 전 고정한 seed 62를 사용합니다');
+    }
+    const exportBinding = { schemaVersion: 1, planId: plan.id, planHash: hash(plan),
+      mode: manifest ? 'automatic-sample' : 'legacy-full-human', manifestHash: manifest?.manifestHash ?? null };
+    const previousExport = await maybe(join(dir, 'operator-export.json'));
+    assert(!previousExport || hash(previousExport) === hash(exportBinding), '이전 전달 기록과 표본·계획이 다릅니다');
+    // Record the private binding before publishing executable files, including on partial I/O failure.
+    if (!previousExport) await save(join(dir, 'operator-export.json'), exportBinding);
     await save(join(out, 'plan.json'), executionPlan(plan));
     await prepareOperatorBundle(out);
     await save(join(out, 'operator.json'), { planId: plan.id, slots: plan.slots.length, generationOnly: true,
       next: 'node "./run-evaluation.mjs"', model: plan.config.model, split: plan.dataset.split,
       role: '유진: 실행·원문/환경/오류 기록·폴더 전달만. 검수·채점·설정 변경 없음.',
+      evaluationMode: exportBinding.mode, sampleManifestHash: exportBinding.manifestHash,
       answerKeyIncluded: false, privatePlanRequiredForGrading: true });
     console.log('정답표를 제외한 실행 전용 폴더를 만들었습니다. 담당자용 원본 계획은 보관하세요.');
     return;
@@ -258,6 +324,76 @@ export async function main(args = process.argv.slice(2)) {
     return;
   }
   const run = validateRun(plan, await read(flags.run ?? join(dir, 'run.json')));
+  if (['sample-packets', 'import-sample-review', 'sample-finalize', 'sample-report', 'automatic-report'].includes(command)) {
+    validateRecordedInputs(plan, run);
+    if (command === 'automatic-report') {
+      const { buildAutomaticReport, compareAutomaticMethods } = await import('./automatic.mjs');
+      const ai = await maybe(join(dir, 'ai.json'));
+      const report = buildAutomaticReport(plan, run, ai);
+      const comparison = compareAutomaticMethods(plan, run, report, ai);
+      const costs = await evaluationCosts(dir, plan, run);
+      costs.automaticCode = { elapsedMs: report.codeCost.elapsedMs,
+        scope: report.codeCost.scope, artifactHash: hash(report) };
+      await save(join(dir, 'automatic-report.json'), report);
+      await save(join(dir, 'automatic-comparison.json'), comparison);
+      await save(join(dir, 'automatic-evaluation-cost.json'), costs);
+      console.log('구조화 날짜 자동 점수와 AI 보조 점수를 분리해 저장했습니다. 사람 표본 검증 완료나 전체 내용 정답을 뜻하지 않습니다.');
+      return;
+    }
+    const { createSamplePackets, validateSampleManifest, validateSampleFinal } = await import('./sampling.mjs');
+    const manifest = await read(join(dir, 'sample-manifest.json'));
+    validateSampleManifest(plan, manifest);
+    const exported = await maybe(join(dir, 'operator-export.json'));
+    assert(!exported || hash(exported) === hash({ schemaVersion: 1, planId: plan.id, planHash: hash(plan),
+      mode: 'automatic-sample', manifestHash: manifest.manifestHash }), '전달 전에 고정한 계획·표본과 현재 매니페스트가 다릅니다');
+    assert(manifest.seed === 62, '이번 표본 검증은 실행 전 고정한 seed 62를 사용합니다');
+    if (command === 'sample-packets') {
+      const bundle = createSamplePackets(plan, run, manifest);
+      await save(join(dir, 'sample-review-private.json'), bundle);
+      await save(join(dir, 'sample-review-share', 'packets.json'), bundle.packets);
+      await save(join(dir, 'sample-review-share', 'blank-review.json'), bundle.packets.map(p => ({
+        ...blankJudgment(p), structuredDate: null, structuredReason: '',
+      })));
+      console.log('sample-review-share만 검토자 두 명에게 각각 전달하세요. 표본 대응표·방법·자동 점수·상대 판정은 가립니다.');
+      return;
+    }
+    if (command === 'sample-report') {
+      const { buildSampleReport } = await import('./sample-report.mjs');
+      const final = await read(flags.final ?? join(dir, 'sample-final.json'));
+      validateSampleFinal(plan, run, manifest, final);
+      const automatic = await read(join(dir, 'automatic-report.json'));
+      const ai = await maybe(join(dir, 'ai.json'));
+      assert(!automatic.aiHash || ai, 'AI를 사용한 표본 보고서는 원본 ai.json과 호출 기록을 함께 보존해야 합니다');
+      // Recheck the local durable evidence, not only an embedded AI snapshot.
+      await evaluationCosts(dir, plan, run);
+      const report = buildSampleReport(plan, run, manifest, final, automatic, ai);
+      await save(join(dir, 'sample-report.json'), report);
+      console.log('사람 표본 판정·자동 평가와의 대조를 저장했습니다. 표본 결과를 전체 사람 정답률로 확대하지 않습니다.');
+      return;
+    }
+    const bundle = await read(join(dir, 'sample-review-private.json'));
+    assert(bundle.type === 'sample-review-packets' && hash(bundle.caseIds) === hash(manifest.caseIds),
+      '표본 검토 묶음이 사전 고정한 문항과 다릅니다');
+    const reviewsDir = join(dir, 'sample-reviews');
+    const prior = await reviewFiles(reviewsDir);
+    if (command === 'import-sample-review') {
+      const reviewer = requireFlag(flags, 'reviewer');
+      assert(/^[a-zA-Z0-9가-힣_-]+$/.test(reviewer), '검토자 ID는 한글/영문/숫자/_/-만 허용');
+      const reviews = await read(requireFlag(flags, 'file'));
+      assert(Array.isArray(reviews) && reviews.length > 0 && reviews.every(r => r.reviewerId === reviewer), '검토자 ID 불일치');
+      const submitted = new Set(prior.filter(r => r.reviewerId === reviewer).map(r => r.packetId));
+      assert(reviews.every(r => !submitted.has(r.packetId)), '이미 제출한 첫 판정은 덮어쓸 수 없습니다');
+      finalizeReviews(plan, run, bundle, [...prior, ...reviews]);
+      await save(join(reviewsDir, reviewer + '--' + hash(reviews) + '.json'), reviews);
+      console.log('표본 독립 첫 판정 원본 저장. 기존 전수 채점 파일과 분리했습니다.');
+      return;
+    }
+    const adjudications = flags.adjudications ? await read(flags.adjudications) : [];
+    const final = finalizeReviews(plan, run, bundle, prior, adjudications);
+    await save(flags.out ? resolve(flags.out) : join(dir, 'sample-final.json'), final);
+    console.log(`표본 판정 저장. 미확정 ${final.items.filter(i => i.state === 'pending').length}개. 미확정이 있으면 표본 검증 보고서를 만들지 않습니다.`);
+    return;
+  }
   if (command === 'resolve-state') {
     await save(requireFlag(flags, 'out'), resolveRunState(plan, run, await read(requireFlag(flags, 'file'))));
     console.log('원본을 보존하고 실행 상태 확인본을 저장했습니다. 이후 채점에 --run 확인본을 지정하세요.');

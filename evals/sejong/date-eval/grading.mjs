@@ -314,10 +314,20 @@ export async function aiGrade(plan, run, { judge, judgeConfig = {} } = {}) {
  * Review: {packetId,packetHash,reviewerId,independent:true,blind:true,...judgment}.
  * Adjudication: {packetId,packetHash,reviewerIds:[id,id],firstReviewHashes:[hash,hash],...judgment}.
  * Independence/blinding attestations must be made by reviewers; software cannot prove them. */
-export function createReviewPackets(plan, run) {
+function reviewScope(plan, run, caseIds) {
+  if (caseIds === undefined) return { selected: run.records };
+  assert(Array.isArray(caseIds) && caseIds.length > 0 && caseIds.every(text)
+    && new Set(caseIds).size === caseIds.length
+    && caseIds.every(id => plan.dataset.cases.some(c => c.id === id)), 'invalid sample caseIds: nonempty unique existing IDs required');
+  const sorted = [...caseIds].sort();
+  const ids = new Set(sorted);
+  return { caseIds: sorted, selected: run.records.filter(r => ids.has(r.caseId)) };
+}
+export function createReviewPackets(plan, run, { caseIds } = {}) {
   validateRun(plan, run);
+  const scope = reviewScope(plan, run, caseIds);
   const packets = [], bindings = [];
-  for (const record of run.records.filter(r => r.state === 'completed')) {
+  for (const record of scope.selected.filter(r => r.state === 'completed')) {
     const input = restrictedInput(plan, record);
     const id = randomUUID();
     const packet = { id, hash: hash({ id, input }), input };
@@ -327,24 +337,54 @@ export function createReviewPackets(plan, run) {
   for (let i = packets.length - 1; i > 0; i--) {
     const j = randomInt(i + 1); [packets[i], packets[j]] = [packets[j], packets[i]];
   }
-  return { ...envelope(plan, run), packets, bindings };
+  return { ...envelope(plan, run), ...(scope.caseIds ? { type: 'sample-review-packets', caseIds: scope.caseIds } : {}), packets, bindings };
+}
+function exactKeys(value, keys, label) {
+  assert(value && Object.keys(value).length === keys.length && keys.every(k => Object.hasOwn(value, k)), `${label}: unexpected/missing fields`);
 }
 function validatePackets(plan, run, bundle) {
   bind(plan, run, bundle);
+  const scoped = Object.hasOwn(bundle, 'caseIds') || bundle.type === 'sample-review-packets';
+  if (scoped) {
+    exactKeys(bundle, [...Object.keys(envelope(plan, run)), 'type', 'caseIds', 'packets', 'bindings'], 'sample packet bundle');
+    assert(bundle.type === 'sample-review-packets' && Array.isArray(bundle.caseIds), 'invalid sample packet scope');
+  }
+  const scope = reviewScope(plan, run, scoped ? bundle.caseIds : undefined);
+  if (scoped) assert(hash(scope.caseIds) === hash(bundle.caseIds), 'sample caseIds must be sorted');
   const packets = index(bundle.packets, 'id', 'packets');
   const bindings = index(bundle.bindings, 'packetId', 'bindings');
   const records = index(bundle.bindings, 'recordId', 'bound records');
-  const completed = run.records.filter(r => r.state === 'completed');
+  const completed = scope.selected.filter(r => r.state === 'completed');
   assert(packets.size === completed.length && bindings.size === completed.length && records.size === completed.length,
     'missing/extra review packets');
   for (const record of completed) {
     const binding = records.get(record.id);
     const packet = packets.get(binding?.packetId);
     assert(packet && binding.recordHash === hash(record), 'packet record mismatch');
+    if (scoped) {
+      exactKeys(packet, ['id', 'hash', 'input'], 'sample packet');
+      exactKeys(binding, ['packetId', 'packetHash', 'recordId', 'recordHash'], 'sample binding');
+    }
     assert(hash(packet.input) === hash(restrictedInput(plan, record)), 'packet input changed');
     assert(packet.hash === hash({ id: packet.id, input: packet.input }) && packet.hash === binding.packetHash, 'packet hash mismatch');
   }
-  return { packets, bindings, records };
+  return { packets, bindings, records, ...scope };
+}
+// Structured JSON accuracy is a separate human score, never inferred from semantic
+// date/evidence judgments or code diagnostics. Null remains pending until resolved.
+function reviewJudgment(value, gold, scoped) {
+  const judgment = normalizeJudgment(value, gold, true);
+  if (!scoped) return judgment;
+  if (bit(value.structuredDate)) {
+    assert(text(value.structuredReason), 'structuredDate: structuredReason required');
+    return { ...judgment, structuredDate: value.structuredDate, structuredReason: value.structuredReason };
+  }
+  assert(value.structuredDate == null, 'structuredDate: invalid score');
+  return { ...judgment, structuredDate: null, structuredReason: 'grading failure: missing/undecidable structured judgment' };
+}
+function sampleFields(record) {
+  return { structuredDate: record.state === 'failed' ? 0 : null,
+    structuredReason: record.state === 'failed' ? 'execution failure; no content grading' : 'structured human review required' };
 }
 function judgmentFields(gold) {
   return [{ key: 'date' }, { key: 'evidence' }, ...gold.events.flatMap(e =>
@@ -357,7 +397,9 @@ const ratio = (n, d) => ({ numerator: n, denominator: d, value: d ? n / d : null
 
 export function finalizeReviews(plan, run, packetBundle, reviews, adjudications = []) {
   validateRun(plan, run);
-  const { packets, records } = validatePackets(plan, run, packetBundle);
+  const { packets, records, selected, caseIds } = validatePackets(plan, run, packetBundle);
+  const scoped = caseIds !== undefined;
+  const completeReview = (j, gold) => complete(j, gold) && (!scoped || bit(j.structuredDate));
   assert(Array.isArray(reviews) && Array.isArray(adjudications), 'reviews/adjudications must be arrays');
   const byPacket = new Map();
   for (const review of reviews) {
@@ -371,13 +413,15 @@ export function finalizeReviews(plan, run, packetBundle, reviews, adjudications 
   for (const resolution of resolutions.values()) assert(packets.get(resolution.packetId)?.hash === resolution.packetHash, 'adjudication packet mismatch');
   const details = [], items = [];
   let agreed = 0, total = 0;
-  for (const record of run.records) {
+  for (const record of selected) {
     const gold = goldFor(plan, record);
-    if (record.state !== 'completed') { items.push(automatic(record, gold)); continue; }
+    if (record.state !== 'completed') {
+      items.push({ ...automatic(record, gold), ...(scoped ? sampleFields(record) : {}) }); continue;
+    }
     const binding = records.get(record.id);
     const first = byPacket.get(binding.packetId) ?? [];
-    const judgments = first.map(r => normalizeJudgment(r, gold, true));
-    const fields = judgmentFields(gold);
+    const judgments = first.map(r => reviewJudgment(r, gold, scoped));
+    const fields = [...judgmentFields(gold), ...(scoped ? [{ key: 'structuredDate' }] : [])];
     const differences = [];
     if (first.length === 2) for (const field of fields) {
       const left = score(judgments[0], field), right = score(judgments[1], field);
@@ -398,17 +442,18 @@ export function finalizeReviews(plan, run, packetBundle, reviews, adjudications 
       assert(Array.isArray(resolution.firstReviewHashes) && resolution.firstReviewHashes.length === 2
         && new Set(resolution.firstReviewHashes).size === 2
         && resolution.firstReviewHashes.every(h => detail.firstReviewHashes.includes(h)), 'adjudication first review mismatch');
-      const resolved = normalizeJudgment(resolution, gold, true);
+      const resolved = reviewJudgment(resolution, gold, scoped);
       // Incomplete resolutions remain pending; never silently replace missing scores.
-      if (complete(resolved, gold)) chosen = resolved;
+      if (completeReview(resolved, gold)) chosen = resolved;
       detail.adjudication = clone(resolution);
-    } else if (first.length === 2 && differences.length === 0 && judgments.every(j => complete(j, gold))) chosen = judgments[0];
+    } else if (first.length === 2 && differences.length === 0 && judgments.every(j => completeReview(j, gold))) chosen = judgments[0];
     items.push(chosen ? { ...baseItem(record, gold), ...chosen, state: 'final',
       reason: resolution ? chosen.reason : `two independent blind reviews agree: ${first.map(r => r.reviewerId).join(', ')}; ${chosen.reason}` }
-      : { ...baseItem(record, gold), reason: first.length < 2 ? 'two first reviews required' : 'incomplete or unreconciled human judgments' });
+      : { ...baseItem(record, gold), ...(scoped ? sampleFields(record) : {}),
+        reason: first.length < 2 ? 'two first reviews required' : 'incomplete or unreconciled human judgments' });
     details.push(detail);
   }
-  return { ...envelope(plan, run), items, agreement: { ...ratio(agreed, total),
+  return { ...envelope(plan, run), ...(scoped ? { type: 'sample-human-final', caseIds } : {}), items, agreement: { ...ratio(agreed, total),
     scope: 'eligible first-review score items before reconciliation; null is unresolved', details } };
 }
 
@@ -430,6 +475,8 @@ function confusion(rows, errorFlag = false) {
  * and reconciliations. Returns final; throws for forged, stale, pending or unresolved results.
  * No report import: callers may use this guard without an import cycle. */
 export function validateFinalAudit(plan, run, final) {
+  assert(final?.type !== 'sample-human-final' && !Object.hasOwn(final ?? {}, 'caseIds'),
+    'sample human final cannot pass the full human final audit');
   validateRun(plan, run); bind(plan, run, final);
   // Reproduce the human final from its first-review/reconciliation audit. A hand-edited
   // final score or an AI-only artifact cannot masquerade as two-person final grading.

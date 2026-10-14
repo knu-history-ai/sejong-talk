@@ -24,6 +24,10 @@ test('three methods use no gold, all stages and usage logged; deterministic orde
     assert.equal(Object.hasOwn(request, 'gold'), false);
     assert.equal(request.prompt.includes('issue62-date-v1'), false);
     assert.equal(request.prompt.includes('allowedOmissions'), false);
+    if (request.stage === 'answer') {
+      assert.equal(request.prompt.includes('반드시 JSON 객체 하나로'), true);
+      assert.equal(request.prompt.includes('가능하면 JSON'), false);
+    }
     return { answer: '확인 가능한 월과 근거를 답합니다.', raw: '{"fixture":true}', inputTokens: 5, outputTokens: 2 };
   };
   const run = await runPlan(p, { generate, onRecord: async (r) => checkpoints.push(r) });
