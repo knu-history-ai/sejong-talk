@@ -1,5 +1,24 @@
+import { readFileSync } from 'node:fs';
 import { assert, hash, validatePlan, validateRun } from './core.mjs';
 import { DERIVED_METHODS } from './postprocess.mjs';
+import { METHOD_VERSION } from './runner.mjs';
+
+// Audited source pairs from ad4c93a and 7905e8c. Only report.mjs differs.
+// Keep the full execution-bundle hash intact; this exception is comparison-only.
+const AUDITED_EXECUTION_HASH = '48ac710ea3fc1fcc1ab58c9bcfb827351378a2810ab67212c6040ffc454d31bd';
+function reportingCompatibility() {
+  const known = new Map([
+    ['6eeb82fa794300e4aa28e5ee582a9d55c4961f5c6ae8d38b37864b3acf5ff84d',
+      { version: 'date-methods-v4-vt', executionHash: AUDITED_EXECUTION_HASH }],
+    ['c9dce3e4e3a5bc39975de4a478381dc0beb82b686583124e27c7765f78150941',
+      { version: 'date-methods-v4-vt', executionHash: AUDITED_EXECUTION_HASH }],
+  ]);
+  const sources = ['core.mjs', 'runner.mjs', 'postprocess.mjs', 'grading.mjs', 'report.mjs', 'state.mjs', 'costs.mjs', 'cli.mjs']
+    .map(name => [name, readFileSync(new URL(name, import.meta.url), 'utf8')]);
+  known.set(hash(sources), { version: METHOD_VERSION,
+    executionHash: hash(sources.filter(([name]) => name !== 'report.mjs')) });
+  return known;
+}
 
 const FLAGS = ['unsupportedDay', 'missingKnownDay', 'headerConfusion'];
 const METRIC_VERSION = 2;
@@ -407,9 +426,20 @@ export function compareReports(left, right) {
     && hash(leftEnvironment) === hash(rightEnvironment)
     && hash(left.config) === hash({ ...right.config, methods: left.config.methods });
   const comparisons = [];
+  const implementationCompatibility = [];
+  let compatibleImplementations;
   for (const before of left.methods) for (const after of right.methods) {
-    if (before.id === after.id && before.version === after.version) {
-      assert(before.codeHash === after.codeHash, 'same method version has different code hash');
+    if (before.id === after.id && before.version === after.version && before.codeHash !== after.codeHash) {
+      compatibleImplementations ??= reportingCompatibility();
+      const previous = compatibleImplementations.get(before.codeHash);
+      const next = compatibleImplementations.get(after.codeHash);
+      assert(previous && next && previous.version === before.version && next.version === after.version
+        && previous.executionHash === next.executionHash,
+      'same method version has different code hash; no verified report-only compatibility');
+      implementationCompatibility.push({ methodId: before.id, version: before.version,
+        beforeCodeHash: before.codeHash, afterCodeHash: after.codeHash,
+        executionHash: previous.executionHash, excludedModule: 'report.mjs',
+        reason: 'verified identical non-report modules; original full hashes preserved' });
     }
     const l = left.entries.filter(entry => entry.methodId === before.id);
     const r = right.entries.filter(entry => entry.methodId === after.id);
@@ -438,6 +468,7 @@ export function compareReports(left, right) {
     datasetHash: left.datasetHash, goldHash: left.goldHash, criteriaHash: left.criteriaHash,
     leftReportHash: hash(left), rightReportHash: hash(right),
     sourceMetricVersions: { left: left.metricVersion ?? 1, right: right.metricVersion ?? 1 },
+    implementationCompatibility,
     pilot: left.pilot || right.pilot,
     datasetEligible: left.datasetEligible && right.datasetEligible,
     paperEligible: false, paperReadiness: 'not-established-by-tool',

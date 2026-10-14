@@ -1,7 +1,16 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { mkdtemp, readFile, writeFile, rm } from 'node:fs/promises';
+import { tmpdir } from 'node:os';
+import { join } from 'node:path';
+import { pathToFileURL } from 'node:url';
 import { hash } from '../evals/sejong/date-eval/core.mjs';
 import { buildReport, compareReports } from '../evals/sejong/date-eval/report.mjs';
+import { implementationHash } from '../evals/sejong/date-eval/cli.mjs';
+import { METHOD_VERSION } from '../evals/sejong/date-eval/runner.mjs';
+
+const PRE_REPORT_HASH = '6eeb82fa794300e4aa28e5ee582a9d55c4961f5c6ae8d38b37864b3acf5ff84d';
+const METRIC_V2_HASH = 'c9dce3e4e3a5bc39975de4a478381dc0beb82b686583124e27c7765f78150941';
 
 // Fixtures use only the shared contracts, with no model calls or review heuristics.
 function fixture({ core = 4, controls = 0, repeats = 1, methods = ['a'],
@@ -190,6 +199,67 @@ test('changed metric labels, swapped values, missing versions and unknown versio
   ]) {
     const changed = structuredClone(current); mutate(changed);
     assert.throws(() => compareReports(changed, current), /metric definitions|primary accuracy|supplementary article weighting/);
+  }
+});
+
+test('audited old executions compare with newly prepared code without rewriting their full hashes or scores', async () => {
+  const currentHash = await implementationHash();
+  const make = codeHash => report(fixture({ core: 3, articles: ['A', 'A', 'B'],
+    config: { methods: [{ id: 'a', version: METHOD_VERSION, codeHash }] },
+    outcome: i => ({ date: i < 2 ? 1 : 0 }) }));
+  const current = make(currentHash);
+  for (const codeHash of [PRE_REPORT_HASH, METRIC_V2_HASH]) {
+    const previous = make(codeHash);
+    if (codeHash === PRE_REPORT_HASH) {
+      delete previous.metricVersion; delete previous.metricDefinitions;
+      previous.methods[0].primary = previous.methods[0].supplementary.articleEqualWeight;
+      delete previous.methods[0].supplementary;
+    }
+    const originals = [JSON.stringify(previous), JSON.stringify(current)];
+    for (const [left, right] of [[previous, current], [current, previous]]) {
+      const comparison = compareReports(left, right);
+      assert.equal(comparison.comparisons[0].core.netChange.value, 0);
+      assert.equal(comparison.implementationCompatibility.length, 1);
+      const proof = comparison.implementationCompatibility[0];
+      assert.equal(proof.beforeCodeHash, left.methods[0].codeHash);
+      assert.equal(proof.afterCodeHash, right.methods[0].codeHash);
+      assert.equal(proof.excludedModule, 'report.mjs');
+    }
+    assert.deepEqual([JSON.stringify(previous), JSON.stringify(current)], originals);
+    assert.equal(current.methods[0].primary.value, 2 / 3);
+    assert.equal(previous.methods[0].primary.value, codeHash === PRE_REPORT_HASH ? .5 : 2 / 3);
+  }
+});
+
+test('report-only source edits remain compatible but every non-report module edit is rejected', async () => {
+  const modules = ['core.mjs', 'runner.mjs', 'postprocess.mjs', 'grading.mjs', 'report.mjs', 'state.mjs', 'costs.mjs', 'cli.mjs'];
+  const originalSources = await Promise.all(modules.map(async name => [name,
+    await readFile(new URL('../evals/sejong/date-eval/' + name, import.meta.url), 'utf8')]));
+  const make = codeHash => report(fixture({ config: { methods: [{ id: 'a', version: METHOD_VERSION, codeHash }] } }));
+  const previous = make(PRE_REPORT_HASH), snapshot = JSON.stringify(previous);
+  const root = await mkdtemp(join(tmpdir(), 'date-report-compat-'));
+  try {
+    for (const [name, text] of originalSources) await writeFile(join(root, name), text);
+    const { compareReports: compareCopied } = await import(pathToFileURL(join(root, 'report.mjs')).href);
+    for (const changedName of modules) {
+      const sources = originalSources.map(([name, text]) => [name,
+        name === changedName ? text + '\n// Synthetic source change for compatibility regression.\n' : text]);
+      for (const [name, text] of sources) await writeFile(join(root, name), text);
+      const current = make(hash(sources)), currentSnapshot = JSON.stringify(current);
+      if (changedName === 'report.mjs') {
+        assert.equal(compareCopied(previous, current).comparisons[0].core.netChange.value, 0);
+      } else {
+        assert.throws(() => compareCopied(previous, current), /no verified report-only compatibility/);
+      }
+      assert.equal(JSON.stringify(current), currentSnapshot);
+    }
+    const unknown = make(hash('unknown historical source'));
+    unknown.implementationCompatibility = [{ executionHash: 'claimed compatible' }];
+    assert.throws(() => compareReports(previous, unknown), /no verified report-only compatibility/);
+    assert.throws(() => compareReports(unknown, make(hash('another unknown source'))), /no verified report-only compatibility/);
+    assert.equal(JSON.stringify(previous), snapshot);
+  } finally {
+    await rm(root, { recursive: true, force: true });
   }
 });
 

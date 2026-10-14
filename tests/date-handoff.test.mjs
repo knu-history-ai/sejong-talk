@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, readFile, mkdir, rename, cp } from 'node:fs/promises';
+import { mkdtemp, readFile, writeFile, mkdir, rename, cp } from 'node:fs/promises';
 import { join, dirname, delimiter } from 'node:path';
 import { tmpdir } from 'node:os';
 import { spawn } from 'node:child_process';
@@ -57,6 +57,21 @@ test('operator command survives spaces, shell characters and relocation without 
   const duplicate = await copyPaste(moved);
   assert.equal(duplicate.code, 1); assert.match(duplicate.stderr, /완료된 실행/);
   assert.equal(await readFile(join(moved, 'run.json'), 'utf8'), bytes);
+});
+
+test('report-only comparison compatibility never permits editing a frozen execution bundle', async () => {
+  const source = await mkdtemp(join(tmpdir(), 'date-frozen-bundle-'));
+  await main(['prepare', '--dir', source, '--model', 'fixture', '--methods', 'rule-baseline']);
+  const plan = await readFile(join(source, 'plan.json'), 'utf8');
+  const reportPath = join(source, 'execution-code/report.mjs');
+  await writeFile(reportPath, await readFile(reportPath, 'utf8') + '\n// Report-only edit after preparation.\n');
+  const result = await copyPaste(source);
+  assert.equal(result.code, 1);
+  assert.match(result.stderr, /실행 코드가 준비 후 바뀌었습니다/);
+  assert.equal(await readFile(join(source, 'plan.json'), 'utf8'), plan);
+  for (const file of ['run.json', 'code.json', 'ai.json', 'final.json', 'report.json']) {
+    await assert.rejects(readFile(join(source, file)), { code: 'ENOENT' });
+  }
 });
 
 test('gold-free transferred bundle runs five methods through local HTTP and joins private grading without extra P calls', async () => {

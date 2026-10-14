@@ -1,0 +1,2 @@
+# Frozen evaluation bundles must have the same source bytes on Windows and Unix.
+evals/sejong/date-eval/*.mjs text eol=lf
