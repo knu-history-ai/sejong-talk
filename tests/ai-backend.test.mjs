@@ -139,6 +139,9 @@ test("Sejong prompt input separates character, recent turns, and approved facts"
   assert.match(prompt, /\[최근 승인 대화\]/);
   assert.match(prompt, /\[검토 완료 사실 카드\]/);
   assert.match(prompt, /\[사용자 질문\]/);
+  assert.match(prompt, /세종 본인으로 대화하는 AI/);
+  assert.match(prompt, /자신을 '나'로 부르고/);
+  assert.match(prompt, /사실 카드가 3인칭 문장이어도 근거로만 사용/);
 });
 
 test("date source drafts stay out of prompts until they are approved", async () => {
@@ -221,6 +224,33 @@ test("answer validation only exposes server-approved fact IDs and sources", asyn
   assert.deepEqual(answer.factIds, ["sejong_hunminjeongeum_28_letters"]);
   assert.equal(answer.sources.length, 1);
   assert.equal(answer.sources[0].id, "source_urihistory_hunminjeongeum");
+});
+
+test("answer validation rejects third-person self references", async () => {
+  const knowledgeBase = await loadSejongKnowledgeBase();
+  const request = {
+    requestId: "turn_test_third_person",
+    text: "훈민정음은 왜 만들었어요?",
+  };
+  const promptInput = buildSejongPromptInput({
+    knowledgeBase,
+    request,
+    reviewedFacts: selectReviewedFactsForQuestion(knowledgeBase, request.text),
+  });
+
+  const answer = validateAnswerDraft(
+    {
+      kind: "grounded",
+      text: "세종대왕님은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다.",
+      factIds: ["sejong_hunminjeongeum_purpose"],
+    },
+    promptInput,
+    { answerId: "answer_test_third_person" },
+  );
+
+  assert.equal(answer.kind, "fallback");
+  assert.deepEqual(answer.factIds, []);
+  assert.deepEqual(answer.sources, []);
 });
 
 test("invalid grounded draft becomes fallback instead of exposing unverified text", async () => {
