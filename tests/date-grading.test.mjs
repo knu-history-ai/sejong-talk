@@ -4,11 +4,14 @@ import { hash, makePlan } from '../evals/sejong/date-eval/core.mjs';
 import { loadPilot } from '../evals/sejong/date-eval/pilot.mjs';
 import { codeGrade, aiGrade, createReviewPackets, finalizeReviews, validateJudge, validateFinalAudit } from '../evals/sejong/date-eval/grading.mjs';
 import { buildReport } from '../evals/sejong/date-eval/report.mjs';
+import { runPlan } from '../evals/sejong/date-eval/runner.mjs';
 
 const pilot = await loadPilot();
-function fixture(ids = ['B01', 'B06', 'B08'], methods = ['strong', 'rule']) {
-  const dataset = { ...structuredClone(pilot.dataset), cases: pilot.dataset.cases.filter(c => ids.includes(c.id)) };
-  const gold = { ...structuredClone(pilot.gold), datasetHash: hash(dataset), cases: pilot.gold.cases.filter(c => ids.includes(c.id)) };
+function fixture(ids = ['B01', 'B06', 'B08'], methods = ['strong', 'rule'], configure = () => {}) {
+  const dataset = { ...structuredClone(pilot.dataset), cases: structuredClone(pilot.dataset.cases.filter(c => ids.includes(c.id))) };
+  const gold = { ...structuredClone(pilot.gold), cases: structuredClone(pilot.gold.cases.filter(c => ids.includes(c.id))) };
+  configure(dataset, gold);
+  gold.datasetHash = hash(dataset);
   const plan = makePlan(dataset, gold, { model: 'secret-generation-model', endpoint: 'secret-endpoint',
     options: { secretOption: 'never-show-reviewers' }, timeoutMs: 1000, retries: 0,
     methods: methods.map(id => ({ id, version: '1' })), repeats: 1, seed: 7, runOrder: 'seeded', warmup: false });
@@ -119,6 +122,71 @@ test('structured unsupported precision, missing targets, calendar aliases and ba
   run.records[1].rawAnswer = JSON.stringify({ events: [] });
   const omitted = codeGrade(plan, run).items[1];
   assert.equal(omitted.date, 0); assert.equal(omitted.events.length, 2);
+});
+
+test('code grading accepts whole JSON fences without changing raw answers, quotes or scores', () => {
+  const { plan, run } = fixture(['B01'], ['strong']);
+  const event = plan.gold.cases[0].events[0];
+  const answer = JSON.stringify({ events: [{ id: event.id, date: event.expected,
+    unknownDay: true, evidence: event.evidence }] });
+  run.records[0].rawAnswer = answer;
+  const bare = codeGrade(plan, run).items[0];
+  for (const wrap of [s => `\n\`\`\`json\n${s}\n\`\`\`\n`,
+    s => `\uFEFF  \`\`\`JSON\t\r\n${s}\r\n\`\`\`  `, s => `\`\`\`\n${s}\n\`\`\``]) {
+    run.records[0].rawAnswer = wrap(answer);
+    const before = hash(run), item = codeGrade(plan, run).items[0];
+    assert.equal(hash(run), before);
+    assert.equal(item.recordHash, hash(run.records[0]));
+    assert.deepEqual([item.date, item.quoteExists, item.evidence, item.events],
+      [bare.date, bare.quoteExists, bare.evidence, bare.events]);
+    assert.equal(item.formatError, undefined);
+  }
+  const wrong = JSON.parse(answer); wrong.events[0].date.day = 30;
+  run.records[0].rawAnswer = `\`\`\`json\n${JSON.stringify(wrong)}\n\`\`\``;
+  assert.equal(codeGrade(plan, run).items[0].date, 0);
+});
+
+test('code grading does not repair invalid JSON or extract it from prose or multiple fences', () => {
+  const { plan, run } = fixture(['B01'], ['strong']);
+  const valid = JSON.stringify({ events: [] });
+  for (const raw of [
+    `설명입니다.\n\`\`\`json\n${valid}\n\`\`\``,
+    `\`\`\`json\n${valid}\n\`\`\`\n추가 설명`,
+    `\`\`\`json\n${valid}\n\`\`\`\n\`\`\`json\n${valid}\n\`\`\``,
+    `\`\`\`javascript\n${valid}\n\`\`\``, `\`\`\`json\n${valid}`,
+    '\`\`\`json\n{"events": [],}\n\`\`\`',
+  ]) {
+    run.records[0].rawAnswer = raw;
+    const before = hash(run), item = codeGrade(plan, run).items[0];
+    assert.ok(item.formatError, raw);
+    assert.equal(item.date, null);
+    assert.equal(run.records[0].state, 'completed');
+    assert.equal(hash(run), before);
+  }
+});
+
+test('AI JSON fences survive transport audit replay while invalid outputs remain grading failures', async () => {
+  const { plan, run } = fixture(['B01'], ['strong']);
+  const { bundle, reviews } = reviewSetup(plan, run);
+  const final = finalizeReviews(plan, run, bundle, reviews);
+  for (const transport of [false, true]) {
+    const ai = await aiGrade(plan, run, { judge: input => {
+      const answer = `\`\`\`json\r\n${JSON.stringify(aiJudgment(input))}\r\n\`\`\``;
+      return transport ? { answer, raw: JSON.stringify({ done: true, response: answer }), inputTokens: 5, outputTokens: 6 } : answer;
+    } });
+    assert.equal(ai.items[0].state, 'preliminary');
+    assert.match(ai.items[0].attempts[0].judgmentOutput, /^```json/);
+    assert.equal(validateJudge(plan, run, ai, final).metrics.date.matched, 1);
+    const tampered = structuredClone(ai); tampered.items[0].date = 0;
+    assert.throws(() => validateJudge(plan, run, tampered, final), /preserved raw output/);
+  }
+  for (const output of ['```json\n{"date":1,}\n```', '説明\n```json\n{}\n```']) {
+    const ai = await aiGrade(plan, run, { judge: () => output });
+    assert.equal(ai.items[0].state, 'grading-failure');
+    assert.equal(ai.items[0].date, null);
+    assert.equal(ai.items[0].attempts[0].rawOutput, output);
+    assert.equal(run.records[0].state, 'completed');
+  }
 });
 
 test('packets hide methods/options/rawInput and bind exact answers to records', () => {
@@ -258,6 +326,133 @@ test('validation counts item-level 2x3 confusion with failures in denominator an
   const heldout = validateJudge(plan, run, ai, final, { calibrationGroups: ['S1'], validationGroups: ['S3'] });
   assert.equal(heldout.metrics.date.total, 1);
   assert.throws(() => validateJudge(plan, run, ai, final, { validationGroups: ['missing'] }), /invalid/);
+});
+
+test('frozen gold categories split generic dataset types without entering generation or judge inputs', async () => {
+  const categories = { B01: 'gold-only-unknown', B06: 'gold-only-known', B08: 'gold-only-mixed' };
+  const { plan } = fixture(Object.keys(categories), ['prompt-baseline', 'rule-baseline', 'evidence-first'], (dataset, gold) => {
+    for (const c of dataset.cases) c.type = 'generic-generation-type';
+    for (const g of gold.cases) g.category = categories[g.id];
+  });
+  let generationCalls = 0;
+  const run = await runPlan(plan, { generate: request => {
+    generationCalls++;
+    for (const category of Object.values(categories)) assert.ok(!JSON.stringify(request).includes(category));
+    return { answer: '모의 답변: 확인 가능한 날짜와 근거.', raw: 'offline fixture', inputTokens: 0, outputTokens: 0 };
+  } });
+  assert.equal(generationCalls, 9);
+  let judgeCalls = 0;
+  const ai = await aiGrade(plan, run, { judge: input => {
+    judgeCalls++;
+    assert.equal(Object.hasOwn(input.gold, 'category'), false);
+    for (const category of Object.values(categories)) assert.ok(!JSON.stringify(input).includes(category));
+    return aiJudgment(input);
+  } });
+  assert.equal(judgeCalls, 9);
+  const { bundle, reviews } = reviewSetup(plan, run);
+  for (const category of Object.values(categories)) assert.ok(!JSON.stringify(bundle.packets).includes(category));
+  const result = validateJudge(plan, run, ai, finalizeReviews(plan, run, bundle, reviews));
+  assert.deepEqual(Object.keys(result.byQuestionType).sort(), Object.values(categories).sort());
+  assert.ok(result.observations.every(r => r.questionType === categories[r.caseId]));
+  for (const category of Object.values(categories)) assert.equal(result.byQuestionType[category].date.total, 3);
+  assert.equal(result.byQuestionType[categories.B08].eventDate.total, 6);
+  assert.equal(result.metrics.date.total, 9);
+  assert.equal(result.metrics.eventDate.total, 12);
+  for (const method of Object.values(result.byMethod)) assert.equal(method.date.total, 3);
+});
+
+test('legacy gold without category retains dataset type and unspecified fallback', async () => {
+  const { plan, run } = fixture(['B01', 'B03', 'B06'], ['strong'], (dataset, gold) => {
+    for (const g of gold.cases) delete g.category;
+    delete dataset.cases.find(c => c.id === 'B03').type;
+  });
+  const ai = await aiGrade(plan, run, { judge: input => aiJudgment(input) });
+  const { bundle, reviews } = reviewSetup(plan, run);
+  const result = validateJudge(plan, run, ai, finalizeReviews(plan, run, bundle, reviews));
+  assert.deepEqual(Object.keys(result.byQuestionType).sort(), ['known-day', 'unknown-day', 'unspecified']);
+  for (const c of plan.dataset.cases) {
+    assert.ok(result.observations.filter(r => r.caseId === c.id).every(r => r.questionType === (c.type ?? 'unspecified')));
+    assert.equal(result.byQuestionType[c.type ?? 'unspecified'].date.total, 1);
+  }
+});
+
+test('explicit gold categories reject empty or non-string values, including outside validation groups', async () => {
+  for (const category of ['', ' \t\n ', null, undefined, 0, true, [], {}]) {
+    const { plan, run } = fixture(['B01', 'B06'], ['strong'], (_, gold) => {
+      gold.cases.find(g => g.id === 'B01').category = category;
+    });
+    const ai = await aiGrade(plan, run, { judge: input => aiJudgment(input) });
+    const { bundle, reviews } = reviewSetup(plan, run);
+    assert.throws(() => validateJudge(plan, run, ai, finalizeReviews(plan, run, bundle, reviews), {
+      calibrationGroups: ['S1'], validationGroups: ['S3'],
+    }), /B01.*category/);
+  }
+  const { plan, run } = fixture(['B01'], ['strong'], (_, gold) => { gold.cases[0].category = ' known-category '; });
+  const ai = await aiGrade(plan, run, { judge: input => aiJudgment(input) });
+  const { bundle, reviews } = reviewSetup(plan, run);
+  const result = validateJudge(plan, run, ai, finalizeReviews(plan, run, bundle, reviews));
+  assert.deepEqual(Object.keys(result.byQuestionType), ['known-category']);
+  assert.ok(result.observations.every(r => r.questionType === 'known-category'));
+  assert.equal(plan.gold.cases[0].category, ' known-category ');
+});
+
+test('gold categories preserve partial AI failures, held-out groups, N/A, control and two-person finals', async () => {
+  const categories = { B01: 'unknown', B03: 'header-control', B04: 'calibration-only', B06: 'known', B07: 'failed-only', B08: 'mixed' };
+  const { plan, run } = fixture(Object.keys(categories), ['strong'], (dataset, gold) => {
+    for (const c of dataset.cases) c.type = 'generic-generation-type';
+    for (const g of gold.cases) g.category = categories[g.id];
+  });
+  run.records.find(r => r.caseId === 'B07').state = 'failed';
+  let calls = 0;
+  const ai = await aiGrade(plan, run, { judge: input => {
+    calls++;
+    const j = aiJudgment(input);
+    if (j.events.length === 2) { delete j.proofs.evidence; delete j.events[1].proofs.missingKnownDay; }
+    return j;
+  } });
+  assert.equal(calls, 5);
+  assert.equal(ai.items.find(i => i.recordId === run.records.find(r => r.caseId === 'B08').id).state, 'partial-failure');
+  const { bundle, reviews } = reviewSetup(plan, run);
+  assert.throws(() => validateJudge(plan, run, ai, finalizeReviews(plan, run, bundle, reviews.filter(r => r.reviewerId === 'alice'))), /pending/);
+  const final = finalizeReviews(plan, run, bundle, reviews), finalHash = hash(final);
+  assert.equal(final.items.filter(i => i.state === 'final').length, 5);
+  assert.equal(final.items.filter(i => i.state === 'execution-failure').length, 1);
+  assert.ok(final.agreement.details.every(d => d.firstReviews.length === 2));
+  const options = { calibrationGroups: ['S2'], validationGroups: ['S1', 'S3'] };
+  const result = validateJudge(plan, run, ai, final, options);
+  assert.deepEqual(validateJudge(plan, run, ai, final, { calibrationGroups: ['S2'] }), result);
+  assert.deepEqual(result.calibrationGroups, ['S2']);
+  assert.deepEqual(result.validationGroups, ['S1', 'S3']);
+  assert.deepEqual(Object.keys(result.byQuestionType).sort(), ['header-control', 'known', 'mixed', 'unknown']);
+  assert.ok(result.observations.every(r => r.groupId !== 'S2' && r.caseId !== 'B07' && r.questionType === categories[r.caseId]));
+  assert.equal(result.metrics.date.total, 4);
+  assert.equal(result.metrics.evidence.total, 4);
+  assert.equal(result.metrics.evidence.failures, 1);
+  assert.equal(result.metrics.evidence.agreementWithFailures.value, .75);
+  assert.equal(result.metrics.evidence.validAgreement.value, 1);
+  assert.equal(result.metrics.evidence.completion.value, .75);
+  assert.equal(result.metrics.eventDate.total, 5);
+  assert.equal(result.metrics.unsupportedDay.total, 2);
+  assert.equal(result.metrics.missingKnownDay.total, 2);
+  assert.equal(result.metrics.headerConfusion.total, 4);
+  assert.equal(result.byQuestionType.mixed.evidence.failures, 1);
+  assert.deepEqual(result.byQuestionType.mixed.missingKnownDay.matrix.human0, { ai0: 0, ai1: 0, failure: 1 });
+  assert.equal(result.byQuestionType.mixed.missingKnownDay.agreementWithFailures.value, 0);
+  assert.equal(result.byQuestionType.mixed.missingKnownDay.validAgreement.value, null);
+  assert.equal(result.byQuestionType.known.missingKnownDay.failures, 0);
+  assert.equal(result.byKind.event.date.total, 3);
+  assert.equal(result.byKind.control.date.total, 1);
+  assert.deepEqual(result.byQuestionType['header-control'], result.byKind.control);
+  for (const flag of ['unsupportedDay', 'missingKnownDay', 'headerConfusion']) {
+    assert.equal(result.byKind.control[flag].total, 0);
+    assert.equal(result.byKind.control[flag].agreementWithFailures.value, null);
+  }
+  assert.equal(result.automaticFinalAllowed, false);
+  const report = buildReport(plan, run, final).methods[0];
+  assert.equal(report.core.fixedTotal, 5); assert.equal(report.core.failed, 1);
+  assert.equal(report.core.accuracy.value, .8);
+  assert.equal(report.control.fixedTotal, 1); assert.equal(report.control.accuracy.value, 1);
+  assert.equal(hash(final), finalHash);
 });
 
 test('AI N/A, missing reasons and omitted events produce local failures, preserving independent items', async () => {

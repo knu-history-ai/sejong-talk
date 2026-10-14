@@ -8,6 +8,13 @@ const clone = value => structuredClone(value);
 const goldFor = (plan, record) => plan.gold.cases.find(c => c.id === record.caseId);
 const envelope = (plan, run) => ({ schemaVersion: 1, planId: plan.id,
   criteriaHash: plan.criteriaHash, runHash: hash(run) });
+// Accept only a whole JSON document or one whole JSON/unlabelled code block.
+// Never extract JSON from surrounding prose or rewrite the preserved raw answer.
+function parseJsonOutput(raw) {
+  const trimmed = raw.trim();
+  const fenced = /^```(?:json)?[\t ]*\r?\n([\s\S]*?)\r?\n```$/i.exec(trimmed);
+  return JSON.parse(fenced ? fenced[1] : trimmed);
+}
 function index(rows, key, label) {
   assert(Array.isArray(rows), `${label}: expected array`);
   const result = new Map();
@@ -64,7 +71,7 @@ export function codeGrade(plan, run) {
     if (record.state !== 'completed') return automatic(record, gold);
     const item = { ...baseItem(record, gold), state: 'preliminary', evidence: null };
     try {
-      const answer = JSON.parse(record.rawAnswer);
+      const answer = parseJsonOutput(record.rawAnswer);
       const events = index(answer.events, 'id', 'answer events');
       assert([...events.keys()].every(id => gold.events.some(e => e.id === id)), 'unknown answer event');
       item.events = gold.events.map(expected => {
@@ -273,7 +280,7 @@ export async function aiGrade(plan, run, { judge, judgeConfig = {} } = {}) {
         for (const f of ['inputTokens', 'outputTokens']) {
           log[f] = wrapped && Number.isInteger(response[f]) && response[f] >= 0 ? response[f] : null;
         }
-        const parsed = typeof raw === 'string' ? JSON.parse(raw) : raw;
+        const parsed = typeof raw === 'string' ? parseJsonOutput(raw) : raw;
         const judgment = normalizeJudgment(parsed, gold, false, input);
         Object.assign(item, judgment, { state: complete(judgment, gold) ? 'preliminary' : 'partial-failure' });
         log.state = item.state;
@@ -455,6 +462,13 @@ export function validateJudge(plan, run, ai, final, { calibrationGroups = [], va
   validateFinalAudit(plan, run, final); bind(plan, run, ai);
   assert(ai.type === 'ai-preliminary' && hash(ai.judgeConfig) === ai.judgeConfigHash
     && hash(ai.prompt) === ai.promptHash, 'AI grading provenance mismatch');
+  // Gold categories are aggregation metadata only; never add them to restrictedInput.
+  const questionTypes = new Map(plan.dataset.cases.map(c => {
+    const gold = plan.gold.cases.find(g => g.id === c.id);
+    if (!Object.hasOwn(gold, 'category')) return [c.id, c.type ?? 'unspecified'];
+    assert(text(gold.category), `${c.id}: invalid gold category; expected non-empty string`);
+    return [c.id, gold.category.trim()];
+  }));
   const groups = new Set(plan.dataset.cases.map(c => c.groupId));
   for (const list of [calibrationGroups, validationGroups]) {
     assert(Array.isArray(list) && new Set(list).size === list.length && list.every(g => groups.has(g)), 'invalid calibration/validation groups');
@@ -485,8 +499,8 @@ export function validateJudge(plan, run, ai, final, { calibrationGroups = [], va
         ['date', ...FLAGS].every(field => event[field] === null)), 'AI failed attempt contains scores');
     } else {
       const decode = value => {
-        const parsed = typeof value === 'string' ? JSON.parse(value) : value;
-        return typeof parsed?.response === 'string' ? JSON.parse(parsed.response) : parsed;
+        const parsed = typeof value === 'string' ? parseJsonOutput(value) : value;
+        return typeof parsed?.response === 'string' ? parseJsonOutput(parsed.response) : parsed;
       };
       const output = decode(last.rawOutput);
       if (last.judgmentOutput !== undefined) assert(hash(decode(last.judgmentOutput)) === hash(output),
@@ -504,7 +518,7 @@ export function validateJudge(plan, run, ai, final, { calibrationGroups = [], va
     const c = plan.dataset.cases.find(c => c.id === record.caseId);
     if (!validation.has(c.groupId)) continue;
     for (const field of judgmentFields(gold)) observations.push({ recordId: record.id, caseId: c.id,
-      groupId: c.groupId, kind: c.kind, questionType: c.type ?? 'unspecified', methodId: record.methodId, eventId: field.eventId ?? null,
+      groupId: c.groupId, kind: c.kind, questionType: questionTypes.get(c.id), methodId: record.methodId, eventId: field.eventId ?? null,
       item: field.eventId ? field.field : field.key, human: score(human, field),
       ai: a.state === 'grading-failure' ? null : score(predicted, field) });
   }
