@@ -22,6 +22,10 @@ const ANSWER_KINDS = new Set<AnswerKind>([
   "insufficient",
   "fallback",
 ]);
+const THIRD_PERSON_SELF_REFERENCES = [
+  /세종\s*(?:대왕|임금)?(?:님)?\s*(?:은|는|이|가|께서는|께서)/,
+  /세종\s*(?:대왕|임금)?(?:님)?\s*(?:의|에게|께)/,
+];
 
 function stripJsonFence(text: string): string {
   const trimmed = text.trim();
@@ -67,6 +71,10 @@ function fallbackAnswer(input: SejongPromptInput, answerId: string): Answer {
   };
 }
 
+function hasThirdPersonSelfReference(text: string): boolean {
+  return THIRD_PERSON_SELF_REFERENCES.some((pattern) => pattern.test(text));
+}
+
 export function validateAnswerDraft(
   draft: AnswerDraft,
   input: SejongPromptInput,
@@ -83,6 +91,10 @@ export function validateAnswerDraft(
   );
 
   if (!draft.text || draft.text.length > maxTextLength) {
+    return fallbackAnswer(input, answerId);
+  }
+
+  if (hasThirdPersonSelfReference(draft.text)) {
     return fallbackAnswer(input, answerId);
   }
 
