@@ -1,0 +1,875 @@
+{
+  "version": "date-review-20261015-20articles-final-v4",
+  "split": "final",
+  "reviewStatus": "approved",
+  "cases": [
+    {
+      "id": "T01-Q01",
+      "articleId": "kda_12909029_002",
+      "groupId": "donggukjeongun-completion-1447",
+      "sourceId": "T01",
+      "sourceText": "[자료]\n사료 ID: T01\n자료: 세종실록 117권\n기사 표제 날짜: 세종 29년(1447년) 9월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12909029_002\n본문: 이달에 《동국정운(東國正韻)》이 완성되니 모두 6권인데, 명하여 간행하였다.",
+      "question": "동국정운이 완성된 시점을 연·월과 정확한 일자까지 확인할 수 있나요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "completion",
+          "label": "동국정운 완성"
+        }
+      ]
+    },
+    {
+      "id": "T01-Q02",
+      "articleId": "kda_12909029_002",
+      "groupId": "donggukjeongun-completion-1447",
+      "sourceId": "T01",
+      "sourceText": "[자료]\n사료 ID: T01\n자료: 세종실록 117권\n기사 표제 날짜: 세종 29년(1447년) 9월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12909029_002\n본문: 이달에 《동국정운(東國正韻)》이 완성되니 모두 6권인데, 명하여 간행하였다.",
+      "question": "동국정운은 음력 9월 29일에 완성된 것으로 확정해도 되나요? 확인 가능한 시점을 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "completion",
+          "label": "동국정운 완성"
+        }
+      ]
+    },
+    {
+      "id": "T01-Q03",
+      "articleId": "kda_12909029_002",
+      "groupId": "donggukjeongun-completion-1447",
+      "sourceId": "T01",
+      "sourceText": "[자료]\n사료 ID: T01\n자료: 세종실록 117권\n기사 표제 날짜: 세종 29년(1447년) 9월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12909029_002\n본문: 이달에 《동국정운(東國正韻)》이 완성되니 모두 6권인데, 명하여 간행하였다.",
+      "question": "이 자료의 기사 표제 날짜는 몇 년 몇 월 며칠인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "control",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "header",
+          "label": "기사 표제 날짜"
+        }
+      ]
+    },
+    {
+      "id": "T02-Q01",
+      "articleId": "kda_11803021_003",
+      "groupId": "lee-byeon-maternal-mourning-1435-1436",
+      "sourceId": "T02",
+      "sourceText": "[자료]\n사료 ID: T02\n자료: 세종실록 71권\n기사 표제 날짜: 세종 18년(1436년) 3월 21일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_11803021_003\n본문: 전 봉상시 윤(奉常寺尹) 이변(李邊)이 상서하기를,\n[…] 또한 전년 8월에 어머니가 세상을 떠나매 […]",
+      "question": "이변의 어머니가 세상을 떠난 때는 언제인가요? 연·월과 정확한 일자를 구분해 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "death",
+          "label": "이변 어머니의 사망"
+        }
+      ]
+    },
+    {
+      "id": "T02-Q02",
+      "articleId": "kda_11803021_003",
+      "groupId": "lee-byeon-maternal-mourning-1435-1436",
+      "sourceId": "T02",
+      "sourceText": "[자료]\n사료 ID: T02\n자료: 세종실록 71권\n기사 표제 날짜: 세종 18년(1436년) 3월 21일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_11803021_003\n본문: 전 봉상시 윤(奉常寺尹) 이변(李邊)이 상서하기를,\n[…] 또한 전년 8월에 어머니가 세상을 떠나매 […]",
+      "question": "이변의 어머니가 세종 18년 음력 3월 21일에 세상을 떠났다는 해석이 맞나요? 자료가 말하는 시점을 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "death",
+          "label": "이변 어머니의 사망"
+        }
+      ]
+    },
+    {
+      "id": "T02-Q03",
+      "articleId": "kda_11803021_003",
+      "groupId": "lee-byeon-maternal-mourning-1435-1436",
+      "sourceId": "T02",
+      "sourceText": "[자료]\n사료 ID: T02\n자료: 세종실록 71권\n기사 표제 날짜: 세종 18년(1436년) 3월 21일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_11803021_003\n본문: 전 봉상시 윤(奉常寺尹) 이변(李邊)이 상서하기를,\n[…] 또한 전년 8월에 어머니가 세상을 떠나매 […]",
+      "question": "어머니의 사망 시점과 이변이 상서한 것으로 실린 당일 기록의 날짜를 각각 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "death",
+          "label": "이변 어머니의 사망"
+        },
+        {
+          "id": "petition",
+          "label": "이변의 상서가 실린 당일 기록"
+        }
+      ]
+    },
+    {
+      "id": "T02-Q04",
+      "articleId": "kda_11803021_003",
+      "groupId": "lee-byeon-maternal-mourning-1435-1436",
+      "sourceId": "T02",
+      "sourceText": "[자료]\n사료 ID: T02\n자료: 세종실록 71권\n기사 표제 날짜: 세종 18년(1436년) 3월 21일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_11803021_003\n본문: 전 봉상시 윤(奉常寺尹) 이변(李邊)이 상서하기를,\n[…] 또한 전년 8월에 어머니가 세상을 떠나매 […]",
+      "question": "이 자료의 기사 표제 날짜는 몇 년 몇 월 며칠인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "control",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "header",
+          "label": "기사 표제 날짜"
+        }
+      ]
+    },
+    {
+      "id": "T03-Q01",
+      "articleId": "kda_10506024_003",
+      "groupId": "mongke-temur-return-amokha-1422-1423",
+      "sourceId": "T03",
+      "sourceText": "[자료]\n사료 ID: T03\n자료: 세종실록 20권\n기사 표제 날짜: 세종 5년(1423년) 6월 24일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/wda_10506024_003\n본문: 동맹가첩목아(童猛哥帖木兒)가 […] 말하기를,\n\"지난해 10월에 대명(大明)을 위하여 조전(助戰)하다가 돌아올 때에, […] 이제 6월 초2일 관하(管下) 백성 5백 23호를 거느리고 아목하(阿木河)로 돌아왔으니, […]\"",
+      "question": "대명을 위한 조전 후 돌아온 때는 언제인가요? 연·월과 정확한 일자를 구분해 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "earlier-return",
+          "label": "대명을 위한 조전 후 귀환"
+        }
+      ]
+    },
+    {
+      "id": "T03-Q02",
+      "articleId": "kda_10506024_003",
+      "groupId": "mongke-temur-return-amokha-1422-1423",
+      "sourceId": "T03",
+      "sourceText": "[자료]\n사료 ID: T03\n자료: 세종실록 20권\n기사 표제 날짜: 세종 5년(1423년) 6월 24일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/wda_10506024_003\n본문: 동맹가첩목아(童猛哥帖木兒)가 […] 말하기를,\n\"지난해 10월에 대명(大明)을 위하여 조전(助戰)하다가 돌아올 때에, […] 이제 6월 초2일 관하(管下) 백성 5백 23호를 거느리고 아목하(阿木河)로 돌아왔으니, […]\"",
+      "question": "백성들을 거느리고 아목하로 돌아온 날짜는 언제인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "amokha-return",
+          "label": "아목하 귀환"
+        }
+      ]
+    },
+    {
+      "id": "T03-Q03",
+      "articleId": "kda_10506024_003",
+      "groupId": "mongke-temur-return-amokha-1422-1423",
+      "sourceId": "T03",
+      "sourceText": "[자료]\n사료 ID: T03\n자료: 세종실록 20권\n기사 표제 날짜: 세종 5년(1423년) 6월 24일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/wda_10506024_003\n본문: 동맹가첩목아(童猛哥帖木兒)가 […] 말하기를,\n\"지난해 10월에 대명(大明)을 위하여 조전(助戰)하다가 돌아올 때에, […] 이제 6월 초2일 관하(管下) 백성 5백 23호를 거느리고 아목하(阿木河)로 돌아왔으니, […]\"",
+      "question": "조전 후 귀환과 아목하 귀환의 시점을 각각 알려 주세요. 각 시점의 일자도 확인할 수 있나요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "earlier-return",
+          "label": "대명을 위한 조전 후 귀환"
+        },
+        {
+          "id": "amokha-return",
+          "label": "아목하 귀환"
+        }
+      ]
+    },
+    {
+      "id": "T03-Q04",
+      "articleId": "kda_10506024_003",
+      "groupId": "mongke-temur-return-amokha-1422-1423",
+      "sourceId": "T03",
+      "sourceText": "[자료]\n사료 ID: T03\n자료: 세종실록 20권\n기사 표제 날짜: 세종 5년(1423년) 6월 24일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/wda_10506024_003\n본문: 동맹가첩목아(童猛哥帖木兒)가 […] 말하기를,\n\"지난해 10월에 대명(大明)을 위하여 조전(助戰)하다가 돌아올 때에, […] 이제 6월 초2일 관하(管下) 백성 5백 23호를 거느리고 아목하(阿木河)로 돌아왔으니, […]\"",
+      "question": "아목하로 돌아온 날을 기사 표제의 음력 6월 24일로 보면 되나요? 확인 가능한 날짜를 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "amokha-return",
+          "label": "아목하 귀환"
+        }
+      ]
+    },
+    {
+      "id": "T03-Q05",
+      "articleId": "kda_10506024_003",
+      "groupId": "mongke-temur-return-amokha-1422-1423",
+      "sourceId": "T03",
+      "sourceText": "[자료]\n사료 ID: T03\n자료: 세종실록 20권\n기사 표제 날짜: 세종 5년(1423년) 6월 24일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/wda_10506024_003\n본문: 동맹가첩목아(童猛哥帖木兒)가 […] 말하기를,\n\"지난해 10월에 대명(大明)을 위하여 조전(助戰)하다가 돌아올 때에, […] 이제 6월 초2일 관하(管下) 백성 5백 23호를 거느리고 아목하(阿木河)로 돌아왔으니, […]\"",
+      "question": "이 자료의 기사 표제 날짜는 몇 년 몇 월 며칠인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "control",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "header",
+          "label": "기사 표제 날짜"
+        }
+      ]
+    },
+    {
+      "id": "T04-Q01",
+      "articleId": "kda_12605004_001",
+      "groupId": "gyeonggi-rain-report-1444-04-05",
+      "sourceId": "T04",
+      "sourceText": "[자료]\n사료 ID: T04\n자료: 세종실록 104권\n기사 표제 날짜: 세종 26년(1444년) 5월 4일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12605004_001\n본문: 전달 20일 사이는 조금 가물었사오나, 22일에는 온 도(道)에 모두 비가 와서, […] 이달 초2일에는 양지(陽智)와 죽산(竹山) 같은 곳에도 비가 와서 […]",
+      "question": "기사에 따르면 온 도에 모두 비가 내린 날짜는 언제인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "province-rain",
+          "label": "온 도에 내린 비"
+        }
+      ]
+    },
+    {
+      "id": "T04-Q02",
+      "articleId": "kda_12605004_001",
+      "groupId": "gyeonggi-rain-report-1444-04-05",
+      "sourceId": "T04",
+      "sourceText": "[자료]\n사료 ID: T04\n자료: 세종실록 104권\n기사 표제 날짜: 세종 26년(1444년) 5월 4일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12605004_001\n본문: 전달 20일 사이는 조금 가물었사오나, 22일에는 온 도(道)에 모두 비가 와서, […] 이달 초2일에는 양지(陽智)와 죽산(竹山) 같은 곳에도 비가 와서 […]",
+      "question": "기사에 따르면 양지와 죽산 등에도 비가 내린 날짜는 언제인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "local-rain",
+          "label": "양지·죽산 등에 내린 비"
+        }
+      ]
+    },
+    {
+      "id": "T04-Q03",
+      "articleId": "kda_12605004_001",
+      "groupId": "gyeonggi-rain-report-1444-04-05",
+      "sourceId": "T04",
+      "sourceText": "[자료]\n사료 ID: T04\n자료: 세종실록 104권\n기사 표제 날짜: 세종 26년(1444년) 5월 4일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12605004_001\n본문: 전달 20일 사이는 조금 가물었사오나, 22일에는 온 도(道)에 모두 비가 와서, […] 이달 초2일에는 양지(陽智)와 죽산(竹山) 같은 곳에도 비가 와서 […]",
+      "question": "온 도에 내린 비와 양지·죽산 등에 내린 비의 날짜를 각각 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "province-rain",
+          "label": "온 도에 내린 비"
+        },
+        {
+          "id": "local-rain",
+          "label": "양지·죽산 등에 내린 비"
+        }
+      ]
+    },
+    {
+      "id": "T04-Q04",
+      "articleId": "kda_12605004_001",
+      "groupId": "gyeonggi-rain-report-1444-04-05",
+      "sourceId": "T04",
+      "sourceText": "[자료]\n사료 ID: T04\n자료: 세종실록 104권\n기사 표제 날짜: 세종 26년(1444년) 5월 4일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12605004_001\n본문: 전달 20일 사이는 조금 가물었사오나, 22일에는 온 도(道)에 모두 비가 와서, […] 이달 초2일에는 양지(陽智)와 죽산(竹山) 같은 곳에도 비가 와서 […]",
+      "question": "이 자료의 기사 표제 날짜는 몇 년 몇 월 며칠인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "control",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "header",
+          "label": "기사 표제 날짜"
+        }
+      ]
+    },
+    {
+      "id": "T05-Q01",
+      "articleId": "kda_11607001_004",
+      "groupId": "new-water-clock-use-1434",
+      "sourceId": "T05",
+      "sourceText": "[자료]\n사료 ID: T05\n자료: 세종실록 65권\n기사 표제 날짜: 세종 16년(1434년) 7월 1일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_11607001_004\n본문: 이날부터 비로소 새 누기(漏器)를 썼다.",
+      "question": "이 기사에서 새 누기를 쓰기 시작한 날짜는 언제인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "first-use",
+          "label": "새 누기의 사용 시작"
+        }
+      ]
+    },
+    {
+      "id": "T06-Q01",
+      "articleId": "kda_11406009_002",
+      "groupId": "samganghaengsil-presentation-1432",
+      "sourceId": "T06",
+      "sourceText": "[자료]\n사료 ID: T06\n자료: 세종실록 56권\n기사 표제 날짜: 세종 14년(1432년) 6월 9일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_11406009_002\n본문: 집현전(集賢殿)에서 새로 《삼강행실(三綱行實)》을 편찬하여 올리었다.",
+      "question": "집현전이 삼강행실을 올린 것으로 실린 당일 기록의 날짜는 언제인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "presentation",
+          "label": "삼강행실을 올린 당일 기록"
+        }
+      ]
+    },
+    {
+      "id": "T07-Q01",
+      "articleId": "kda_12405008_001",
+      "groupId": "rain-measurement-proposal-1442",
+      "sourceId": "T07",
+      "sourceText": "[자료]\n사료 ID: T07\n자료: 세종실록 96권\n기사 표제 날짜: 세종 24년(1442년) 5월 8일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12405008_001\n본문: 호조에서 아뢰기를,\n\"우량(雨量)을 측정(測定)하는 일에 대하여는 일찍이 벌써 명령을 받았사오나, […]\"\n[…] 하니, 그대로 따랐다.",
+      "question": "호조가 이번 우량 측정 관련 아룀을 올리고 임금이 따른 것으로 실린 당일 기록의 날짜는 언제인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "proposal",
+          "label": "호조의 이번 아룀과 수용 기록"
+        }
+      ]
+    },
+    {
+      "id": "T08-Q01",
+      "articleId": "kda_11610002_004",
+      "groupId": "angbuilgu-public-installation-1434",
+      "sourceId": "T08",
+      "sourceText": "[자료]\n사료 ID: T08\n자료: 세종실록 66권\n기사 표제 날짜: 세종 16년(1434년) 10월 2일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_11610002_004\n본문: 처음으로 앙부일구(仰釜日晷)를 혜정교(惠政橋)와 종묘(宗廟) 앞에 설치하여 일영(日影)을 관측하였다.",
+      "question": "혜정교와 종묘 앞에 앙부일구를 설치해 관측한 것으로 실린 당일 기록의 날짜는 언제인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "installation",
+          "label": "혜정교·종묘 앞 앙부일구 설치 기록"
+        }
+      ]
+    },
+    {
+      "id": "T09-Q01",
+      "articleId": "kda_10303002_002",
+      "groupId": "park-eun-sealed-wine-1421",
+      "sourceId": "T09",
+      "sourceText": "[자료]\n사료 ID: T09\n자료: 세종실록 11권\n기사 표제 날짜: 세종 3년(1421년) 3월 2일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10303002_002\n본문: 계량이 대답하기를,\n\"좌의정 박은(朴訔)이 늦지 않을 줄로 생각하고 지난달 29일에 술을 봉하여 신에게 주었기 때문에, 늦게 오게 되었습니다.\"",
+      "question": "박은이 술을 봉하여 변계량에게 준 날짜는 언제인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "sealed-wine",
+          "label": "박은이 술을 봉해 준 일"
+        }
+      ]
+    },
+    {
+      "id": "T09-Q02",
+      "articleId": "kda_10303002_002",
+      "groupId": "park-eun-sealed-wine-1421",
+      "sourceId": "T09",
+      "sourceText": "[자료]\n사료 ID: T09\n자료: 세종실록 11권\n기사 표제 날짜: 세종 3년(1421년) 3월 2일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10303002_002\n본문: 계량이 대답하기를,\n\"좌의정 박은(朴訔)이 늦지 않을 줄로 생각하고 지난달 29일에 술을 봉하여 신에게 주었기 때문에, 늦게 오게 되었습니다.\"",
+      "question": "박은이 술을 봉해 준 날짜를 이 기사의 음력 3월 2일로 보면 되나요? 자료가 말하는 날짜를 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "sealed-wine",
+          "label": "박은이 술을 봉해 준 일"
+        }
+      ]
+    },
+    {
+      "id": "T09-Q03",
+      "articleId": "kda_10303002_002",
+      "groupId": "park-eun-sealed-wine-1421",
+      "sourceId": "T09",
+      "sourceText": "[자료]\n사료 ID: T09\n자료: 세종실록 11권\n기사 표제 날짜: 세종 3년(1421년) 3월 2일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10303002_002\n본문: 계량이 대답하기를,\n\"좌의정 박은(朴訔)이 늦지 않을 줄로 생각하고 지난달 29일에 술을 봉하여 신에게 주었기 때문에, 늦게 오게 되었습니다.\"",
+      "question": "이 자료의 기사 표제 날짜는 몇 년 몇 월 며칠인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "control",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "header",
+          "label": "기사 표제 날짜"
+        }
+      ]
+    },
+    {
+      "id": "T10-Q01",
+      "articleId": "kda_10307003_003",
+      "groupId": "hanseong-flood-report-1421",
+      "sourceId": "T10",
+      "sourceText": "[자료]\n사료 ID: T10\n자료: 세종실록 12권\n기사 표제 날짜: 세종 3년(1421년) 7월 3일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10307003_003\n본문: 판한성부사 정진(鄭津) 등이 소를 올리기를,\n[…] 지난달 12일에 밤에 큰 비가 와서, 물이 넘쳐 하류가 막혔으니, […]",
+      "question": "이 상소에서 하류가 막혔다고 설명한 밤의 큰비는 언제 내렸나요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "heavy-rain",
+          "label": "하류를 막히게 한 밤의 큰비"
+        }
+      ]
+    },
+    {
+      "id": "T10-Q02",
+      "articleId": "kda_10307003_003",
+      "groupId": "hanseong-flood-report-1421",
+      "sourceId": "T10",
+      "sourceText": "[자료]\n사료 ID: T10\n자료: 세종실록 12권\n기사 표제 날짜: 세종 3년(1421년) 7월 3일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10307003_003\n본문: 판한성부사 정진(鄭津) 등이 소를 올리기를,\n[…] 지난달 12일에 밤에 큰 비가 와서, 물이 넘쳐 하류가 막혔으니, […]",
+      "question": "본문의 밤에 내린 큰비가 기사 표제의 음력 7월 3일에 내렸다는 해석이 맞나요? 실제로 확인되는 날짜를 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "heavy-rain",
+          "label": "하류를 막히게 한 밤의 큰비"
+        }
+      ]
+    },
+    {
+      "id": "T11-Q01",
+      "articleId": "kda_10107007_002",
+      "groupId": "pirate-ships-socheong-anheung-1419",
+      "sourceId": "T11",
+      "sourceText": "[자료]\n사료 ID: T11\n자료: 세종실록 4권\n기사 표제 날짜: 세종 1년(1419년) 7월 7일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10107007_002\n본문: 중국으로부터 돌아온 적선 30여 척이 이달 초3일에는 황해도 소청도에 이르고, 초4일에는 안흥량(安興梁)에 와서 우리 배 9척을 노략하고 […]",
+      "question": "적선이 황해도 소청도에 이른 날짜는 언제인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "socheong-arrival",
+          "label": "적선의 소청도 도착"
+        }
+      ]
+    },
+    {
+      "id": "T11-Q02",
+      "articleId": "kda_10107007_002",
+      "groupId": "pirate-ships-socheong-anheung-1419",
+      "sourceId": "T11",
+      "sourceText": "[자료]\n사료 ID: T11\n자료: 세종실록 4권\n기사 표제 날짜: 세종 1년(1419년) 7월 7일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10107007_002\n본문: 중국으로부터 돌아온 적선 30여 척이 이달 초3일에는 황해도 소청도에 이르고, 초4일에는 안흥량(安興梁)에 와서 우리 배 9척을 노략하고 […]",
+      "question": "적선이 안흥량에 와서 우리 배를 노략한 날짜는 언제인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "anheung-arrival",
+          "label": "적선의 안흥량 도착"
+        }
+      ]
+    },
+    {
+      "id": "T11-Q03",
+      "articleId": "kda_10107007_002",
+      "groupId": "pirate-ships-socheong-anheung-1419",
+      "sourceId": "T11",
+      "sourceText": "[자료]\n사료 ID: T11\n자료: 세종실록 4권\n기사 표제 날짜: 세종 1년(1419년) 7월 7일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10107007_002\n본문: 중국으로부터 돌아온 적선 30여 척이 이달 초3일에는 황해도 소청도에 이르고, 초4일에는 안흥량(安興梁)에 와서 우리 배 9척을 노략하고 […]",
+      "question": "적선의 소청도 도착과 안흥량 도착 날짜를 각각 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "socheong-arrival",
+          "label": "적선의 소청도 도착"
+        },
+        {
+          "id": "anheung-arrival",
+          "label": "적선의 안흥량 도착"
+        }
+      ]
+    },
+    {
+      "id": "T12-Q01",
+      "articleId": "kda_13106018_001",
+      "groupId": "royal-drought-rain-recollection-1449",
+      "sourceId": "T12",
+      "sourceText": "[자료]\n사료 ID: T12\n자료: 세종실록 124권\n기사 표제 날짜: 세종 31년(1449년) 6월 18일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_13106018_001\n본문: 금년 2월에 비가 많았는데, […] 이달 초7일에 이르러 비로소 비가 왔으나 소낙비이어서 흙에 들어가지 못하였으니, […]",
+      "question": "본문에서 소낙비가 왔다고 말한 날짜는 언제인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "shower",
+          "label": "소낙비"
+        }
+      ]
+    },
+    {
+      "id": "T12-Q02",
+      "articleId": "kda_13106018_001",
+      "groupId": "royal-drought-rain-recollection-1449",
+      "sourceId": "T12",
+      "sourceText": "[자료]\n사료 ID: T12\n자료: 세종실록 124권\n기사 표제 날짜: 세종 31년(1449년) 6월 18일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_13106018_001\n본문: 금년 2월에 비가 많았는데, […] 이달 초7일에 이르러 비로소 비가 왔으나 소낙비이어서 흙에 들어가지 못하였으니, […]",
+      "question": "비가 많았다고 한 달은 언제인가요? 그 비를 특정 일자에 내린 비라고 확정할 수 있나요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "rain-state",
+          "label": "비가 많았던 상태"
+        }
+      ]
+    },
+    {
+      "id": "T12-Q03",
+      "articleId": "kda_13106018_001",
+      "groupId": "royal-drought-rain-recollection-1449",
+      "sourceId": "T12",
+      "sourceText": "[자료]\n사료 ID: T12\n자료: 세종실록 124권\n기사 표제 날짜: 세종 31년(1449년) 6월 18일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_13106018_001\n본문: 금년 2월에 비가 많았는데, […] 이달 초7일에 이르러 비로소 비가 왔으나 소낙비이어서 흙에 들어가지 못하였으니, […]",
+      "question": "비가 많았던 달과 소낙비가 내린 날짜를 각각 구분해 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "rain-state",
+          "label": "비가 많았던 상태"
+        },
+        {
+          "id": "shower",
+          "label": "소낙비"
+        }
+      ]
+    },
+    {
+      "id": "T13-Q01",
+      "articleId": "kda_10203016_001",
+      "groupId": "jiphyeonjeon-official-appointment-1420",
+      "sourceId": "T13",
+      "sourceText": "[자료]\n사료 ID: T13\n자료: 세종실록 7권\n기사 표제 날짜: 세종 2년(1420년) 3월 16일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10203016_001\n본문: 박은·이원으로 영전사(領殿事)에, 유관·변계량을 대제학에, […] 임명하였다.",
+      "question": "박은과 이원을 영전사로 임명한 것으로 실린 당일 기록의 날짜는 언제인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "appointment",
+          "label": "박은·이원의 영전사 임명 기록"
+        }
+      ]
+    },
+    {
+      "id": "T13-Q02",
+      "articleId": "kda_10203016_001",
+      "groupId": "jiphyeonjeon-official-appointment-1420",
+      "sourceId": "T13",
+      "sourceText": "[자료]\n사료 ID: T13\n자료: 세종실록 7권\n기사 표제 날짜: 세종 2년(1420년) 3월 16일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10203016_001\n본문: 박은·이원으로 영전사(領殿事)에, 유관·변계량을 대제학에, […] 임명하였다.",
+      "question": "이 자료의 기사 표제 날짜는 몇 년 몇 월 며칠인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "control",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "header",
+          "label": "기사 표제 날짜"
+        }
+      ]
+    },
+    {
+      "id": "T14-Q01",
+      "articleId": "kda_10812011_004",
+      "groupId": "home-reading-order-1426",
+      "sourceId": "T14",
+      "sourceText": "[자료]\n사료 ID: T14\n자료: 세종실록 34권\n기사 표제 날짜: 세종 8년(1426년) 12월 11일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10812011_004\n본문: 집현전 부교리(集賢殿副校理) 권채(權綵)와 저작랑(著作郞) 신석견(辛石堅)·정자(正字) 남수문(南秀文) 등을 불러 명하기를,\n[…] 지금부터는 본전(本殿)에 출근하지 말고 집에서 전심으로 글을 읽어 […]",
+      "question": "권채 등에게 본전에 출근하지 말고 집에서 독서하라고 명한 당일 기록의 날짜는 언제인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "reading-order",
+          "label": "권채 등에게 집에서 독서하라고 한 명령 기록"
+        }
+      ]
+    },
+    {
+      "id": "T14-Q02",
+      "articleId": "kda_10812011_004",
+      "groupId": "home-reading-order-1426",
+      "sourceId": "T14",
+      "sourceText": "[자료]\n사료 ID: T14\n자료: 세종실록 34권\n기사 표제 날짜: 세종 8년(1426년) 12월 11일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10812011_004\n본문: 집현전 부교리(集賢殿副校理) 권채(權綵)와 저작랑(著作郞) 신석견(辛石堅)·정자(正字) 남수문(南秀文) 등을 불러 명하기를,\n[…] 지금부터는 본전(本殿)에 출근하지 말고 집에서 전심으로 글을 읽어 […]",
+      "question": "이 자료의 기사 표제 날짜는 몇 년 몇 월 며칠인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "control",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "header",
+          "label": "기사 표제 날짜"
+        }
+      ]
+    },
+    {
+      "id": "T15-Q01",
+      "articleId": "kda_10103030_004",
+      "groupId": "monthly-drought-1419-03",
+      "sourceId": "T15",
+      "sourceText": "[자료]\n사료 ID: T15\n자료: 세종실록 3권\n기사 표제 날짜: 세종 1년(1419년) 3월 30일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10103030_004\n본문: 이달에 가물었다.",
+      "question": "본문에 따르면 가뭄이 있었던 시기는 언제인가요? 연·월과 정확한 일자를 구분해 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "drought",
+          "label": "가뭄 기록"
+        }
+      ]
+    },
+    {
+      "id": "T15-Q02",
+      "articleId": "kda_10103030_004",
+      "groupId": "monthly-drought-1419-03",
+      "sourceId": "T15",
+      "sourceText": "[자료]\n사료 ID: T15\n자료: 세종실록 3권\n기사 표제 날짜: 세종 1년(1419년) 3월 30일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10103030_004\n본문: 이달에 가물었다.",
+      "question": "가뭄이 세종 1년 음력 3월 30일에 발생했다고 확정해도 되나요? 자료에서 확인 가능한 시점을 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "drought",
+          "label": "가뭄 기록"
+        }
+      ]
+    },
+    {
+      "id": "T15-Q03",
+      "articleId": "kda_10103030_004",
+      "groupId": "monthly-drought-1419-03",
+      "sourceId": "T15",
+      "sourceText": "[자료]\n사료 ID: T15\n자료: 세종실록 3권\n기사 표제 날짜: 세종 1년(1419년) 3월 30일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10103030_004\n본문: 이달에 가물었다.",
+      "question": "이 자료의 기사 표제 날짜는 몇 년 몇 월 며칠인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "control",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "header",
+          "label": "기사 표제 날짜"
+        }
+      ]
+    },
+    {
+      "id": "T16-Q01",
+      "articleId": "kda_10211030_003",
+      "groupId": "monthly-no-ice-1420-11",
+      "sourceId": "T16",
+      "sourceText": "[자료]\n사료 ID: T16\n자료: 세종실록 10권\n기사 표제 날짜: 세종 2년(1420년) 11월 30일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10211030_003\n본문: 이달에는 얼음이 얼지 아니하였다.",
+      "question": "본문에 따르면 얼음이 얼지 않았던 시기는 언제인가요? 연·월과 특정 일자 확인 여부를 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "no-ice",
+          "label": "얼음 미결빙 기록"
+        }
+      ]
+    },
+    {
+      "id": "T16-Q02",
+      "articleId": "kda_10211030_003",
+      "groupId": "monthly-no-ice-1420-11",
+      "sourceId": "T16",
+      "sourceText": "[자료]\n사료 ID: T16\n자료: 세종실록 10권\n기사 표제 날짜: 세종 2년(1420년) 11월 30일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10211030_003\n본문: 이달에는 얼음이 얼지 아니하였다.",
+      "question": "본문을 근거로 얼음이 얼지 않은 날을 세종 2년 음력 11월 30일 하루로 확정해도 되나요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "no-ice",
+          "label": "얼음 미결빙 기록"
+        }
+      ]
+    },
+    {
+      "id": "T16-Q03",
+      "articleId": "kda_10211030_003",
+      "groupId": "monthly-no-ice-1420-11",
+      "sourceId": "T16",
+      "sourceText": "[자료]\n사료 ID: T16\n자료: 세종실록 10권\n기사 표제 날짜: 세종 2년(1420년) 11월 30일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10211030_003\n본문: 이달에는 얼음이 얼지 아니하였다.",
+      "question": "이 자료의 기사 표제 날짜는 몇 년 몇 월 며칠인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "control",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "header",
+          "label": "기사 표제 날짜"
+        }
+      ]
+    },
+    {
+      "id": "T17-Q01",
+      "articleId": "kda_10403029_002",
+      "groupId": "monthly-epidemic-1422-03",
+      "sourceId": "T17",
+      "sourceText": "[자료]\n사료 ID: T17\n자료: 세종실록 15권\n기사 표제 날짜: 세종 4년(1422년) 3월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10403029_002\n본문: 이달에 서울과 지방에서 큰 역질(疫疾)이 있어, 죽은 사람이 매우 많았다.",
+      "question": "본문에 따르면 서울과 지방에 큰 역질이 있고 사망자가 많았던 시기는 언제인가요? 연·월과 정확한 일자를 구분해 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "epidemic-deaths",
+          "label": "역질과 다수 사망 기록"
+        }
+      ]
+    },
+    {
+      "id": "T17-Q02",
+      "articleId": "kda_10403029_002",
+      "groupId": "monthly-epidemic-1422-03",
+      "sourceId": "T17",
+      "sourceText": "[자료]\n사료 ID: T17\n자료: 세종실록 15권\n기사 표제 날짜: 세종 4년(1422년) 3월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10403029_002\n본문: 이달에 서울과 지방에서 큰 역질(疫疾)이 있어, 죽은 사람이 매우 많았다.",
+      "question": "이 역질과 다수 사망이 세종 4년 음력 3월 29일에 일어났다고 확정할 수 있나요? 본문 근거로 답해 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "epidemic-deaths",
+          "label": "역질과 다수 사망 기록"
+        }
+      ]
+    },
+    {
+      "id": "T17-Q03",
+      "articleId": "kda_10403029_002",
+      "groupId": "monthly-epidemic-1422-03",
+      "sourceId": "T17",
+      "sourceText": "[자료]\n사료 ID: T17\n자료: 세종실록 15권\n기사 표제 날짜: 세종 4년(1422년) 3월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_10403029_002\n본문: 이달에 서울과 지방에서 큰 역질(疫疾)이 있어, 죽은 사람이 매우 많았다.",
+      "question": "이 자료의 기사 표제 날짜는 몇 년 몇 월 며칠인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "control",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "header",
+          "label": "기사 표제 날짜"
+        }
+      ]
+    },
+    {
+      "id": "T18-Q01",
+      "articleId": "kda_11908029_004",
+      "groupId": "monthly-capital-flowering-1437-08",
+      "sourceId": "T18",
+      "sourceText": "[자료]\n사료 ID: T18\n자료: 세종실록 78권\n기사 표제 날짜: 세종 19년(1437년) 8월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_11908029_004\n본문: 이달에 성안에서 배꽃·회나무꽃[槐花]·자두꽃이 피었다.",
+      "question": "본문에 따르면 성안에서 배꽃·회나무꽃·자두꽃이 피었던 시기는 언제인가요? 연·월과 정확한 일자를 구분해 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "flowering",
+          "label": "성안의 배꽃·회나무꽃·자두꽃 개화 기록"
+        }
+      ]
+    },
+    {
+      "id": "T18-Q02",
+      "articleId": "kda_11908029_004",
+      "groupId": "monthly-capital-flowering-1437-08",
+      "sourceId": "T18",
+      "sourceText": "[자료]\n사료 ID: T18\n자료: 세종실록 78권\n기사 표제 날짜: 세종 19년(1437년) 8월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_11908029_004\n본문: 이달에 성안에서 배꽃·회나무꽃[槐花]·자두꽃이 피었다.",
+      "question": "세 종류의 꽃이 모두 세종 19년 음력 8월 29일에 피었다고 확정해도 되나요? 확인 가능한 시점을 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "flowering",
+          "label": "성안의 배꽃·회나무꽃·자두꽃 개화 기록"
+        }
+      ]
+    },
+    {
+      "id": "T18-Q03",
+      "articleId": "kda_11908029_004",
+      "groupId": "monthly-capital-flowering-1437-08",
+      "sourceId": "T18",
+      "sourceText": "[자료]\n사료 ID: T18\n자료: 세종실록 78권\n기사 표제 날짜: 세종 19년(1437년) 8월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_11908029_004\n본문: 이달에 성안에서 배꽃·회나무꽃[槐花]·자두꽃이 피었다.",
+      "question": "이 자료의 기사 표제 날짜는 몇 년 몇 월 며칠인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "control",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "header",
+          "label": "기사 표제 날짜"
+        }
+      ]
+    },
+    {
+      "id": "T19-Q01",
+      "articleId": "kda_12003029_002",
+      "groupId": "seonwonjeon-relocation-1438-03",
+      "sourceId": "T19",
+      "sourceText": "[자료]\n사료 ID: T19\n자료: 세종실록 80권\n기사 표제 날짜: 세종 20년(1438년) 3월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12003029_002\n본문: 이달에 선원전(璿源殿)을 문소전(文昭殿) 동북쪽 모퉁이에 옮겨다 지었다.",
+      "question": "선원전을 문소전 동북쪽 모퉁이에 옮겨 지은 때는 언제인가요? 연·월과 정확한 일자를 구분해 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "relocation",
+          "label": "선원전 이건 기록"
+        }
+      ]
+    },
+    {
+      "id": "T19-Q02",
+      "articleId": "kda_12003029_002",
+      "groupId": "seonwonjeon-relocation-1438-03",
+      "sourceId": "T19",
+      "sourceText": "[자료]\n사료 ID: T19\n자료: 세종실록 80권\n기사 표제 날짜: 세종 20년(1438년) 3월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12003029_002\n본문: 이달에 선원전(璿源殿)을 문소전(文昭殿) 동북쪽 모퉁이에 옮겨다 지었다.",
+      "question": "선원전을 옮겨 지은 날짜를 세종 20년 음력 3월 29일로 확정해도 되나요? 자료가 뒷받침하는 시점을 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "relocation",
+          "label": "선원전 이건 기록"
+        }
+      ]
+    },
+    {
+      "id": "T19-Q03",
+      "articleId": "kda_12003029_002",
+      "groupId": "seonwonjeon-relocation-1438-03",
+      "sourceId": "T19",
+      "sourceText": "[자료]\n사료 ID: T19\n자료: 세종실록 80권\n기사 표제 날짜: 세종 20년(1438년) 3월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12003029_002\n본문: 이달에 선원전(璿源殿)을 문소전(文昭殿) 동북쪽 모퉁이에 옮겨다 지었다.",
+      "question": "이 자료의 기사 표제 날짜는 몇 년 몇 월 며칠인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "control",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "header",
+          "label": "기사 표제 날짜"
+        }
+      ]
+    },
+    {
+      "id": "T20-Q01",
+      "articleId": "kda_12301029_002",
+      "groupId": "hwangbo-in-hamgil-dispatch-1441-01",
+      "sourceId": "T20",
+      "sourceText": "[자료]\n사료 ID: T20\n자료: 세종실록 92권\n기사 표제 날짜: 세종 23년(1441년) 1월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12301029_002\n본문: 이 달에 도체찰사 황보인(皇甫仁)을 함길도로 보내어 종성(鍾城)을 수주(愁州)의 강변으로 옮기게 하고, […]",
+      "question": "도체찰사 황보인을 함길도로 보낸 때는 언제인가요? 연·월과 정확한 일자를 구분해 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "dispatch",
+          "label": "황보인의 함길도 파견"
+        }
+      ]
+    },
+    {
+      "id": "T20-Q02",
+      "articleId": "kda_12301029_002",
+      "groupId": "hwangbo-in-hamgil-dispatch-1441-01",
+      "sourceId": "T20",
+      "sourceText": "[자료]\n사료 ID: T20\n자료: 세종실록 92권\n기사 표제 날짜: 세종 23년(1441년) 1월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12301029_002\n본문: 이 달에 도체찰사 황보인(皇甫仁)을 함길도로 보내어 종성(鍾城)을 수주(愁州)의 강변으로 옮기게 하고, […]",
+      "question": "황보인을 함길도로 보낸 날을 세종 23년 음력 1월 29일로 확정할 수 있나요? 자료에서 확인 가능한 날짜를 알려 주세요.\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "event",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "dispatch",
+          "label": "황보인의 함길도 파견"
+        }
+      ]
+    },
+    {
+      "id": "T20-Q03",
+      "articleId": "kda_12301029_002",
+      "groupId": "hwangbo-in-hamgil-dispatch-1441-01",
+      "sourceId": "T20",
+      "sourceText": "[자료]\n사료 ID: T20\n자료: 세종실록 92권\n기사 표제 날짜: 세종 23년(1441년) 1월 29일\n역법: 음력(양력으로 환산하지 않음)\n원문 링크: https://sillok.history.go.kr/id/kda_12301029_002\n본문: 이 달에 도체찰사 황보인(皇甫仁)을 함길도로 보내어 종성(鍾城)을 수주(愁州)의 강변으로 옮기게 하고, […]",
+      "question": "이 자료의 기사 표제 날짜는 몇 년 몇 월 며칠인가요?\n자료만 근거로 연·월과 확인 가능한 일자를 답하고 근거 구절도 제시해 주세요. 정확한 일자를 확인할 수 없으면 확인할 수 없는 범위를 밝혀 주세요.",
+      "kind": "control",
+      "type": "date-interpretation",
+      "targets": [
+        {
+          "id": "header",
+          "label": "기사 표제 날짜"
+        }
+      ]
+    }
+  ]
+}
