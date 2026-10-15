@@ -1,4 +1,5 @@
-import { readFile, writeFile, mkdir, readdir, rename, realpath } from 'node:fs/promises';
+import { readFile, writeFile, mkdir, readdir, rename, realpath, link, unlink, lstat } from 'node:fs/promises';
+import { randomUUID } from 'node:crypto';
 import { resolve, join, dirname, basename, relative, isAbsolute, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hash, assert, makePlan, validatePlan, validateRun, validateRecordedInputs, validateGenerationProgress, executionPlan, validateExecutionPlan, validateExecutionRun } from './core.mjs';
@@ -10,9 +11,24 @@ import { resolveRunState } from './state.mjs';
 import { bindCost, interruptedAiCost, humanCost } from './costs.mjs';
 
 const read = async (path) => JSON.parse(await readFile(path, 'utf8'));
-async function save(path, value) {
+async function saveText(path, text) {
   await mkdir(resolve(path, '..'), { recursive: true });
-  await writeFile(path, JSON.stringify(value, null, 2) + '\n', { flag: 'wx' });
+  try {
+    await lstat(path);
+    throw Object.assign(new Error('기존 파일은 덮어쓰지 않습니다: ' + path), { code: 'EEXIST' });
+  } catch (error) { if (error.code !== 'ENOENT') throw error; }
+  // Publish only a fully written/flushed file. link is atomic and, unlike
+  // rename, cannot replace an existing result (including a concurrent writer).
+  // An interrupted write remains a separate, immutable diagnostic artifact.
+  const temporary = path + '.pending-' + randomUUID();
+  await writeFile(temporary, text, { flag: 'wx', flush: true });
+  await link(temporary, path);
+  // Publication has succeeded. A leftover extra link is harmless evidence,
+  // not a failed model call and must not trigger a replay or retry.
+  await unlink(temporary).catch(() => {});
+}
+async function save(path, value) {
+  await saveText(path, JSON.stringify(value, null, 2) + '\n');
 }
 async function canonicalDestination(path) {
   try { return await realpath(path); }
@@ -25,7 +41,7 @@ async function prepareOperatorBundle(dir) {
   const modules = ['core.mjs', 'runner.mjs', 'postprocess.mjs', 'grading.mjs', 'report.mjs', 'state.mjs', 'costs.mjs', 'cli.mjs'];
   await mkdir(join(dir, 'execution-code'), { recursive: true });
   for (const name of modules) {
-    await writeFile(join(dir, 'execution-code', name), await readFile(new URL(name, import.meta.url)), { flag: 'wx' });
+    await saveText(join(dir, 'execution-code', name), await readFile(new URL(name, import.meta.url)));
   }
   // The entry point locates the transferred folder from its own URL, never a sender's path.
   const launcher = `import { fileURLToPath } from 'node:url';
@@ -43,8 +59,8 @@ if (Number(process.versions.node.split('.')[0]) !== 24) {
   });
 }
 `;
-  await writeFile(join(dir, 'run-evaluation.mjs'), launcher, { flag: 'wx' });
-  await writeFile(join(dir, '실행안내.md'), `# 유진님 실행 안내
+  await saveText(join(dir, 'run-evaluation.mjs'), launcher);
+  await saveText(join(dir, '실행안내.md'), `# 유진님 실행 안내
 
 Node.js 24와 담당자가 지정한 Ollama 모델은 미리 준비되어 있어야 합니다.
 이 폴더에서 터미널을 열고 아래 명령을 그대로 실행하세요. 폴더 이름이나 위치가 바뀌어도 명령은 같습니다.
@@ -57,11 +73,12 @@ node "./run-evaluation.mjs"
 완료 후 이 폴더 전체를 담당자에게 전달하세요. 기록을 수정하거나 삭제하지 마세요.
 오류가 나거나 실행이 중단되면 같은 폴더와 터미널 오류를 그대로 전달하세요. 미확인 호출을 임의로 재실행하지 마세요.
 설치·설정·상태 확인·채점·집계는 담당자가 진행합니다.
-`, { flag: 'wx' });
+`);
 }
 async function checkpoint(path, value) {
   const temporary = path + '.tmp';
-  await writeFile(temporary, JSON.stringify(value, null, 2) + '\n');
+  // Never overwrite an earlier interrupted checkpoint before inspection.
+  await writeFile(temporary, JSON.stringify(value, null, 2) + '\n', { flag: 'wx', flush: true });
   await rename(temporary, path);
 }
 async function maybe(path) {
@@ -75,10 +92,47 @@ async function saveMatching(path, value) {
   }
   await save(path, value);
 }
+async function saveReportGroup(entries) {
+  const existing = await Promise.all(entries.map(async ([path]) => maybe(path)));
+  // Validate the whole surviving group before filling any missing output.
+  for (const [i, [path, value]] of entries.entries()) if (existing[i] !== null) {
+    assert(hash(existing[i]) === hash(value), '기존 보고서가 현재 원본과 다릅니다. 새 분석 폴더를 사용하세요: ' + path);
+  }
+  if (existing.every(value => value !== null)) throw Object.assign(new Error('이미 완료된 보고서는 덮어쓰지 않습니다'), { code: 'EEXIST' });
+  for (const [i, [path, value]] of entries.entries()) if (existing[i] === null) await save(path, value);
+}
 async function generationLedger(dir) {
   let names = [];
   try { names = await readdir(join(dir, 'generation-calls')); }
   catch (error) { if (error.code !== 'ENOENT') throw error; }
+  for (const name of names.filter(name => /^\d+\.json(?:\.tmp|\.pending-.+)$/.test(name))) {
+    const final = name.replace(/(?:\.tmp|\.pending-.+)$/, '');
+    // Cleanup may have been interrupted just after an atomic link publication.
+    // Only the same published call is safe; all other remnants block execution/
+    // import before model access rather than hide a possible call.
+    let published;
+    try { published = await readFile(join(dir, 'generation-calls', final)); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    let committed = false;
+    if (name.includes('.pending-') && published) {
+      const staging = await readFile(join(dir, 'generation-calls', name));
+      committed = published.equals(staging);
+      if (!committed) {
+        // The first in-flight entry was published, its cleanup was interrupted,
+        // and a later terminal checkpoint replaced that final path. Its original
+        // link remains valid only if it is exactly the same call's start record.
+        try {
+          const terminal = JSON.parse(published.toString('utf8'));
+          const original = Object.fromEntries(['schemaVersion', 'planId', 'callId', 'context', 'request', 'startedAt']
+            .map(key => [key, terminal[key]]));
+          committed = ['completed', 'failed'].includes(terminal.state)
+            && hash(JSON.parse(staging.toString('utf8'))) === hash({ ...original, state: 'in-flight' });
+        } catch { /* A partial or unrelated staging file cannot certify a call. */ }
+      }
+    }
+    assert(committed,
+    '호출 기록의 저장 중단 흔적이 있습니다. 원본 폴더를 담당자에게 전달하세요');
+  }
   return Promise.all(names.filter(name => /^\d+\.json$/.test(name))
     .sort((a, b) => Number(a.slice(0, -5)) - Number(b.slice(0, -5)))
     .map(name => read(join(dir, 'generation-calls', name))));
@@ -295,11 +349,17 @@ export async function main(args = process.argv.slice(2)) {
     assert(await implementationHash() === plan.config.methods[0].codeHash, '실행 코드가 준비 후 바뀌었습니다. 새 계획을 준비하세요');
     const hasGeneration = plan.config.methods.some((m) => m.id !== 'rule-baseline');
     const progressPath = join(dir, 'progress.json');
+    try {
+      await lstat(progressPath + '.tmp');
+      assert(false, '진행 기록의 저장 중단 흔적이 있습니다. 같은 폴더를 임의 재실행하지 말고 담당자에게 전달하세요');
+    } catch (error) { if (error.code !== 'ENOENT') throw error; }
     const progress = await maybe(progressPath);
     assert(!progress || progress.planId === plan.id, '다른 계획의 진행 기록');
     assert(!progress?.modelVerificationIssue, '이전에 실행 후 모델 변경 또는 확인 실패가 기록됐습니다. 같은 폴더를 재실행해 기존 결과를 확정할 수 없습니다. 원본과 오류를 담당자에게 전달하세요');
     assert(!progress?.inFlight, '실행 중 끊긴 호출이 있습니다. 같은 자리를 자동 재실행하지 않습니다. 담당자가 실제 상태·비용을 확인한 뒤 새 계획 또는 기록을 확정하세요');
     const records = progress?.records ?? [];
+    // This also checks unpublished sidecars before any tag/model request.
+    const previousLedger = await generationLedger(dir);
     let files = [];
     try { files = await readdir(join(dir, 'generation-calls')); } catch (e) { if (e.code !== 'ENOENT') throw e; }
     const callIds = files.filter(f => /^\d+\.json$/.test(f)).map(f => Number(f.slice(0, -5)));
@@ -313,7 +373,7 @@ export async function main(args = process.argv.slice(2)) {
         previousWarmup.push({ request: entry.request, result: entry.result });
       }
     }
-    validateGenerationProgress(plan, records, await generationLedger(dir));
+    validateGenerationProgress(plan, records, previousLedger);
     const modelBefore = hasGeneration ? await modelIdentity(plan.config.model, plan.config.endpoint) : null;
     if (hasGeneration) assert(sameModelIdentity(plan.config.modelIdentity, modelBefore), '모델 파일/양자화 정보가 준비 후 바뀌었습니다');
     // The CLI owns the durable, sequential call ledger. A nonempty array from
@@ -385,16 +445,22 @@ export async function main(args = process.argv.slice(2)) {
   if (['sample-packets', 'import-sample-review', 'sample-finalize', 'sample-report', 'automatic-report'].includes(command)) {
     validateRecordedInputs(plan, run);
     if (command === 'automatic-report') {
-      const { buildAutomaticReport, compareAutomaticMethods } = await import('./automatic.mjs');
+      const { buildAutomaticReport, compareAutomaticMethods, validateAutomaticReport } = await import('./automatic.mjs');
       const ai = await maybe(join(dir, 'ai.json'));
-      const report = buildAutomaticReport(plan, run, ai);
+      const prior = await maybe(join(dir, 'automatic-report.json'));
+      // Resume a partially published group using the original measured code
+      // time, rather than recomputing it and replacing the existing report.
+      if (prior) {
+        assert(prior.aiHash === (ai === null ? null : hash(ai)), '기존 보고서와 AI 원본이 다릅니다. 새 분석 폴더를 사용하세요');
+        validateAutomaticReport(plan, run, prior, ai);
+      }
+      const report = prior ?? buildAutomaticReport(plan, run, ai);
       const comparison = compareAutomaticMethods(plan, run, report, ai);
       const costs = await evaluationCosts(dir, plan, run);
       costs.automaticCode = { elapsedMs: report.codeCost.elapsedMs,
         scope: report.codeCost.scope, artifactHash: hash(report) };
-      await save(join(dir, 'automatic-report.json'), report);
-      await save(join(dir, 'automatic-comparison.json'), comparison);
-      await save(join(dir, 'automatic-evaluation-cost.json'), costs);
+      await saveReportGroup([[join(dir, 'automatic-report.json'), report],
+        [join(dir, 'automatic-comparison.json'), comparison], [join(dir, 'automatic-evaluation-cost.json'), costs]]);
       console.log('구조화 날짜 자동 점수와 AI 보조 점수를 분리해 저장했습니다. 사람 표본 검증 완료나 전체 내용 정답을 뜻하지 않습니다.');
       return;
     }
@@ -556,9 +622,7 @@ export async function main(args = process.argv.slice(2)) {
     const humanEntries = final.agreement.details.flatMap((d) => [...d.firstReviews, ...(d.adjudication ? [d.adjudication] : [])]);
     const human = humanCost(humanEntries);
     // Validate all cost provenance before creating any report output.
-    await save(join(dir, 'report.json'), report);
-    await save(join(dir, 'comparison.json'), compareReports(report, report));
-    await save(join(dir, 'evaluation-cost.json'), {
+    const evaluationCost = {
       schemaVersion: 1, planId: plan.id, criteriaHash: plan.criteriaHash, runHash: hash(run),
       generationIncluded: false, code: costs.code?.elapsedMs ?? null,
       ai: costs.ai?.evaluationCost ?? partial?.cost ?? null,
@@ -567,7 +631,9 @@ export async function main(args = process.argv.slice(2)) {
         : partial?.execution ?? { status: 'not-started', interrupted: false },
       artifacts: Object.fromEntries(['code', 'ai'].map(kind => [kind, costs[kind] ? hash(costs[kind]) : null])),
       human,
-    });
+    };
+    await saveReportGroup([[join(dir, 'report.json'), report], [join(dir, 'comparison.json'), compareReports(report, report)],
+      [join(dir, 'evaluation-cost.json'), evaluationCost]]);
     console.log('결과와 방법별 쌍 비교 저장. 예비시험은 논문 최종 결과가 아닙니다.');
   } else if (command === 'validate-judge') {
     const groups = await read(requireFlag(flags, 'groups'));

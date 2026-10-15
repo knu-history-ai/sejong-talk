@@ -1,9 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { createServer } from 'node:http';
-import { mkdtemp, writeFile, readFile, readdir, rm } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, readdir, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { hash, makePlan } from '../evals/sejong/date-eval/core.mjs';
 import { runPlan } from '../evals/sejong/date-eval/runner.mjs';
 import { aiGrade } from '../evals/sejong/date-eval/grading.mjs';
@@ -43,7 +44,7 @@ function judgment(input) {
 }
 function response(answer, inputTokens = 3, outputTokens = 2) {
   const raw = JSON.stringify({ done: true, response: answer, prompt_eval_count: inputTokens, eval_count: outputTokens });
-  return { answer, raw, inputTokens, outputTokens, elapsedMs: 1 };
+  return { answer, raw, inputTokens, outputTokens };
 }
 async function bundle({ config = {}, transport = input => response(JSON.stringify(judgment(input))), failAll = false, repeats = 1 } = {}) {
   const { plan, run } = await fixture({ failAll, repeats });
@@ -57,11 +58,16 @@ async function bundle({ config = {}, transport = input => response(JSON.stringif
     const row = { file: `${String(entries.length + 1).padStart(4, '0')}.json`, entry: {
       planId: plan.id, runHash: hash(run), startHash: hash(start), request, state: 'in-flight' } };
     entries.push(row);
+    const began = performance.now();
     try {
-      const result = await transport(input, context);
+      const supplied = await transport(input, context);
+      await delay(2);
+      const result = { ...supplied, elapsedMs: performance.now() - began };
       row.entry = { ...row.entry, state: 'completed', result };
       return result;
     } catch (error) {
+      await delay(2);
+      error.elapsedMs = performance.now() - began;
       row.entry = { ...row.entry, state: 'failed', error: error.message, raw: error.raw ?? null,
         elapsedMs: error.elapsedMs ?? null, inputTokens: error.inputTokens ?? null, outputTokens: error.outputTokens ?? null };
       throw error;
@@ -134,7 +140,7 @@ test('malformed output retries, but the first interpretable partial judgment can
   assert.equal(validate(b).bindings.length, 6);
   assert.ok(b.ai.items.every(i => i.state === 'partial-failure' && i.attempts.length === 2));
   const firstRecord = b.ai.items.find(i => i.recordId === b.run.records[0].id);
-  const forged = response('{}');
+  const forged = { ...response('{}'), elapsedMs: b.entries[0].entry.result.elapsedMs };
   b.entries[0].entry.result = forged;
   firstRecord.attempts[0].rawOutput = forged.raw; firstRecord.attempts[0].judgmentOutput = forged.answer;
   assert.throws(() => validate(b), /first-interpretable/);
@@ -143,13 +149,15 @@ test('malformed output retries, but the first interpretable partial judgment can
 });
 
 test('ordinary failed transport and genuine resolved/rejected-after-timeout keep distinct bindings', async () => {
-  const failed = await bundle({ transport: () => { throw Object.assign(new Error('HTTP 500'), { raw: 'partial', inputTokens: 4, outputTokens: null }); } });
+  const failed = await bundle({ transport: () => { throw Object.assign(new Error('HTTP 500'), {
+    raw: JSON.stringify({ error: 'HTTP 500', prompt_eval_count: 4 }), inputTokens: 4, outputTokens: null }); } });
   const failedResult = validate(failed);
   assert.ok(failedResult.bindings.every(b => b.transportState === 'failed' && b.gradingState === 'grading-failure' && !b.timedOut));
   for (const resolved of [true, false]) {
     const b = await bundle({ config: { timeoutMs: 5, cancelGraceMs: 100 }, transport: (input, { signal }) => new Promise((resolve, reject) => {
       signal.addEventListener('abort', () => setTimeout(() => resolved ? resolve(response(JSON.stringify(judgment(input))))
-        : reject(Object.assign(new Error('cooperative abort'), { raw: 'partial timeout', inputTokens: 4, outputTokens: null })), 2), { once: true });
+        : reject(Object.assign(new Error('cooperative abort'), {
+          raw: JSON.stringify({ error: 'cooperative abort', prompt_eval_count: 4 }), inputTokens: 4, outputTokens: null })), 2), { once: true });
     }) });
     const result = validate(b);
     assert.ok(result.bindings.every(r => r.timedOut && r.transportState === (resolved ? 'completed' : 'failed')));
@@ -215,8 +223,19 @@ test('actual CLI ai + automatic-report joins Ollama HTTP raw success, malformed 
   assert.equal(costs.aiProvenance.status, 'verified'); assert.equal(costs.aiProvenance.aiHash, hash(ai));
   assert.equal(costs.aiProvenance.bindingsHash, joined.evidence.bindingsHash);
   // A same-count/token copied artifact with a rehashed never-called model is denied
-  // by the integrated CLI, even though the artifact-only hashes remain self-consistent.
-  ai.judgeConfig.model = 'never-called'; ai.judgeConfigHash = hash(ai.judgeConfig);
-  await writeFile(join(dir, 'ai.json'), JSON.stringify(ai));
-  await assert.rejects(main(['automatic-report', '--dir', dir]), /judge config mismatch/);
+  // by provenance, before publication. Use a fresh analysis folder so an existing
+  // report's no-clobber check cannot mask the provenance mismatch being tested.
+  const badDir = await mkdtemp(join(tmpdir(), 'date-ai-provenance-forged-'));
+  t.after(() => rm(badDir, { recursive: true, force: true }));
+  await mkdir(join(badDir, 'ai-calls'));
+  const originalFiles = ['plan.json', 'run.json', 'ai-start.json', 'ai.json', ...files.map(file => `ai-calls/${file}`)];
+  const originals = await Promise.all(originalFiles.map(file => readFile(join(dir, file), 'utf8')));
+  for (const [i, file] of originalFiles.entries()) await writeFile(join(badDir, file), originals[i]);
+  const forged = structuredClone(ai);
+  forged.judgeConfig.model = 'never-called'; forged.judgeConfigHash = hash(forged.judgeConfig);
+  await writeFile(join(badDir, 'ai.json'), JSON.stringify(forged));
+  await assert.rejects(main(['automatic-report', '--dir', badDir]), /judge config mismatch/);
+  assert.equal(calls, 5);
+  assert.deepEqual(await Promise.all(originalFiles.map(file => readFile(join(dir, file), 'utf8'))), originals);
+  assert.deepEqual((await readdir(badDir)).sort(), ['ai-calls', 'ai-start.json', 'ai.json', 'plan.json', 'run.json']);
 });

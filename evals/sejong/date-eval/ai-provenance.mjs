@@ -1,6 +1,6 @@
 import { isDeepStrictEqual } from 'node:util';
 import { assert, hash, validateRun } from './core.mjs';
-import { bindCost, interruptedAiCost } from './costs.mjs';
+import { bindCost, interruptedAiCost, validateAiTransportCost, validateAiElapsed } from './costs.mjs';
 
 const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
 const text = value => typeof value === 'string' && value.trim().length > 0;
@@ -47,23 +47,14 @@ function terminalBinding(record, item, attempt, row) {
   const timedOut = attempt.timedOut === true;
   assert(attempt.timedOut === undefined || typeof attempt.timedOut === 'boolean', 'invalid AI timeout marker');
   if (timedOut) assert(attempt.state === 'grading-failure' && attempt.error === 'judge timeout', 'AI timeout cannot contain interpreted scores');
-  const cost = entry.state === 'completed' ? entry.result : entry;
+  const cost = validateAiTransportCost(entry);
   assert(isDeepStrictEqual(attempt.rawOutput, cost.raw ?? null), 'AI preserved output differs from durable transport raw');
   for (const field of ['inputTokens', 'outputTokens']) {
     assert(isDeepStrictEqual(attempt[field], cost[field] ?? null), `AI attempt/durable transport ${field} mismatch`);
   }
   number(attempt.elapsedMs, 'AI attempt.elapsedMs');
+  if (cost.elapsedMs != null) validateAiElapsed(attempt.elapsedMs, cost.elapsedMs, 'AI attempt/transport');
   if (entry.state === 'completed') {
-    assert(text(cost.answer) && typeof cost.raw === 'string', 'completed AI transport answer/raw missing');
-    let body;
-    try { body = JSON.parse(cost.raw); }
-    catch { assert(false, 'completed AI transport raw is not the preserved whole HTTP JSON'); }
-    assert(plain(body) && body.done === true && !body.error && body.response === cost.answer,
-      'AI durable transport answer differs from raw response');
-    for (const [field, wireField] of [['inputTokens', 'prompt_eval_count'], ['outputTokens', 'eval_count']]) {
-      const count = Number.isSafeInteger(body[wireField]) && body[wireField] >= 0 ? body[wireField] : null;
-      assert((cost[field] ?? null) === count, 'AI durable transport tokens differ from raw response');
-    }
     if (timedOut) {
       assert(attempt.transportSettlement === 'resolved-after-timeout' && attempt.transportRecordMissing === false,
         'AI timeout/transport resolution mismatch');

@@ -1,5 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
+import { setTimeout as delay } from 'node:timers/promises';
 import { hash, makePlan } from '../evals/sejong/date-eval/core.mjs';
 import { runPlan, METHOD_VERSION } from '../evals/sejong/date-eval/runner.mjs';
 import { aiGrade, codeGrade } from '../evals/sejong/date-eval/grading.mjs';
@@ -46,12 +47,16 @@ function answer(c) {
 async function execute(plan, { transform = a => JSON.stringify(a), fail = false, seen = [] } = {}) {
   return runPlan(plan, { environment: { synthetic: true }, generate: async (request, config, context) => {
     seen.push(context);
-    if (context.stage === 'warmup') return { answer: 'ready', inputTokens: 100, outputTokens: 10, elapsedMs: 3 };
+    const began = performance.now();
+    await delay(2);
+    if (context.stage === 'warmup') return { answer: 'ready', inputTokens: 100, outputTokens: 10,
+      elapsedMs: performance.now() - began };
     const c = plan.dataset.cases.find(c => c.id === context.caseId);
     assert.ok(request.prompt.includes(c.sourceText)); assert.ok(request.prompt.includes(c.question));
     assert.ok(!request.prompt.includes('allowedOmissions')); // no reference leakage to generation
-    if (fail) throw Object.assign(new Error('synthetic transport failure'), { inputTokens: 2, outputTokens: null, raw: 'partial' });
-    return { answer: transform(answer(c), context), inputTokens: 7, outputTokens: 3, elapsedMs: 1 };
+    if (fail) throw Object.assign(new Error('synthetic transport failure'), { inputTokens: 2, outputTokens: null,
+      raw: JSON.stringify({ error: 'synthetic transport failure', prompt_eval_count: 2 }), elapsedMs: performance.now() - began });
+    return { answer: transform(answer(c), context), inputTokens: 7, outputTokens: 3, elapsedMs: performance.now() - began };
   } });
 }
 const method = (report, id = 'prompt-baseline') => report.methods.find(m => m.id === id);
@@ -354,6 +359,7 @@ test('interpretable preserved AI output cannot be relabeled as grading failure o
   const skipped = structuredClone(retried.items[0]); markGradingFailure(skipped, 'Fabricated retry reason.');
   retried.items[0].attempts.unshift(skipped.attempts[0]); retried.items[0].attempts[1].attempt = 2;
   retried.evaluationCost.calls++;
+  retried.evaluationCost.elapsedMs += skipped.attempts[0].elapsedMs;
   for (const [field, tokens] of [['inputTokens', 3], ['outputTokens', 2]]) {
     const cost = retried.evaluationCost[field]; cost.total++; cost.known++;
     cost.sum += tokens; cost.partialKnownSum += tokens;
@@ -372,6 +378,10 @@ test('valid AI output cannot acquire a fabricated timeout without its timing and
   ]) {
     const bad = structuredClone(ai); markGradingFailure(bad.items[0], 'judge timeout');
     mutate(bad.items[0].attempts[0]);
+    // Keep the negative fixture's cost hierarchy consistent so the timeout
+    // audit, rather than an impossible aggregate clock, is the gate under test.
+    bad.evaluationCost.elapsedMs = Math.max(bad.evaluationCost.elapsedMs,
+      bad.items.flatMap(i => i.attempts).reduce((n, a) => n + a.elapsedMs, 0));
     assert.throws(() => buildAutomaticReport(plan, run, bad), /timeout/);
   }
 });
@@ -406,7 +416,8 @@ test('genuine audited timeouts keep valid late raw replies unscored and preserve
       judge: (input, { signal }) => new Promise((resolve, reject) => {
         if (settlement === 'unsettled') return;
         signal.addEventListener('abort', () => {
-          const answer = JSON.stringify(judgment(input)), raw = JSON.stringify({ response: answer });
+          const answer = JSON.stringify(judgment(input)), raw = JSON.stringify({ done: true, response: answer,
+            prompt_eval_count: 3, eval_count: 2 });
           if (settlement === 'resolved') resolve({ answer, raw, inputTokens: 3, outputTokens: 2 });
           else reject(Object.assign(new Error('Synthetic cancellation.'), { raw, inputTokens: 3, outputTokens: 2 }));
         }, { once: true });
@@ -443,7 +454,7 @@ test('explicit failed Ollama envelopes outrank an interpretable partial judgment
     const ai = await aiGrade(plan, run, { judge: input => {
       const error = mode === 'error' ? 'Synthetic server rejection.' : '응답이 정상 종료되지 않았습니다';
       const raw = JSON.stringify({ done: mode === 'error', response: JSON.stringify(judgment(input)),
-        ...(mode === 'error' ? { error } : {}) });
+        prompt_eval_count: 3, eval_count: 2, ...(mode === 'error' ? { error } : {}) });
       throw Object.assign(new Error(error), { raw, inputTokens: 3, outputTokens: 2 });
     } });
     const report = buildAutomaticReport(plan, run, ai);
@@ -451,7 +462,7 @@ test('explicit failed Ollama envelopes outrank an interpretable partial judgment
     assert.equal(report.ai.metrics.date.score.value, null);
     const forged = structuredClone(ai);
     forged.items[0].attempts[0].rawOutput = JSON.stringify({ done: true,
-      response: JSON.stringify(judgment(forged.items[0].rawInput)) });
+      response: JSON.stringify(judgment(forged.items[0].rawInput)), prompt_eval_count: 3, eval_count: 2 });
     assert.throws(() => buildAutomaticReport(plan, run, forged), /interpretable.*failure/);
   }
 });
@@ -467,7 +478,9 @@ test('standalone T/V includes P time/tokens/calls; physical batch counts P once;
   }
   assert.equal(report.generation.physicalBatch.calls, 24);
   assert.equal(report.generation.warmup.calls, 1); assert.equal(report.generation.warmup.inputTokens.sum, 100);
-  assert.equal(report.generation.warmup.elapsedMs, 3); assert.equal(report.generation.warmup.historyComplete, true);
+  assert.ok(run.warmup[0].result.elapsedMs > 0);
+  assert.equal(report.generation.warmup.elapsedMs, run.warmup[0].result.elapsedMs);
+  assert.equal(report.generation.warmup.historyComplete, true);
   const resumed = await runPlan(plan, { existingRecords: run.records, existingWarmup: run.warmup,
     existingWarmupHistoryComplete: true, generate: () => { throw new Error('no new calls'); } });
   const resumedReport = buildAutomaticReport(plan, resumed);

@@ -94,19 +94,23 @@ export async function runPlan(plan, { generate = ollamaGenerate, onRecord = asyn
   assert(plan.dataset.split !== 'final' || (plan.gold?.reviewStatus ?? plan.goldReviewStatus) === 'approved', '본실험은 원문·정답표 검수 승인 후에만 실행할 수 있습니다');
   const start = performance.now();
   const records = [...existingRecords];
+  const resumed = existingRecords.length > 0 || (existingWarmup?.length ?? 0) > 0;
   assert(new Set(records.map((r) => r.id)).size === records.length, '중복 재개 기록');
   for (const r of records) assert(plan.slots.some((s) => s.id === r.id && s.caseId === r.caseId && s.methodId === r.methodId && s.repeat === r.repeat), '다른 계획의 재개 기록');
   validateDerivations(plan, records);
   const warmup = structuredClone(existingWarmup ?? []);
   assert(existingWarmupHistoryComplete === undefined || typeof existingWarmupHistoryComplete === 'boolean', '준비 호출 이력 상태 오류');
   const warmupHistoryComplete = existingWarmupHistoryComplete
-    ?? (!plan.config.warmup || existingRecords.length === 0);
+    ?? (!plan.config.warmup || !resumed);
   const pendingGeneration = plan.slots.some(slot => !records.some(r => r.id === slot.id)
     && slot.methodId !== 'rule-baseline' && !DERIVED_METHODS.includes(slot.methodId));
   if (plan.config.warmup && pendingGeneration) {
     const request = { model: plan.config.model, options: plan.config.options, think: plan.config.think ?? false, prompt: '준비 확인입니다. 준비라고 답하세요.', stage: 'warmup' };
     try { warmup.push({ request, result: await generate(request, plan.config, { recordId: null, stage: 'warmup', attempt: 0 }) }); }
-    catch (e) { throw new Error(`준비 호출 실패: ${e.message}. 비교는 시작하지 않았습니다`); }
+    catch (e) {
+      if (e.auditStorageFailure) throw e;
+      throw new Error(`준비 호출 실패: ${e.message}. 비교는 시작하지 않았습니다`, { cause: e });
+    }
   }
   // Stable dependency scheduling: randomize generation order, then derive T/V from that exact P.
   const scheduled = order(plan.slots, plan.config);
@@ -182,6 +186,6 @@ export async function runPlan(plan, { generate = ollamaGenerate, onRecord = asyn
   return { schemaVersion: 1, planId: plan.id, datasetHash: plan.datasetHash, goldHash: plan.goldHash,
     criteriaHash: plan.criteriaHash, configHash: plan.configHash, records,
     environment: environment ?? { platform: platform(), release: release(), cpu: cpus()[0]?.model, cpus: cpus().length, memoryBytes: totalmem(), node: process.version },
-    warmup, warmupHistoryComplete, batchElapsedMs: performance.now() - start, resumed: existingRecords.length > 0,
-    batchWallScope: existingRecords.length > 0 ? 'current resumed segment only; earlier batch wall time unavailable' : 'whole run; not allocated to methods' };
+    warmup, warmupHistoryComplete, batchElapsedMs: performance.now() - start, resumed,
+    batchWallScope: resumed ? 'current resumed segment only; earlier batch wall time unavailable' : 'whole run; not allocated to methods' };
 }

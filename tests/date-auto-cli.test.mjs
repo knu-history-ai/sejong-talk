@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import { mkdtemp, readFile, writeFile, mkdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { setTimeout as delay } from 'node:timers/promises';
 import { main } from '../evals/sejong/date-eval/cli.mjs';
 import { loadPilot } from '../evals/sejong/date-eval/pilot.mjs';
 import { hash, makePlan } from '../evals/sejong/date-eval/core.mjs';
@@ -282,9 +283,13 @@ test('automatic path preserves interrupted AI ledger partial sums without invent
   await writeFile(join(dir, 'ai-start.json'), JSON.stringify(start));
   await mkdir(join(dir, 'ai-calls'));
   const entry = { planId: plan.id, runHash: hash(run), startHash: hash(start),
-    request: { model: judgeConfig.model, options: judgeConfig.options, think: false } };
+    request: { model: judgeConfig.model, options: judgeConfig.options, think: false,
+      stage: 'judge', prompt: 'synthetic interrupted judge call' } };
+  const began = performance.now();
+  await delay(2);
   await writeFile(join(dir, 'ai-calls/0001.json'), JSON.stringify({ ...entry, state: 'completed',
-    result: { elapsedMs: 20, inputTokens: 100, outputTokens: 2 } }));
+    result: { answer: '{}', raw: JSON.stringify({ done: true, response: '{}', prompt_eval_count: 100, eval_count: 2 }),
+      elapsedMs: performance.now() - began, inputTokens: 100, outputTokens: 2 } }));
   await writeFile(join(dir, 'ai-calls/0002.json'), JSON.stringify({ ...entry, state: 'in-flight' }));
   await main(['automatic-report', '--dir', dir]);
   const cost = await read(join(dir, 'automatic-evaluation-cost.json'));

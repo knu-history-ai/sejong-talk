@@ -287,15 +287,18 @@ function validateAiAttempt(attempt, gold, input, config) {
     assert(raw.parsed === copied.parsed && (!raw.parsed || isDeepStrictEqual(raw.raw, copied.raw)),
       'AI judgment/transport raw mismatch');
   }
-  // A rejected Ollama call may preserve a JSON server error, not a returned
-  // judgment. Do not reinterpret that transport failure as semantic scores.
-  const serverError = !Object.hasOwn(attempt, 'judgmentOutput') && plain(raw.envelope)
-    && ((Boolean(raw.envelope.error) && attempt.error === String(raw.envelope.error))
+  // ollamaGenerate rejects non-2xx HTTP status before interpreting its body.
+  // That body may look complete: only a returned judgment has judgmentOutput.
+  // Keep the recorded rejection (joined to durable rows by CLI provenance) a
+  // failure, without permitting successful/HTTP 2xx output to be relabelled.
+  const transportError = !Object.hasOwn(attempt, 'judgmentOutput') && plain(raw.envelope)
+    && (/^HTTP [1345]\d{2}$/.test(attempt.error)
+      || (Boolean(raw.envelope.error) && attempt.error === String(raw.envelope.error))
       || (Object.hasOwn(raw.envelope, 'done') && raw.envelope.done !== true
         && attempt.error === '응답이 정상 종료되지 않았습니다'));
   if (attempt.state === 'grading-failure') {
     assert(typeof attempt.error === 'string', 'AI grading failure error missing');
-    assert(!raw.judgment || serverError,
+    assert(!raw.judgment || transportError,
       'AI interpretable preserved output cannot be a grading failure or fabricated timeout');
     return null;
   }
@@ -318,7 +321,6 @@ function validateAi(plan, run, ai) {
   assert(ai.judgeConfig.cancelGraceMs == null || ai.judgeConfig.cancelGraceMs <= 100, 'invalid AI cancelGraceMs');
   const items = index(ai.items, 'recordId', 'AI items');
   assert(items.size === run.records.length, 'missing/extra AI items');
-  const allAttempts = [];
   for (const record of run.records) {
     const item = items.get(record.id);
     assert(item?.recordHash === hash(record), 'AI record hash mismatch');
@@ -343,7 +345,6 @@ function validateAi(plan, run, ai) {
     assert(item.attempts.length > 0 && item.attempts.length <= ai.judgeConfig.retries + 1, 'missing/invalid AI attempts');
     let judgment;
     for (const [i, attempt] of item.attempts.entries()) {
-      validateAttempt(attempt, 'AI attempt'); number(attempt.elapsedMs, 'AI attempt.elapsedMs');
       assert(attempt.attempt === i + 1 && (i === item.attempts.length - 1 || attempt.state === 'grading-failure'), 'AI retry audit mismatch');
       judgment = validateAiAttempt(attempt, gold, item.rawInput, ai.judgeConfig);
     }
@@ -365,14 +366,6 @@ function validateAi(plan, run, ai) {
     const dates = [...events.values()].map(e => e.date);
     assert(!(item.date === 1 && !dates.every(d => d === 1))
       && !(bit(item.date) && dates.every(bit) && item.date !== (dates.every(d => d === 1) ? 1 : 0)), 'AI question/event scores contradict');
-    allAttempts.push(...item.attempts);
-  }
-  assert(ai.evaluationCost.calls === allAttempts.length, 'AI cost/attempt calls mismatch');
-  for (const field of ['inputTokens', 'outputTokens']) {
-    const known = allAttempts.filter(a => a[field] != null);
-    const partialKnownSum = sum(known.map(a => a[field]));
-    assert(hash(ai.evaluationCost[field]) === hash({ sum: known.length === allAttempts.length ? partialKnownSum : null,
-      partialKnownSum, known: known.length, total: allAttempts.length }), 'AI cost/attempt tokens mismatch');
   }
   return items;
 }

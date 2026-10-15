@@ -150,6 +150,20 @@ test('warmup: a new preparation call on resume cannot complete an earlier partia
   }
 });
 
+test('warmup-only recovery is a resumed segment even before any question is recorded', async () => {
+  const plan = fixture();
+  for (const complete of [undefined, true, false]) {
+    const run = await execute(plan, { existingWarmup: [{ result: structuredClone(WARMUP) }],
+      existingWarmupHistoryComplete: complete });
+    assert.equal(run.resumed, true);
+    assert.equal(run.batchWallScope, 'current resumed segment only; earlier batch wall time unavailable');
+    const report = buildAutomaticReport(plan, run);
+    assert.equal(report.generation.batchWallComplete, false);
+    if (complete === true) assertComplete(report.generation.warmup, { calls: 2, elapsedMs: 8, inputTokens: 22, outputTokens: 4 });
+    else assertIncomplete(report.generation.warmup, { calls: 2, elapsedMs: 8, inputTokens: 22, outputTokens: 4 });
+  }
+});
+
 test('warmup: disabled or rule-only plans have provably complete zero-call histories', async () => {
   for (const config of [{ warmup: false }, { warmup: true, methods: ['rule-baseline'] }]) {
     const plan = fixture(config), run = await execute(plan);
