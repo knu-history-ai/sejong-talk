@@ -1,0 +1,169 @@
+{
+  "checkedOn": "2026-10-15",
+  "baseCommit": "79644286624a49fd4f45275ff95efe10dd097d2a",
+  "version": "date-review-20261015-20articles-draft-v3",
+  "hashMethod": "SHA-256 of recursively key-sorted compact UTF-8 JSON; criteria={criteriaVersion,rubric,cases}; JavaScript integer-index property enumeration is retained",
+  "hashes": {
+    "datasetHash": "2010d83be295caf8e769781eda89b3c3a701c36a0c6114d0e44d9a8fcfced747",
+    "goldHash": "5ea4d8b2ce6e829ecea33527d2830d7f992d7baa0eb3ec696189fd7ebaae2309",
+    "criteriaHash": "c617525af719168e2b2acbff2cfa8f124dbfa6d5d294d760e3912d6dceaa820c"
+  },
+  "errors": [],
+  "categoryCounts": {
+    "unknown-day": 10,
+    "false-date-premise": 11,
+    "header-control": 13,
+    "mixed-events": 5,
+    "known-day": 14
+  },
+  "kindCounts": {
+    "event": 40,
+    "control": 13
+  },
+  "targetJudgments": 58,
+  "sourcePages": [
+    {
+      "id": "T01",
+      "url": "https://sillok.history.go.kr/id/kda_12909029_002",
+      "sha256": "d4d78bdd3e5b3523b871f3193ff2bf796a9a65e5d992b64cf90fcb306e3bcedf",
+      "title": "《동국정운》 완성에 따른 신숙주의 서문"
+    },
+    {
+      "id": "T02",
+      "url": "https://sillok.history.go.kr/id/kda_11803021_003",
+      "sha256": "15483b3ebcec05edda7c2aed0016bb0d721696ee0482ddcd841910fd341b6c82",
+      "title": "상제를 마치게 해 달라는 이변의 상소문"
+    },
+    {
+      "id": "T03",
+      "url": "https://sillok.history.go.kr/id/wda_10506024_003",
+      "sha256": "8961d9ebd21d9209284f9967e8f43d1588dc5f94221dcbc52c966b6bd2a959aa",
+      "title": "건주 동맹가첩목아에게 식량을 주어 안업케 하다"
+    },
+    {
+      "id": "T04",
+      "url": "https://sillok.history.go.kr/id/kda_12605004_001",
+      "sha256": "e32226a24f280d48c69c9dfa43193e8e48c1a5582369441ee3b06325fc0077c0",
+      "title": "경기 관찰사 이선에게 우량(雨量)·파종 상황·기민의 유무를 묻다"
+    },
+    {
+      "id": "T05",
+      "url": "https://sillok.history.go.kr/id/kda_11607001_004",
+      "sha256": "d54df26cf16382ab81effe8c59a5acfa1fac9aa630736783ba713859033d6fac",
+      "title": "새로 만든 누기의 구조와 원리 및 보관 장소와 누기 명의 내용"
+    },
+    {
+      "id": "T06",
+      "url": "https://sillok.history.go.kr/id/kda_11406009_002",
+      "sha256": "e03029600ae9eb687966405748f327c34dfad1bb28d966b766784aa6ba1e228c",
+      "title": "집현전에서 《삼강행실》을 편찬하여 서와 전문을 더불어 올리다"
+    },
+    {
+      "id": "T07",
+      "url": "https://sillok.history.go.kr/id/kda_12405008_001",
+      "sha256": "77c9eb122e569e14816d3689b858d22f8243a7f8285acdbd441830fd60cf2fa0",
+      "title": "호조에서 우량을 측정하는 일에 관해 아뢰다"
+    },
+    {
+      "id": "T08",
+      "url": "https://sillok.history.go.kr/id/kda_11610002_004",
+      "sha256": "41f821207eea3ec5c206789d4bac13225f94f1c9d3cc84889c2285bd5eaec33b",
+      "title": "처음으로 앙부일구를 혜정교와 종묘 앞에 설치하여 일영을 관측하다"
+    },
+    {
+      "id": "T09",
+      "url": "https://sillok.history.go.kr/id/kda_10303002_002",
+      "sha256": "9899853c87d5e21f8d934c3b832cdea17f10a1b6a7995aece049396dd04e4f35",
+      "title": "눌두산에서 짐승을 몰이하고 행차가 대화역에 머물르다"
+    },
+    {
+      "id": "T10",
+      "url": "https://sillok.history.go.kr/id/kda_10307003_003",
+      "sha256": "3583e496a400b4227ee7c2fb173041ffcc832bfd0e92b3806245dfa0a008fee7",
+      "title": "한성부사 정진의 치수에 관해 올린 소문"
+    },
+    {
+      "id": "T11",
+      "url": "https://sillok.history.go.kr/id/kda_10107007_002",
+      "sha256": "c3e44c348ba47ecd12322ce22da45474d11c2a7baa66efc68f4e2193b3843937",
+      "title": "정역·권홍·이종무 등을 승진시키고, 다시 병선을 거느리고 대마도 왜적을 치게 하다"
+    },
+    {
+      "id": "T12",
+      "url": "https://sillok.history.go.kr/id/kda_13106018_001",
+      "sha256": "a7830ee33023aaa5a5e91476a9d78c689476d6eea985cf07386bac57f684436f",
+      "title": "한재로 임금은 임영군 집으로 이어하고, 세자는 인지당에 거처하게 하다"
+    },
+    {
+      "id": "T13",
+      "url": "https://sillok.history.go.kr/id/kda_10203016_001",
+      "sha256": "22c9e985104f7118a47165ba39ffe9da4da3e72b34327fc9a681bd39c591c4c6",
+      "title": "집현전의 인원수를 정하고 관원을 임명하다"
+    },
+    {
+      "id": "T14",
+      "url": "https://sillok.history.go.kr/id/kda_10812011_004",
+      "sha256": "2e13842bf76d69e6b6290995e8bbc663f3c859995c83b841a309d231d3d8f492",
+      "title": "집현전 부교리 권채 등을 불러 집현관으로서 독서에만 전념하라고 명하다"
+    },
+    {
+      "id": "T15",
+      "url": "https://sillok.history.go.kr/id/kda_10103030_004",
+      "sha256": "dac145bad8500478ba92067992f855d2569d4231dac9820b695cd2e20e50c811",
+      "title": "이달에 가물었다"
+    },
+    {
+      "id": "T16",
+      "url": "https://sillok.history.go.kr/id/kda_10211030_003",
+      "sha256": "b7910bd9c1a30f180aa97a5800c00ad3a44abf27ddbf9768c3b6c239fc4cc033",
+      "title": "이달에 얼음이 얼지 아니하다"
+    },
+    {
+      "id": "T17",
+      "url": "https://sillok.history.go.kr/id/kda_10403029_002",
+      "sha256": "d39c1a355dc105cb7e11f5c02deac9096e5c6d4458f2e03f82d51eae73afb991",
+      "title": "역질이 있어 많은 사람이 죽다"
+    },
+    {
+      "id": "T18",
+      "url": "https://sillok.history.go.kr/id/kda_11908029_004",
+      "sha256": "836aae580afa84355ac9e38b2292bb911f4fee07950b31f98985e104e2fbeb1f",
+      "title": "성안에 배꽃·회나무꽃·자두꽃이 피다"
+    },
+    {
+      "id": "T19",
+      "url": "https://sillok.history.go.kr/id/kda_12003029_002",
+      "sha256": "a77a0be1ca5db90e7bda653d4dcb80bae84e24862bb7430045b32925090656f8",
+      "title": "선원전을 문소전 동북쪽 모퉁이에 옮겨 짓다"
+    },
+    {
+      "id": "T20",
+      "url": "https://sillok.history.go.kr/id/kda_12301029_002",
+      "sha256": "2c5cec58eb2815148aa37e78e55719769308f2ef38faf485d5ecb0a7c2bd7029",
+      "title": "도체찰사 황보인을 함길도에 보내 동관·동풍 등의 보를 설치케 하다"
+    }
+  ],
+  "humanReview": "first-pass-completed-with-open-feedback",
+  "sourceExcerptOrderCheck": "all retained segments matched after removing whitespace and HTML footnote markers",
+  "datasetSourceGoldMarkdownCheck": "passed",
+  "originalImages": "not-reviewed",
+  "liveModelExecution": "not-performed",
+  "scopeNote": "AI precheck and human first-pass review completed; original packet unchanged; T16-Q01 feedback unresolved; owner revision, re-review, split decision and freeze pending",
+  "humanReviewRecord": {
+    "reviewer": "시연",
+    "reviewedOn": "2026-10-15",
+    "articlesChecked": 20,
+    "questionsChecked": 53,
+    "basis": "Article and question confirmation marks plus user completion message in this chat",
+    "unresolvedHumanFeedback": [
+      "T16-Q01: question may ask record date rather than event period"
+    ],
+    "aiFollowupCandidates": [
+      "T15-Q01",
+      "T17-Q01",
+      "T18-Q01"
+    ],
+    "finalApproval": "pending",
+    "datasetFreeze": "pending"
+  }
+}
