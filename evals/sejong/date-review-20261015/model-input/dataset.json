@@ -1,7 +1,7 @@
 {
-  "version": "date-review-20261015-20articles-draft-v4",
+  "version": "date-review-20261015-20articles-final-v4",
   "split": "final",
-  "reviewStatus": "draft",
+  "reviewStatus": "approved",
   "cases": [
     {
       "id": "T01-Q01",

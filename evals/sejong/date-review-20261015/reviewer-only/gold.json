@@ -1,9 +1,9 @@
 {
-  "version": "date-review-20261015-20articles-draft-v4-gold",
+  "version": "date-review-20261015-20articles-final-v4-gold",
   "criteriaVersion": "issue62-date-v1",
-  "datasetHash": "0cb218be19a277d062c8a3839466136783d0c74078e1cd71b9a58a45d82a75fd",
-  "reviewStatus": "draft",
-  "reviewedBy": [],
+  "datasetHash": "ad83159eeebe386fc9ebc2fc82b3b40365333e2f38fb024656681145dd9f4249",
+  "reviewStatus": "approved",
+  "reviewedBy": ["김시연"],
   "rubric": {
     "date": "모든 대상의 확인 가능한 연·월·일이 맞아야 1점. 이번 질문은 공통 지시에서 연도를 요구하므로 연도도 필수다. 본문에 없는 일자를 만들거나 특정 일을 근거 없이 부정하면 0점. 일자가 없으면 연·월과 일자 확인 불가를 함께 답한다. 표제 날짜 언급 자체는 오류가 아니다. 월 초·말 추정과 양력 환산은 허용하지 않는다. 당일 행위를 적은 기록과 과거 사건을 회고한 본문을 구분한다.",
     "evidence": "모든 대상 사건에 대해 자료 안의 인용 또는 허용된 바꿔 쓰기가 실제 답변을 뒷받침해야 1점. 인용 존재 여부만으로 의미상 지지를 판정하지 않음. 날짜 1점이라도 근거가 틀리거나 없으면 근거 0점.",

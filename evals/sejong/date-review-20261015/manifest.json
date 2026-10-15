@@ -1,12 +1,15 @@
 {
-  "version": "date-review-20261015-20articles-draft-v4",
+  "version": "date-review-20261015-20articles-final-v4",
   "checkedOn": "2026-10-14",
   "metadataUpdatedOn": "2026-10-15",
-  "status": "draft-awaiting-human-source-review",
+  "status": "approved-materials-and-pre-execution-sample-frozen",
   "requestedReviewDate": "2026-10-15",
   "reviewAvailability": "accepted",
   "reviewAcceptanceDate": "2026-10-14",
-  "reviewCompletion": "first-pass-posted-final-approval-pending",
+  "reviewCompletion": "first-pass-pr77-and-four-question-recheck-complete",
+  "reviewReconfirmedAt": "2026-10-15T22:07:00+09:00",
+  "reviewReconfirmedAtPrecision": "minute",
+  "approvalRecord": "reviewer-only/확정기록.json",
   "sourceReviewPr": 77,
   "t08Decision": {
     "decision": "retain",
@@ -17,17 +20,19 @@
       { "name": "유진", "reportedAt": "2026-10-15T21:17:00+09:00", "scope": "reports no recollection of checking Angbuilgu model answers or changing prompts/rules" },
       { "name": "시연", "reportedAt": "2026-10-15T21:19:00+09:00", "scope": "reports no modifications; answer viewing not explicitly stated" }
     ],
-    "questionRecheck": "pending",
-    "finalMaterialApproval": "pending"
+    "questionRecheck": "confirmed",
+    "finalMaterialApproval": "approved-by-maintainer-after-reviewer-confirmation"
   },
   "questionRevisionApproval": {
     "approvedBy": "민준",
     "approvedOn": "2026-10-15",
     "caseIds": ["T15-Q01", "T16-Q01", "T17-Q01", "T18-Q01"],
     "scope": "clarify event time; preserve precision requirements, answers and scoring criteria",
-    "reviewerRecheck": "pending"
+    "reviewerRecheck": "confirmed",
+    "recheckedBy": "김시연",
+    "recheckedAt": "2026-10-15T22:07:00+09:00"
   },
-  "reviewedBy": [],
+  "reviewedBy": ["김시연"],
   "relatedIssue": 62,
   "relatedIssues": [62, 71, 76],
   "evaluationToolPr": 70,
@@ -58,7 +63,12 @@
     "plannedOutputs": 60,
     "maxCompletedOutputsPerReviewer": 60,
     "sameCompletedSampleForBoth": true,
-    "freezeStatus": "pending-approved-materials-and-pre-execution-freeze",
+    "freezeStatus": "frozen-before-operator-execution",
+    "planId": "c648b50c119f051119e696789e0706a213509fd1fb5f22d72d1aeeeb040eea8e",
+    "manifestHash": "0102c9ec9e70907e9507f2da99707ca04ea765eb228e43e07274e7cc5223b6b7",
+    "selectedTypeCounts": {"false-date-premise": 2, "header-control": 3, "known-day": 3, "mixed-events": 2, "unknown-day": 2},
+    "outputsPerMethod": 12,
+    "selectionListIsMaintainerOnly": true,
     "reviewers": [
       { "name": "시연", "acceptanceStatus": "requested" },
       { "name": "선영", "acceptanceStatus": "accepted", "acceptedOn": "2026-10-15", "plannedWorkDate": "2026-10-16", "completionTime": null }
@@ -71,8 +81,8 @@
     "mixed-events": 5,
     "known-day": 14
   },
-  "datasetHash": "0cb218be19a277d062c8a3839466136783d0c74078e1cd71b9a58a45d82a75fd",
-  "goldHash": "c317e46c5c27f86405a9fb62372fad5820c73ff77fcc6e16ef15f69a2b072187",
+  "datasetHash": "ad83159eeebe386fc9ebc2fc82b3b40365333e2f38fb024656681145dd9f4249",
+  "goldHash": "3143dfed05dda1e5588998fc714cbc2e2fd9839379be2688a0e4f23597caa1f5",
   "criteriaHash": "c617525af719168e2b2acbff2cfa8f124dbfa6d5d294d760e3912d6dceaa820c",
   "checks": {
     "datasetGoldHash": "passed",
@@ -82,7 +92,7 @@
     "sourceAndQuestionMarkdownAgreement": "passed",
     "priorPilotArticleIds": "no-overlap",
     "supplementedEvidence": ["T07-Q01", "T13-Q01", "T14-Q01"],
-    "humanReview": "pending",
+    "humanReview": "first-pass-pr77-and-four-question-recheck-complete; maintainer-approved",
     "fullDevelopmentHistoryOverlap": "reviewed-available-records-and-team-reports-t08-retained-with-disclosure",
     "originalImages": "not-reviewed",
     "liveModelExecution": "not-performed"
