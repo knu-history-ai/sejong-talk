@@ -8,6 +8,18 @@
   "reviewAcceptanceDate": "2026-10-14",
   "reviewCompletion": "first-pass-posted-final-approval-pending",
   "sourceReviewPr": 77,
+  "t08Decision": {
+    "decision": "retain",
+    "decidedBy": "민준",
+    "decidedOn": "2026-10-15",
+    "basis": "repository and shared pilot records plus team self-reports; not proof of all private development history",
+    "teamReports": [
+      { "name": "유진", "reportedAt": "2026-10-15T21:17:00+09:00", "scope": "reports no recollection of checking Angbuilgu model answers or changing prompts/rules" },
+      { "name": "시연", "reportedAt": "2026-10-15T21:19:00+09:00", "scope": "reports no modifications; answer viewing not explicitly stated" }
+    ],
+    "questionRecheck": "pending",
+    "finalMaterialApproval": "pending"
+  },
   "questionRevisionApproval": {
     "approvedBy": "민준",
     "approvedOn": "2026-10-15",
@@ -71,7 +83,7 @@
     "priorPilotArticleIds": "no-overlap",
     "supplementedEvidence": ["T07-Q01", "T13-Q01", "T14-Q01"],
     "humanReview": "pending",
-    "fullDevelopmentHistoryOverlap": "requires-human-check",
+    "fullDevelopmentHistoryOverlap": "reviewed-available-records-and-team-reports-t08-retained-with-disclosure",
     "originalImages": "not-reviewed",
     "liveModelExecution": "not-performed"
   },
