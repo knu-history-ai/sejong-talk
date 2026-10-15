@@ -4,6 +4,7 @@ import { hash, makePlan } from '../evals/sejong/date-eval/core.mjs';
 import { runPlan, METHOD_VERSION } from '../evals/sejong/date-eval/runner.mjs';
 import { aiGrade, codeGrade } from '../evals/sejong/date-eval/grading.mjs';
 import { buildAutomaticReport, validateAutomaticReport, compareAutomaticMethods } from '../evals/sejong/date-eval/automatic.mjs';
+import { resolveRunState } from '../evals/sejong/date-eval/state.mjs';
 
 // Entirely synthetic dates, sources and judgments. No private dataset/gold files,
 // fake human Finals, network calls, or assumptions about historical correctness.
@@ -475,6 +476,98 @@ test('standalone T/V includes P time/tokens/calls; physical batch counts P once;
   assert.equal(buildAutomaticReport(plan, missingTime).generation.warmup.itemElapsedMs, null);
   assert.equal(buildAutomaticReport(plan, missingTime).generation.warmup.meanItemElapsedMs, null);
   assert.equal(buildAutomaticReport(plan, missingTime).generation.warmup.completedLatency.count, 0);
+});
+
+for (const failed of [false, true]) {
+  test(`T/V inspections only increase physical cost, not first service time (${failed ? 'failed' : 'completed'})`, async () => {
+    const plan = fixture({ repeats: 1, warmup: true }), run = await execute(plan, { fail: failed });
+    const originalHashes = { plan: hash(plan), run: hash(run) };
+    const baseline = buildAutomaticReport(plan, run), baselineHash = hash(baseline);
+    for (const inspectionTimes of [[], [25], [25, 75]]) {
+      const inspected = structuredClone(run);
+      let extra = 0;
+      for (const record of inspected.records.filter(r => ['render-only', 'evidence-validated'].includes(r.methodId))) {
+        if (inspectionTimes.length === 0) continue;
+        const parent = inspected.records.find(r => r.id === record.derivation.parentRecordId);
+        // Synthetic audit history with real parent bindings; no model calls or source/gold changes.
+        record.postprocessInspections = inspectionTimes.map(elapsedMs => ({
+          sourceRecordHash: hash(record), previousParentHash: hash(parent), parentRecordHash: hash(parent), elapsedMs,
+        }));
+        extra += inspectionTimes.reduce((total, elapsedMs) => total + elapsedMs, 0);
+      }
+      const inspectedHash = hash(inspected), report = buildAutomaticReport(plan, inspected);
+      for (const id of METHODS) {
+        const actual = method(report, id), before = method(baseline, id);
+        // Includes sum/mean, completed count, median/p95, calls and token coverage.
+        assert.deepEqual(actual.generation, before.generation, `${id}: first service cost changed`);
+        assert.deepEqual(actual.primary, before.primary); assert.deepEqual(actual.controls, before.controls);
+      }
+      if (failed) for (const id of ['render-only', 'evidence-validated']) {
+        assert.equal(method(report, id).generation.completedLatency.count, 0);
+        assert.equal(method(report, id).generation.completedLatency.p95Ms, null);
+      }
+      const physical = report.generation.physicalBatch, before = baseline.generation.physicalBatch;
+      assert.ok(Math.abs(physical.itemElapsedMs - before.itemElapsedMs - extra) < 0.000001);
+      assert.equal(physical.postprocessInspectionElapsedMs, extra);
+      assert.equal(physical.calls, before.calls);
+      assert.deepEqual(physical.inputTokens, before.inputTokens);
+      assert.deepEqual(physical.outputTokens, before.outputTokens);
+      assert.deepEqual(report.generation.warmup, baseline.generation.warmup);
+      assert.equal(validateAutomaticReport(plan, inspected, report), report);
+      compareAutomaticMethods(plan, inspected, report);
+      for (const mutate of [
+        r => { method(r, 'render-only').generation.itemElapsedMs++; },
+        r => { r.generation.physicalBatch.postprocessInspectionElapsedMs++; },
+      ]) {
+        const forged = structuredClone(report); mutate(forged);
+        assert.throws(() => validateAutomaticReport(plan, inspected, forged), /integrity/);
+      }
+      assert.equal(hash(inspected), inspectedHash);
+      assert.equal(hash(baseline), baselineHash);
+    }
+    assert.deepEqual({ plan: hash(plan), run: hash(run) }, originalHashes);
+  });
+}
+
+test('real status inspections preserve fixed first service costs across unknown, completed and failed states', async () => {
+  const plan = fixture({ repeats: 1, methods: ['prompt-baseline', 'render-only', 'evidence-validated'] });
+  const generated = await runPlan(plan, { generate: async (request, config, context) => ({
+    answer: JSON.stringify(answer(plan.dataset.cases.find(c => c.id === context.caseId))),
+    inputTokens: 7, outputTokens: 3, finishReason: 'length',
+  }) });
+  const parents = structuredClone(generated.records.filter(r => r.methodId === 'prompt-baseline'));
+  parents.forEach(r => { r.elapsedMs = 100; }); // Fixed measured synthetic P cost, before deriving T/V.
+  const original = await runPlan(plan, { existingRecords: parents,
+    generate: () => { throw new Error('status inspection must not call a model'); } });
+  for (const r of original.records.filter(r => r.derivation)) r.elapsedMs = r.methodId === 'render-only' ? 5 : 10;
+  const originalHash = hash(original), planHash = hash(plan);
+  assert.throws(() => buildAutomaticReport(plan, original), /unknown/);
+  const decision = (record, state) => ({ recordId: record.id, originalRecordHash: hash(record),
+    reviewerId: 'maintainer', state, reason: 'synthetic execution status check',
+    evidence: 'synthetic transport inspection, not content grading' });
+  const completed = resolveRunState(plan, original, parents.map(r => decision(r, 'completed')));
+  const completedHash = hash(completed);
+  const failed = resolveRunState(plan, completed, [decision(completed.records.find(r => r.methodId === 'prompt-baseline'), 'failed')]);
+  for (const [run, count] of [[completed, 4], [failed, 3]]) {
+    const runHash = hash(run), report = buildAutomaticReport(plan, run);
+    for (const [id, firstMs] of [['render-only', 105], ['evidence-validated', 110]]) {
+      const cost = method(report, id).generation;
+      assert.equal(cost.itemElapsedMs, 4 * firstMs); assert.equal(cost.meanItemElapsedMs, firstMs);
+      assert.equal(cost.completedLatency.count, count); assert.equal(cost.completedLatency.sumMs, count * firstMs);
+      assert.equal(cost.completedLatency.medianMs, firstMs); assert.equal(cost.completedLatency.p95Ms, firstMs);
+      assert.equal(cost.calls, 4); assert.equal(cost.inputTokens.sum, 28); assert.equal(cost.outputTokens.sum, 12);
+    }
+    const inspections = run.records.flatMap(r => r.postprocessInspections ?? []);
+    assert.equal(inspections.length, count === 4 ? 8 : 10);
+    const extra = inspections.reduce((total, i) => total + i.elapsedMs, 0);
+    assert.ok(Math.abs(report.generation.physicalBatch.itemElapsedMs - (460 + extra)) < 0.000001);
+    assert.equal(report.generation.physicalBatch.postprocessInspectionElapsedMs, extra);
+    assert.equal(report.generation.physicalBatch.calls, 4);
+    assert.equal(validateAutomaticReport(plan, run, report), report);
+    compareAutomaticMethods(plan, run, report);
+    assert.equal(hash(run), runHash);
+  }
+  assert.equal(hash(original), originalHash); assert.equal(hash(completed), completedHash); assert.equal(hash(plan), planHash);
 });
 
 test('partial attempt token parts include failed calls and unknown totals without double counting', async () => {

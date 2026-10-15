@@ -471,9 +471,10 @@ export function buildAutomaticReport(plan, run, ai = null) {
     const serviceRows = run.records.filter(r => r.methodId === method.id).map(record => {
       if (!DERIVED_METHODS.includes(method.id)) return record;
       const parent = records.get(record.derivation.parentRecordId);
+      // First service execution only. Reinspection is cumulative physical work below,
+      // not part of the original response latency or its failed-inclusive total.
       return { ...record, calls: parent.calls, inputTokens: parent.inputTokens, outputTokens: parent.outputTokens,
-        attempts: parent.attempts, elapsedMs: parent.elapsedMs + record.elapsedMs
-          + sum((record.postprocessInspections ?? []).map(i => i.elapsedMs)) };
+        attempts: parent.attempts, elapsedMs: parent.elapsedMs + record.elapsedMs };
     });
     return { ...copy(method), primary: summarize(events).primary, event: summarize(events),
       controls: summarize(rows.filter(r => r.kind === 'control')), operational: summarize(rows),
@@ -483,7 +484,7 @@ export function buildAutomaticReport(plan, run, ai = null) {
         unit: 'article', weighting: 'equal mean of per-article event-question/repeat task success rates', repeatsIndependent: false } },
       byQuestionType: grouped(rows, 'questionType', questionTypeSummary),
       generation: { ...generationSummary(serviceRows),
-        scope: 'standalone service; T/V includes the same P generation plus postprocessing; do not sum methods' },
+        scope: 'first standalone service execution; T/V includes the same P generation plus original postprocessing, excludes inspections; do not sum methods' },
       ai: aiSummary(rows, observations, ai !== null) };
   });
   const report = { schemaVersion: 1, type: 'date-automatic-report', evaluationVersion: VERSION,
