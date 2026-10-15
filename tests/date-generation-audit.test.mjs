@@ -55,6 +55,12 @@ test('strict operator execution binds raw responses, attempts and all original c
   const f = await fixture();
   assert.equal(f.error, undefined);
   assert.equal(f.plan.config.generationAuditVersion, 1);
+  assert.equal(f.plan.config.generationCompletionVersion, 2);
+  for (const method of f.plan.config.methods.filter(m => ['render-only', 'evidence-validated'].includes(m.id))) {
+    assert.equal(method.postprocessVersion, 'date-postprocess-v2');
+    assert.ok(f.run.records.filter(r => r.methodId === method.id)
+      .every(r => r.derivation.version === method.postprocessVersion));
+  }
   assert.equal(f.run.records.length, 40);
   assert.equal(f.calls, 25);
   assert.equal(f.run.generationLedger.length, 25);

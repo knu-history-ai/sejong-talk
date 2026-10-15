@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { DERIVED_METHODS, POSTPROCESS_VERSION, transformAnswer, ruleAnswer } from './postprocess.mjs';
+import { DERIVED_METHODS, methodPostprocessVersion, transformAnswer, ruleAnswer } from './postprocess.mjs';
 
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
@@ -16,6 +16,12 @@ export function assert(condition, message) {
 }
 function unique(values, label) {
   assert(new Set(values).size === values.length, `${label}: 중복 ID`);
+}
+function generationCompletionVersion(config) {
+  const version = Object.hasOwn(config, 'generationCompletionVersion') ? config.generationCompletionVersion : 1;
+  assert([1, 2].includes(version), '지원하지 않는 생성 완료 판정 버전');
+  assert(version !== 2 || config.generationAuditVersion === 1, '생성 완료 판정 v2는 원본 감사 버전 1이 필요합니다');
+  return version;
 }
 export function criteriaHash(gold) {
   return hash({ criteriaVersion: gold.criteriaVersion, rubric: gold.rubric, cases: gold.cases });
@@ -54,6 +60,7 @@ export function validateExecutionPlan(plan) {
   assert(Number.isInteger(plan.config.retries) && plan.config.retries >= 0 && plan.config.retries <= 5, '재시도 횟수는 0~5회');
   assert(Number.isFinite(plan.config.timeoutMs) && plan.config.timeoutMs > 0 && plan.config.timeoutMs <= 2147483647, '시간 제한 오류');
   assert(typeof plan.config.model === 'string' && plan.config.model.length > 0, '모델 누락');
+  generationCompletionVersion(plan.config);
   if (Object.hasOwn(plan.config, 'think')) assert(typeof plan.config.think === 'boolean', 'thinking 설정은 boolean이어야 합니다');
   unique(plan.dataset.cases.map((c) => c.id), '질문');
   if (plan.gold) unique(plan.gold.cases.map((c) => c.id), '정답');
@@ -88,6 +95,7 @@ export function validateExecutionPlan(plan) {
   const expected = [];
   for (const m of plan.config.methods) {
     assert(m.version, '방법 버전 누락');
+    if (DERIVED_METHODS.includes(m.id)) methodPostprocessVersion(m);
     for (const c of plan.dataset.cases) {
       for (let repeat = 1; repeat <= plan.config.repeats; repeat++) expected.push(`${m.id}/${c.id}/${repeat}`);
     }
@@ -134,9 +142,10 @@ export function executionPlan(plan) {
 /** Recompute deterministic outputs; matching IDs alone do not establish shared P provenance. */
 export function validateDerivations(plan, records) {
   for (const r of records.filter(r => DERIVED_METHODS.includes(r.methodId))) {
+    const version = methodPostprocessVersion(plan.config.methods.find(m => m.id === r.methodId));
     const parent = records.find(p => p.methodId === 'prompt-baseline' && p.caseId === r.caseId && p.repeat === r.repeat);
     assert(parent && r.derivation?.parentRecordId === parent.id && r.derivation.parentRecordHash === hash(parent)
-      && r.derivation.parentAnswerHash === hash(parent.rawAnswer ?? '') && r.derivation.version === POSTPROCESS_VERSION, 'T·V 원본 P 연결/버전 불일치');
+      && r.derivation.parentAnswerHash === hash(parent.rawAnswer ?? '') && r.derivation.version === version, 'T·V 원본 P 연결/버전 불일치');
     assert(r.calls === 0 && r.inputTokens === 0 && r.outputTokens === 0 && Array.isArray(r.attempts) && r.attempts.length === 0, 'T·V 추가 모델 호출/토큰은 0이어야 합니다');
     assert(Number.isFinite(r.elapsedMs) && r.elapsedMs >= 0, 'T·V 후처리 시간 오류');
     if (r.postprocessInspections !== undefined) {
@@ -147,14 +156,14 @@ export function validateDerivations(plan, records) {
     }
     const c = plan.dataset.cases.find(c => c.id === r.caseId);
     const expectedInput = [{ stage: 'postprocess', sourceText: c.sourceText, question: c.question, targets: c.targets,
-      parentRecordId: parent.id, parentRecordHash: hash(parent), version: POSTPROCESS_VERSION }];
+      parentRecordId: parent.id, parentRecordHash: hash(parent), version }];
     assert(hash(r.rawInput) === hash(expectedInput), 'T·V 실제 후처리 입력 불일치');
     if (parent.state !== 'completed') {
       assert(r.state === parent.state && r.rawAnswer === (parent.rawAnswer ?? '') && r.derivation.audit.status === 'parent-not-completed', 'P 실패·미확인 상태 전파 불일치');
     } else if (r.derivation.audit.status === 'postprocess-error') {
       assert(r.state === 'unknown' && r.rawAnswer === parent.rawAnswer && r.error?.type === 'postprocess-error', '후처리 오류를 완료/실패로 바꿀 수 없습니다');
     } else {
-      const result = transformAnswer(c, parent.rawAnswer, r.methodId);
+      const result = transformAnswer(c, parent.rawAnswer, r.methodId, { version });
       assert(r.state === 'completed' && r.rawAnswer === result.answer && hash(r.derivation.audit) === hash(result.audit), 'T·V 결과/감사 기록이 고정 변환과 다릅니다');
     }
   }
@@ -289,6 +298,7 @@ function validInspection(record, state) {
 
 function validateGenerationTrace(plan, record) {
   const strict = plan.config.generationAuditVersion === 1;
+  const completionVersion = generationCompletionVersion(plan.config);
   assert(Array.isArray(record.attempts), '생성 시도 기록이 없습니다');
   const full = record.attempts.length === record.calls;
   assert(!strict || full, '생성 호출 수와 시도 기록이 다릅니다');
@@ -326,7 +336,12 @@ function validateGenerationTrace(plan, record) {
     assert(answered && record.rawAnswer === last.answer, '집계 답변이 마지막 생성 원답변과 다릅니다');
   }
   if (record.state === 'completed') assert(answered, '완료된 최종 답변 호출이 없습니다');
-  if (strict && record.state === 'completed' && last.finishReason === 'length') {
+  // Missing/v1 pins retain the historical last-call policy when reading old
+  // runs. V2 also requires inspection of truncated successful extractions.
+  const lengthLimited = completionVersion === 2
+    ? record.attempts.some(attempt => attempt.state === 'completed' && attempt.finishReason === 'length')
+    : last?.state === 'completed' && last.finishReason === 'length';
+  if (strict && record.state === 'completed' && lengthLimited) {
     assert(validInspection(record, 'completed'), '길이 제한 원답변은 원기록에 연결된 담당자 상태 확인이 필요합니다');
   }
   if (strict && record.executionInspection) assert(validInspection(record, record.state), '실행 상태 확인의 원기록·담당·근거 연결이 다릅니다');

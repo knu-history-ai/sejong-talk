@@ -414,6 +414,106 @@ function aiSummary(rows, observations, ran) {
     failures: selected.filter(o => ran && o.score === null) };
 }
 
+/** Descriptive only; also usable on partial runs without interpreting unknowns as failures. */
+export function buildVtDiagnostics(plan, run) {
+  const enabled = id => plan.config.methods.some(m => m.id === id);
+  const records = new Map(run.records.map(r => [JSON.stringify([r.methodId, r.caseId, r.repeat]), r]));
+  const get = (methodId, caseId, repeat) => records.get(JSON.stringify([methodId, caseId, repeat]));
+  const recordCounts = methodId => {
+    const slots = plan.slots.filter(s => s.methodId === methodId);
+    const counts = { planned: slots.length, completed: 0, failed: 0, unknown: 0, unexecuted: 0, missing: 0 };
+    for (const slot of slots) counts[get(methodId, slot.caseId, slot.repeat)?.state ?? 'missing']++;
+    return counts;
+  };
+  const booleanCounts = () => ({ true: 0, false: 0, unavailable: 0 });
+  const alignment = { quoteChecks: 0,
+    statusCounts: { 'provided-position': 0, 'exact-search': 0, 'whitespace-search': 0,
+      ambiguous: 0, 'not-found': 0, unavailable: 0, other: 0 },
+    exists: booleanCounts(), positionMatches: booleanCounts(),
+    originalExists: booleanCounts(), originalPositionMatches: booleanCounts(),
+    scope: 'quote checks of eligible emitted V events; absent v1 alignment/original fields are unavailable' };
+  const v = { methodId: 'evidence-validated', available: enabled('evidence-validated'),
+    records: recordCounts('evidence-validated'),
+    audits: { applied: 0, notApplied: 0, unavailable: 0, other: 0 },
+    eligibleEmittedEvents: 0, precisionCheckedEvents: 0, unverifiedEvents: 0, otherStatusEvents: 0,
+    omittedTargetEvents: 0, changedEvents: 0,
+    fieldChangedCounts: Object.fromEntries([...FIELDS, 'unknownDay'].map(f => [f, 0])),
+    fieldChangeUnavailableEvents: 0, alignment,
+    scope: 'events emitted by completed, applied V records, including control targets; omitted targets separate',
+    reasonCountUnit: 'events with each distinct reason; one event can have multiple reasons' };
+  const reasons = new Map(), notAppliedReasons = new Map();
+  const countReason = (counts, reason) => counts.set(reason, (counts.get(reason) ?? 0) + 1);
+  for (const slot of plan.slots.filter(s => s.methodId === v.methodId)) {
+    const record = get(v.methodId, slot.caseId, slot.repeat);
+    if (record?.state !== 'completed') continue;
+    const audit = record.derivation?.audit;
+    if (!plain(audit)) { v.audits.unavailable++; continue; }
+    if (audit.status === 'not-applied') {
+      v.audits.notApplied++; countReason(notAppliedReasons, audit.reason ?? 'unspecified'); continue;
+    }
+    if (audit.status !== 'applied') { v.audits.other++; continue; }
+    if (!Array.isArray(audit.events)) { v.audits.unavailable++; continue; }
+    v.audits.applied++;
+    v.omittedTargetEvents += audit.omittedTargetIds?.length ?? 0;
+    for (const event of audit.events) {
+      v.eligibleEmittedEvents++;
+      if (event.status === 'precision-checked') v.precisionCheckedEvents++;
+      else if (event.status === 'unverified') {
+        v.unverifiedEvents++;
+        for (const reason of new Set(event.reasons?.length ? event.reasons : ['unspecified'])) countReason(reasons, reason);
+      } else v.otherStatusEvents++;
+      const fieldsAvailable = plain(event.originalDate) && plain(event.outputDate)
+        && FIELDS.every(f => Object.hasOwn(event.originalDate, f) && Object.hasOwn(event.outputDate, f))
+        && typeof event.originalUnknownDay === 'boolean' && typeof event.outputUnknownDay === 'boolean';
+      if (fieldsAvailable) {
+        let changed = false;
+        for (const field of [...FIELDS, 'unknownDay']) {
+          const different = field === 'unknownDay' ? event.originalUnknownDay !== event.outputUnknownDay
+            : !isDeepStrictEqual(event.originalDate[field], event.outputDate[field]);
+          if (different) { v.fieldChangedCounts[field]++; changed = true; }
+        }
+        if (changed) v.changedEvents++;
+      } else v.fieldChangeUnavailableEvents++;
+      for (const check of event.quoteChecks ?? []) {
+        alignment.quoteChecks++;
+        const status = check.alignment?.status;
+        alignment.statusCounts[status == null ? 'unavailable'
+          : Object.hasOwn(alignment.statusCounts, status) ? status : 'other']++;
+        for (const field of ['exists', 'positionMatches', 'originalExists', 'originalPositionMatches']) {
+          alignment[field][typeof check[field] === 'boolean' ? String(check[field]) : 'unavailable']++;
+        }
+      }
+    }
+  }
+  const sortedCounts = counts => Object.fromEntries([...counts].sort(([a], [b]) => a < b ? -1 : a > b ? 1 : 0));
+  v.coverage = ratio(v.precisionCheckedEvents, v.eligibleEmittedEvents);
+  v.unverifiedReasons = sortedCounts(reasons);
+  v.notAppliedReasons = sortedCounts(notAppliedReasons);
+  const methodIds = ['render-only', 'evidence-validated'];
+  const absentMethods = methodIds.filter(id => !enabled(id));
+  const equality = { methodIds, absentMethods,
+    totalCaseRepeats: plan.dataset.cases.length * plan.config.repeats,
+    plannedPairs: absentMethods.length ? 0 : plan.dataset.cases.length * plan.config.repeats,
+    pairStates: { absent: 0, missing: 0, failed: 0, unknown: 0, unexecuted: 0, completed: 0 },
+    recordsByMethod: Object.fromEntries(methodIds.map(id => [id, recordCounts(id)])),
+    same: 0, different: 0,
+    scope: 'rawAnswer byte-for-byte equality for the same caseId/repeat, both completed, all question kinds',
+    exclusionPriority: ['absent', 'missing', 'failed', 'unknown', 'unexecuted'] };
+  for (const c of plan.dataset.cases) for (let repeat = 1; repeat <= plan.config.repeats; repeat++) {
+    const pair = methodIds.map(id => get(id, c.id, repeat));
+    const state = absentMethods.length ? 'absent' : pair.some(r => !r) ? 'missing'
+      : ['failed', 'unknown', 'unexecuted'].find(state => pair.some(r => r.state === state)) ?? 'completed';
+    equality.pairStates[state]++;
+    if (state === 'completed') equality[pair[0].rawAnswer === pair[1].rawAnswer ? 'same' : 'different']++;
+  }
+  equality.sameRate = ratio(equality.same, equality.pairStates.completed);
+  equality.differentRate = ratio(equality.different, equality.pairStates.completed);
+  equality.coverage = ratio(equality.pairStates.completed, equality.plannedPairs);
+  return { schemaVersion: 1, scoring: false, repeatsIndependent: false,
+    interpretation: 'NON-SCORING application/equality counts; not accuracy, semantic support or historical truth',
+    vApplication: v, tvEquality: equality };
+}
+
 /** Maintainer report; no human Final, reviewer agreement or historical-truth claim. */
 export function buildAutomaticReport(plan, run, ai = null) {
   const start = performance.now();
@@ -513,7 +613,7 @@ export function buildAutomaticReport(plan, run, ai = null) {
       questions: plan.dataset.cases.length, eventQuestions: plan.dataset.cases.filter(c => c.kind === 'event').length,
       controlQuestions: plan.dataset.cases.filter(c => c.kind === 'control').length, repeatsPerQuestion: plan.config.repeats,
       plannedPerMethod: plan.dataset.cases.length * plan.config.repeats },
-    repeatsIndependent: false, methods, items,
+    repeatsIndependent: false, methods, items, vtDiagnostics: buildVtDiagnostics(plan, run),
     ai: { ...aiSummary(items, observations, ai !== null), observations,
       byMethod: methods.map(m => ({ methodId: m.id, ...m.ai })),
       byKind: ['event', 'control'].map(kind => ({ kind, ...aiSummary(items.filter(r => r.kind === kind), observations, ai !== null) })),
@@ -535,13 +635,14 @@ export function buildAutomaticReport(plan, run, ai = null) {
   return report;
 }
 
-/** Only codeCost.elapsedMs is volatile/optional; every other field is reproduced. */
+/** Legacy reports may omit vtDiagnostics; present diagnostics and all existing fields are reproduced. */
 export function validateAutomaticReport(plan, run, report, ai = null) {
   assert(plain(report), 'invalid automatic report');
   optionalNumber(report.codeCost?.elapsedMs, 'codeCost.elapsedMs');
   const boundAi = ai ?? report.inputSnapshots?.ai ?? null;
   if (ai !== null) assert(report.aiHash === hash(ai), 'supplied AI artifact mismatch');
   const expected = buildAutomaticReport(plan, run, boundAi);
+  if (!Object.hasOwn(report, 'vtDiagnostics')) delete expected.vtDiagnostics;
   const withoutElapsed = value => {
     const result = copy(value);
     if (plain(result.codeCost)) delete result.codeCost.elapsedMs;

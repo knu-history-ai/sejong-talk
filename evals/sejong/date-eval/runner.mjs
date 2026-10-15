@@ -1,7 +1,7 @@
 import { performance } from 'node:perf_hooks';
 import { cpus, totalmem, platform, release } from 'node:os';
 import { assert, hash, validateExecutionPlan, validateDerivations } from './core.mjs';
-import { DERIVED_METHODS, POSTPROCESS_VERSION, transformAnswer, ruleAnswer } from './postprocess.mjs';
+import { DERIVED_METHODS, methodPostprocessVersion, transformAnswer, ruleAnswer } from './postprocess.mjs';
 export { ruleAnswer } from './postprocess.mjs';
 
 export const METHOD_VERSION = 'date-methods-v5-structured';
@@ -120,12 +120,13 @@ export async function runPlan(plan, { generate = ollamaGenerate, onRecord = asyn
     const c = plan.dataset.cases.find((c) => c.id === slot.caseId);
     const itemStart = performance.now();
     if (DERIVED_METHODS.includes(slot.methodId)) {
+      const version = methodPostprocessVersion(plan.config.methods.find(m => m.id === slot.methodId));
       const parent = records.find(r => r.methodId === 'prompt-baseline' && r.caseId === slot.caseId && r.repeat === slot.repeat);
       assert(parent, 'T·V의 P 원본이 없습니다');
       let state = parent.state, rawAnswer = parent.rawAnswer ?? '';
       let audit = { status: 'parent-not-completed', parentState: parent.state }, error;
       if (parent.state === 'completed') {
-        try { const result = transformAnswer(c, parent.rawAnswer, slot.methodId); rawAnswer = result.answer; audit = result.audit; }
+        try { const result = transformAnswer(c, parent.rawAnswer, slot.methodId, { version }); rawAnswer = result.answer; audit = result.audit; }
         catch (cause) {
           state = 'unknown'; audit = { status: 'postprocess-error', message: cause.message };
           error = { type: 'postprocess-error', message: cause.message };
@@ -133,9 +134,9 @@ export async function runPlan(plan, { generate = ollamaGenerate, onRecord = asyn
       }
       const record = { ...slot, state, rawAnswer,
         rawInput: [{ stage: 'postprocess', sourceText: c.sourceText, question: c.question, targets: c.targets,
-          parentRecordId: parent.id, parentRecordHash: hash(parent), version: POSTPROCESS_VERSION }],
+          parentRecordId: parent.id, parentRecordHash: hash(parent), version }],
         elapsedMs: performance.now() - itemStart, calls: 0, inputTokens: 0, outputTokens: 0, attempts: [],
-        derivation: { parentRecordId: parent.id, parentRecordHash: hash(parent), parentAnswerHash: hash(parent.rawAnswer ?? ''), version: POSTPROCESS_VERSION, audit },
+        derivation: { parentRecordId: parent.id, parentRecordHash: hash(parent), parentAnswerHash: hash(parent.rawAnswer ?? ''), version, audit },
         ...(error ? { error } : {}) };
       records.push(record); await onRecord(record); continue;
     }
@@ -174,7 +175,7 @@ export async function runPlan(plan, { generate = ollamaGenerate, onRecord = asyn
       state = 'failed'; error = { message: e.message, type: e.type ?? 'call-failure', partial: e.raw ?? '' };
     }
     const tokens = (field) => attempts.every((a) => Number.isInteger(a[field])) ? attempts.reduce((n, a) => n + a[field], 0) : null;
-    if (state === 'completed' && attempts.at(-1)?.finishReason === 'length') {
+    if (state === 'completed' && attempts.some(a => a.state === 'completed' && a.finishReason === 'length')) {
       state = 'unknown';
       error = { type: 'readability-unconfirmed', message: '출력 길이 제한 도달. 읽을 수 있는 완료 답변인지 담당자 확인 필요' };
     }

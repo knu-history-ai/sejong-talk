@@ -4,6 +4,9 @@
  * mismatches pass through verbatim; they are NOT generation failures or scores.
  *
  * V checks UTF-16, end-exclusive quotations, then Arabic-number Korean dates.
+ * v2 can recover a unique exact/whitespace-only quotation from the source.
+ * Only the recovered ORIGINAL source span supplies date values/context; model
+ * quotations/offsets and P/T output stay unchanged. v1 is retained for old plans.
  * It uses only P's quoted spans, never a newly searched source date. A quoted
  * header may anchor a body quote starting with 이달[에] or 이날[에]. Only the
  * latter and a control question about 표제 can supply the header's day.
@@ -15,8 +18,18 @@
  * T/V share the renderer; P's original prose is preserved by the caller only.
  * Programmer errors (bad c / rawAnswer type / method) throw, not pass through.
  */
-export const POSTPROCESS_VERSION = 'date-postprocess-v1';
+export const LEGACY_POSTPROCESS_VERSION = 'date-postprocess-v1';
+export const POSTPROCESS_VERSION = 'date-postprocess-v2';
 export const DERIVED_METHODS = Object.freeze(['render-only', 'evidence-validated']);
+
+// Old plans never opt into a new evidence policy merely by being analysed with
+// newer code. New plans explicitly pin the policy in each derived method.
+export function methodPostprocessVersion(method) {
+  if (!method || !DERIVED_METHODS.includes(method.id)) throw new TypeError('Missing derived method');
+  const version = Object.hasOwn(method, 'postprocessVersion') ? method.postprocessVersion : LEGACY_POSTPROCESS_VERSION;
+  if (![LEGACY_POSTPROCESS_VERSION, POSTPROCESS_VERSION].includes(version)) throw new RangeError('Unknown postprocess version');
+  return version;
+}
 
 const DATE_FIELDS = ['year', 'month', 'day', 'calendar'];
 const SEMANTIC_LIMIT = 'unverified-without-gold';
@@ -108,13 +121,72 @@ function quoteChecks(source, evidence) {
   }));
 }
 
+function withoutWhitespace(text) {
+  let normalized = '';
+  const positions = [];
+  for (let i = 0; i < text.length; i++) {
+    if (/\s/u.test(text[i])) continue;
+    normalized += text[i]; positions.push(i);
+  }
+  return { normalized, positions };
+}
+
+function occurrences(text, quote) {
+  if (!quote.length) return [];
+  const matches = [];
+  for (let offset = 0; offset <= text.length - quote.length;) {
+    const start = text.indexOf(quote, offset);
+    if (start < 0) break;
+    matches.push(start); offset = start + 1;
+    // Two is sufficient to establish ambiguity; never pick the first match.
+    if (matches.length === 2) break;
+  }
+  return matches;
+}
+
+function alignQuotes(source, evidence) {
+  const original = quoteChecks(source, evidence);
+  let normalizedSource;
+  return evidence.map((q, index) => {
+    let status, start, end, candidates = 0;
+    if (original[index].positionMatches) {
+      status = 'provided-position'; start = q.start; end = q.end; candidates = 1;
+    } else {
+      const exact = occurrences(source, q.quote);
+      candidates = exact.length;
+      if (exact.length === 1) {
+        status = 'exact-search'; start = exact[0]; end = start + q.quote.length;
+      } else if (exact.length > 1) status = 'ambiguous';
+      else {
+        normalizedSource ??= withoutWhitespace(source);
+        const wanted = withoutWhitespace(q.quote).normalized;
+        const matches = occurrences(normalizedSource.normalized, wanted);
+        candidates = matches.length;
+        if (matches.length === 1) {
+          status = 'whitespace-search';
+          start = normalizedSource.positions[matches[0]];
+          end = normalizedSource.positions[matches[0] + wanted.length - 1] + 1;
+        } else status = matches.length > 1 ? 'ambiguous' : 'not-found';
+      }
+    }
+    const aligned = start === undefined ? null : { quote: source.slice(start, end), start, end };
+    return { aligned, check: { index, exists: aligned !== null, positionMatches: aligned !== null,
+      originalExists: original[index].exists, originalPositionMatches: original[index].positionMatches,
+      alignment: { status, candidateCount: candidates, candidateCountCappedAt: 2,
+        ...(aligned ?? {}), policy: 'exact-or-whitespace-only; original UTF-16 end-exclusive span' } } };
+  });
+}
+
 // Include adjacent source words so a truncated quote cannot hide a negation,
 // range or relative operator. Dates are still read ONLY from the quoted span.
-function sentenceContext(source, q, bodyStart) {
-  const boundary = /[.。!?！？;\r\n]/;
+function sentenceContext(source, q, bodyStart, version) {
+  // In v2 a line wrap is whitespace, not permission to hide a following
+  // negation/alternative. Keep the old context window for frozen v1 outputs.
+  const boundary = version === POSTPROCESS_VERSION ? /[.。!?！？;]/ : /[.。!?！？;\r\n]/;
   let start = q.start, end = q.end;
   while (start > bodyStart && !boundary.test(source[start - 1])) start--;
-  while (end < source.length && !boundary.test(source[end])) end++;
+  const endsSentence = version === POSTPROCESS_VERSION && boundary.test(source.slice(q.start, q.end).trimEnd().slice(-1));
+  if (!endsSentence) while (end < source.length && !boundary.test(source[end])) end++;
   return { text: source.slice(start, end), start };
 }
 
@@ -150,10 +222,11 @@ function calendarConflict(e, quotes) {
   return null;
 }
 
-function validateEvent(c, e, regions, checks) {
+function validateEvent(c, e, regions, checks, version) {
   const no = reason => ({ status: 'unverified', reasons: [reason], checkedFields: [] });
   if (e.evidence.length === 0) return no('no-evidence');
-  if (!checks.every(q => q.positionMatches)) return no('invalid-quote-position-or-text');
+  if (!checks.every(q => q.positionMatches)) return no(checks.some(q => q.alignment?.status === 'ambiguous')
+    ? 'ambiguous-quote-alignment' : 'invalid-quote-position-or-text');
   if (regions.ambiguous) return no('ambiguous-source-layout');
   if (Object.keys(e.date).some(f => !DATE_FIELDS.includes(f))) return no('unsupported-date-fields');
   const calendarReason = calendarConflict(e, e.evidence);
@@ -166,6 +239,17 @@ function validateEvent(c, e, regions, checks) {
   }
   const headerDates = [];
   for (const q of headerQuotes) {
+    if (version === POSTPROCESS_VERSION) {
+      const header = regions.headers.find(h => q.start >= h.start && q.end <= h.end);
+      const context = c.sourceText.slice(header.start, header.end);
+      if (UNSUPPORTED.test(context)) return no('unsupported-header-expression');
+      // A clipped year/month/day in the header cannot provide a coarser anchor
+      // or erase a known day, even if the short quotation is unique.
+      if (numericDates(context).some(m => {
+        const start = header.start + m.index, end = start + m[0].length;
+        return start < q.end && end > q.start && (start < q.start || end > q.end);
+      })) return no('incomplete-date-quote');
+    }
     if (UNSUPPORTED.test(q.quote)) return no('unsupported-header-expression');
     const result = absolute(q.quote, true);
     if (!result.date) return no(result.reason);
@@ -182,7 +266,7 @@ function validateEvent(c, e, regions, checks) {
   } else {
     if (bodyQuotes.length === 0) return no('header-without-explicit-body-link');
     for (const q of bodyQuotes) {
-      const context = sentenceContext(c.sourceText, q, regions.bodyStart);
+      const context = sentenceContext(c.sourceText, q, regions.bodyStart, version);
       if (UNSUPPORTED.test(context.text)) return no('unsupported-or-negated-context');
       // Inspect coverage, not a new date value: a clipped month/day token may
       // never turn a complete source date into a month-only assertion.
@@ -244,10 +328,11 @@ function render(c, events, omitted) {
   return lines.join('\n');
 }
 
-export function transformAnswer(c, rawAnswer, methodId) {
+export function transformAnswer(c, rawAnswer, methodId, { version = POSTPROCESS_VERSION } = {}) {
   checkInput(c, rawAnswer, methodId);
+  if (![LEGACY_POSTPROCESS_VERSION, POSTPROCESS_VERSION].includes(version)) throw new RangeError('Unknown postprocess version');
   const parsed = parse(rawAnswer, c.targets);
-  const base = { version: POSTPROCESS_VERSION, methodId, semanticLink: SEMANTIC_LIMIT,
+  const base = { version, methodId, semanticLink: SEMANTIC_LIMIT,
     unverifiedPolicy: 'preserve-original-values' };
   if (!parsed.value) return { answer: rawAnswer, audit: { ...base, status: 'not-applied', applied: false, reason: parsed.reason } };
   const input = parsed.value;
@@ -255,8 +340,14 @@ export function transformAnswer(c, rawAnswer, methodId) {
   const events = [], audits = [];
   for (const original of input.events) {
     const e = copy(original);
-    const checks = methodId === 'evidence-validated' ? quoteChecks(c.sourceText, e.evidence) : [];
-    const validation = methodId === 'evidence-validated' ? validateEvent(c, e, regions, checks)
+    const aligned = methodId === 'evidence-validated' && version === POSTPROCESS_VERSION
+      ? alignQuotes(c.sourceText, e.evidence) : null;
+    const checks = methodId !== 'evidence-validated' ? []
+      : aligned ? aligned.map(q => q.check) : quoteChecks(c.sourceText, e.evidence);
+    // This is a checking view only. Never replace the model's preserved quotes
+    // or make T/V appear different just by rewriting evidence coordinates.
+    const checking = aligned ? { ...e, evidence: aligned.map((q, i) => q.aligned ?? e.evidence[i]) } : e;
+    const validation = methodId === 'evidence-validated' ? validateEvent(c, checking, regions, checks, version)
       : { status: 'not-checked', reasons: ['render-only'], checkedFields: [] };
     if (validation.status === 'precision-checked') {
       e.date = validation.date;

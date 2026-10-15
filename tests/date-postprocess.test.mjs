@@ -1,6 +1,10 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { POSTPROCESS_VERSION, DERIVED_METHODS, transformAnswer } from '../evals/sejong/date-eval/postprocess.mjs';
+import { POSTPROCESS_VERSION, LEGACY_POSTPROCESS_VERSION, DERIVED_METHODS, transformAnswer as versionedTransformAnswer } from '../evals/sejong/date-eval/postprocess.mjs';
+
+// Retain the complete original v1 contract as backwards-compatibility tests.
+// The new quote-recovery policy has its own v2 tests, not relaxed v1 assertions.
+const transformAnswer = (c, raw, method) => versionedTransformAnswer(c, raw, method, { version: LEGACY_POSTPROCESS_VERSION });
 
 // Synthetic only. No loader, final dataset, gold, core, model, network or clock.
 const T = 'render-only', V = 'evidence-validated';
@@ -42,7 +46,8 @@ function freeze(value) {
 }
 
 test('exports are fixed and supported methods cannot be mutated by callers', () => {
-  assert.equal(POSTPROCESS_VERSION, 'date-postprocess-v1');
+  assert.equal(LEGACY_POSTPROCESS_VERSION, 'date-postprocess-v1');
+  assert.equal(POSTPROCESS_VERSION, 'date-postprocess-v2');
   assert.deepEqual(DERIVED_METHODS, [T, V]);
   assert.throws(() => DERIVED_METHODS.push('other'), TypeError);
 });

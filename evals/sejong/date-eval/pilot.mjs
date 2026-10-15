@@ -22,9 +22,12 @@ const quotations = {
   start: ['세종 30년(1448년) 1월 28일', '2월 15일에 공사를 시작하여'],
   end: ['세종 30년(1448년) 1월 28일', '3월 15일에 끝마치었다.'],
 };
-export async function loadPilot() {
-  const docs = await readFile(new URL('../../../docs/date-pilot-v1/model-inputs.md', import.meta.url), 'utf8');
-  const questions = JSON.parse(await readFile(new URL('../date-questions.json', import.meta.url), 'utf8'));
+export async function loadPilot({ docsText, questionsText } = {}) {
+  // Canonicalize fresh source material before extracting spans/hashing. Stored
+  // plans, answers and results are never loaded or rewritten by this helper.
+  const docs = (docsText ?? await readFile(new URL('../../../docs/date-pilot-v1/model-inputs.md', import.meta.url), 'utf8'))
+    .replace(/\r\n?/g, '\n');
+  const questions = JSON.parse(questionsText ?? await readFile(new URL('../date-questions.json', import.meta.url), 'utf8'));
   const fences = [...docs.matchAll(/```[^\n]*\n([\s\S]*?)```/g)].map((m) => m[1].trim());
   const sources = Object.fromEntries(fences.filter((text) => text.startsWith('[자료]')).map((text) => [text.match(/사료 ID: (S\d+)/)[1], text]));
   const cases = questions.map((q, i) => {

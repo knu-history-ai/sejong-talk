@@ -1,5 +1,5 @@
 import { hash, assert, validateRun, validateRecordedInputs } from './core.mjs';
-import { DERIVED_METHODS, transformAnswer } from './postprocess.mjs';
+import { DERIVED_METHODS, transformAnswer, methodPostprocessVersion } from './postprocess.mjs';
 
 /** Execution-status inspection is not content grading. Preserve original data and audit. */
 export function resolveRunState(plan, original, decisions) {
@@ -30,7 +30,11 @@ export function resolveRunState(plan, original, decisions) {
     record.state = parent.state; record.rawAnswer = parent.rawAnswer ?? ''; delete record.error;
     let audit = { status: 'parent-not-completed', parentState: parent.state };
     if (parent.state === 'completed') {
-      try { const transformed = transformAnswer(c, parent.rawAnswer, record.methodId); record.rawAnswer = transformed.answer; audit = transformed.audit; }
+      try {
+        const version = methodPostprocessVersion(plan.config.methods.find(m => m.id === record.methodId));
+        const transformed = transformAnswer(c, parent.rawAnswer, record.methodId, { version });
+        record.rawAnswer = transformed.answer; audit = transformed.audit;
+      }
       catch (error) { record.state = 'unknown'; audit = { status: 'postprocess-error', message: error.message }; record.error = { type: 'postprocess-error', message: error.message }; }
     }
     // Keep the measured original service latency. Inspection/rederivation is

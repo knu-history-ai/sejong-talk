@@ -37,6 +37,12 @@ test('main preparation fixes all five methods/nonthinking/retries; exports only 
   assert.equal(Object.hasOwn(publicPlan, 'gold'), false);
   assert.equal(privatePlan.config.think, false); assert.equal(privatePlan.config.retries, 0);
   assert.equal(privatePlan.config.warmup, true); assert.equal(privatePlan.config.repeats, 1);
+  assert.equal(privatePlan.config.generationAuditVersion, 1);
+  assert.equal(privatePlan.config.generationCompletionVersion, 2);
+  assert.deepEqual(privatePlan.config, publicPlan.config);
+  for (const method of privatePlan.config.methods.filter(m => ['render-only', 'evidence-validated'].includes(m.id))) {
+    assert.equal(method.postprocessVersion, 'date-postprocess-v2');
+  }
   assert.deepEqual(privatePlan.config.methods.map(m => m.id), ['rule-baseline', 'prompt-baseline', 'evidence-first', 'render-only', 'evidence-validated']);
   await assert.rejects(prepareMain(args), /덮어쓰지/);
 });

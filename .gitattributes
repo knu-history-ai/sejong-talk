@@ -1,2 +1,6 @@
 # Frozen evaluation bundles must have the same source bytes on Windows and Unix.
 evals/sejong/date-eval/*.mjs text eol=lf
+# Fresh pilot material is canonical LF; do not apply to stored runs/raw results.
+docs/date-pilot-v1/*.md text eol=lf
+evals/sejong/date-questions.json text eol=lf
+evals/sejong/fixed-questions.json text eol=lf

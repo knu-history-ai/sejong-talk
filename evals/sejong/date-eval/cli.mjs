@@ -3,7 +3,7 @@ import { randomUUID } from 'node:crypto';
 import { resolve, join, dirname, basename, relative, isAbsolute, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
 import { hash, assert, makePlan, validatePlan, validateRun, validateRecordedInputs, validateGenerationProgress, executionPlan, validateExecutionPlan, validateExecutionRun } from './core.mjs';
-import { DERIVED_METHODS } from './postprocess.mjs';
+import { DERIVED_METHODS, POSTPROCESS_VERSION } from './postprocess.mjs';
 import { runPlan, ollamaGenerate, localEndpoint, METHOD_VERSION, modelIdentity, sameModelIdentity } from './runner.mjs';
 import { codeGrade, aiGrade, createReviewPackets, finalizeReviews, validateJudge, validateFinalAudit } from './grading.mjs';
 import { buildReport, compareReports } from './report.mjs';
@@ -252,7 +252,9 @@ export async function main(args = process.argv.slice(2)) {
       repeats: Number(flags.repeats ?? 1), seed: Number(flags.seed ?? 62), runOrder: 'seeded',
       warmup: flags.warmup === true,
       generationAuditVersion: 1,
-      methods: methods.map((id) => ({ id, version: METHOD_VERSION, codeHash: null })),
+      generationCompletionVersion: 2,
+      methods: methods.map((id) => ({ id, version: METHOD_VERSION, codeHash: null,
+        ...(DERIVED_METHODS.includes(id) ? { postprocessVersion: POSTPROCESS_VERSION } : {}) })),
     };
     const codeHash = await implementationHash();
     config.modelIdentity = methods.some((m) => m !== 'rule-baseline')
