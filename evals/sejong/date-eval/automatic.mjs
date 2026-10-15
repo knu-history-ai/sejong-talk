@@ -146,6 +146,31 @@ function generationSummary(rows) {
     failed: rows.filter(r => r.state === 'failed').length, includesFailures: true };
 }
 
+function warmupSummary(plan, run) {
+  const rows = (run.warmup ?? []).map(w => ({ ...w.result, calls: 1, attempts: [w.result],
+    state: 'completed', elapsedMs: w.result.elapsedMs ?? 0 }));
+  const summary = generationSummary(rows);
+  const required = Boolean(plan.config.warmup) && plan.config.methods.some(m =>
+    m.id !== 'rule-baseline' && !DERIVED_METHODS.includes(m.id));
+  // Required calls need recorded history even with a true flag. Legacy fresh
+  // histories may be complete; resumed histories require explicit confirmation.
+  // An explicit false flag always preserves uncertainty, including known zeroes.
+  const historyComplete = run.warmupHistoryComplete !== false && (rows.length > 0
+    ? run.warmupHistoryComplete === true || !run.resumed : !required);
+  const elapsedComplete = historyComplete && rows.every(r => r.attempts[0].elapsedMs != null);
+  const tokens = field => historyComplete ? summary[field] : { ...summary[field], sum: null,
+    label: 'partial known sum; unrecorded warmup calls and unknown usage excluded' };
+  return { ...summary, historyComplete, calls: historyComplete ? summary.calls : null,
+    partialKnownCalls: summary.calls, inputTokens: tokens('inputTokens'), outputTokens: tokens('outputTokens'),
+    itemElapsedMs: elapsedComplete ? summary.itemElapsedMs : null,
+    meanItemElapsedMs: elapsedComplete ? summary.meanItemElapsedMs : null,
+    completedLatency: latency(rows.filter(r => r.attempts[0].elapsedMs != null).map(r => r.elapsedMs)),
+    elapsedMs: elapsedComplete ? summary.itemElapsedMs : null,
+    partialKnownElapsedMs: summary.itemElapsedMs,
+    scope: historyComplete ? 'all recorded warmup calls, separate from generation'
+      : 'known partial warmup history only; total cost unknown' };
+}
+
 function latency(values) {
   const sorted = [...values].sort((a, b) => a - b), count = sorted.length;
   const total = sum(sorted);
@@ -461,9 +486,6 @@ export function buildAutomaticReport(plan, run, ai = null) {
   });
   const physicalRows = run.records.map(r => ({ ...r, elapsedMs: r.elapsedMs
     + sum((r.postprocessInspections ?? []).map(i => i.elapsedMs)) }));
-  const warmupRows = (run.warmup ?? []).map(w => ({ ...w.result, calls: 1, attempts: [w.result],
-    state: 'completed', elapsedMs: w.result.elapsedMs ?? 0 }));
-  const warmupHistoryComplete = run.warmupHistoryComplete ?? !run.resumed;
   const methods = plan.config.methods.map(method => {
     const rows = items.filter(r => r.methodId === method.id);
     const events = rows.filter(r => r.kind === 'event');
@@ -513,15 +535,7 @@ export function buildAutomaticReport(plan, run, ai = null) {
       scope: 'full physical batch; P counted once, failures and postprocess inspections included; warmup/evaluation separate' },
       batchWallMs: run.batchElapsedMs, batchWallComplete: !run.resumed,
       batchWallScope: run.batchWallScope ?? 'whole run; not allocated to methods',
-      warmup: { ...generationSummary(warmupRows), historyComplete: warmupHistoryComplete,
-        itemElapsedMs: warmupRows.every(r => r.attempts[0].elapsedMs != null) ? sum(warmupRows.map(r => r.elapsedMs)) : null,
-        meanItemElapsedMs: warmupRows.length && warmupRows.every(r => r.attempts[0].elapsedMs != null)
-          ? sum(warmupRows.map(r => r.elapsedMs)) / warmupRows.length : null,
-        completedLatency: latency(warmupRows.filter(r => r.attempts[0].elapsedMs != null).map(r => r.elapsedMs)),
-        elapsedMs: warmupRows.every(r => r.attempts[0].elapsedMs != null) ? sum(warmupRows.map(r => r.elapsedMs)) : null,
-        partialKnownElapsedMs: sum(warmupRows.map(r => r.elapsedMs)),
-        scope: warmupHistoryComplete ? 'all recorded warmup calls, separate from generation'
-          : 'known partial warmup history only; total cost unknown' } },
+      warmup: warmupSummary(plan, run) },
     // No plan/gold/run copies are needed: validation uses the live inputs. AI includes
     // private judge inputs; never copy this snapshot to the operator bundle or packets.
     inputSnapshots: { access: 'maintainer-only', ai: ai === null ? null : copy(ai),

@@ -24,6 +24,11 @@ export async function modelIdentity(model, endpoint) {
   assert(item?.digest, `설치된 모델을 찾을 수 없습니다: ${model}`);
   return { name: item.name, digest: item.digest, details: item.details ?? {}, size: item.size ?? null };
 }
+export function sameModelIdentity(expected, actual) {
+  const fixed = identity => ({ name: identity?.name, digest: identity?.digest,
+    quantization: identity?.details?.quantization_level ?? null });
+  return hash(fixed(expected)) === hash(fixed(actual));
+}
 /** A whole-call error outranks any partial text. All raw partial data stays in the error. */
 export async function ollamaGenerate(request, { endpoint, timeoutMs = 120000, signal } = {}) {
   const start = performance.now();
@@ -55,8 +60,13 @@ export async function ollamaGenerate(request, { endpoint, timeoutMs = 120000, si
     if (data.error) throw new Error(String(data.error));
     if (data.done !== true) throw new Error('응답이 정상 종료되지 않았습니다');
     if (typeof data.response !== 'string' || !data.response.trim()) throw new Error('빈 답변');
+    if (controller.signal.aborted || performance.now() - start >= timeoutMs) {
+      controller.abort();
+      throw new Error('시간초과');
+    }
     return { answer: data.response, raw, finishReason: data.done_reason ?? null, inputTokens, outputTokens, elapsedMs: performance.now() - start };
   } catch (cause) {
+    if (performance.now() - start >= timeoutMs) controller.abort();
     const error = new Error(controller.signal.aborted ? '시간초과' : cause.message);
     error.raw = raw;
     error.elapsedMs = performance.now() - start;

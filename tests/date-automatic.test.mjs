@@ -231,7 +231,11 @@ test('unknown/unexecuted records and tampered actual requests block reports', as
   const plan = fixture({ repeats: 1, methods: ['prompt-baseline'] }), run = await execute(plan);
   for (const state of ['unknown', 'unexecuted']) {
     const bad = structuredClone(run); bad.records[0].state = state;
-    assert.throws(() => buildAutomaticReport(plan, bad), /unknown\/unexecuted/);
+    assert.throws(() => buildAutomaticReport(plan, bad), state === 'unexecuted' ? /실제 호출.*미실행/ : /unknown\/unexecuted/);
+    if (state === 'unexecuted') {
+      Object.assign(bad.records[0], { calls: 0, rawAnswer: '', attempts: [], inputTokens: 0, outputTokens: 0 });
+      assert.throws(() => buildAutomaticReport(plan, bad), /unknown\/unexecuted/);
+    }
   }
   for (const mutate of [r => { r.rawInput = []; }, r => { r.rawInput[0].prompt = 'other source'; },
     r => { r.attempts[0].request.model = 'other-model'; }, r => { r.rawInput[0].think = true; }]) {

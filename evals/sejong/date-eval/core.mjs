@@ -170,7 +170,13 @@ export function makePlan(dataset, gold, config) {
 /** Imported or status-confirmed runs must retain actual requests, not just copied plan hashes. */
 export function validateRecordedInputs(plan, run) {
   for (const record of run.records) {
-    if (record.state === 'unexecuted') continue;
+    if (record.state === 'unexecuted') {
+      assert((record.calls ?? 0) === 0 && !record.rawAnswer?.trim()
+        && (record.attempts === undefined || (Array.isArray(record.attempts) && record.attempts.length === 0))
+        && ['inputTokens', 'outputTokens'].every(field => record[field] == null || record[field] === 0),
+      '실제 호출·답변·비용이 있는데 미실행으로 처리할 수 없습니다');
+      continue;
+    }
     const c = plan.dataset.cases.find(c => c.id === record.caseId);
     assert(Array.isArray(record.rawInput) && record.rawInput.length > 0, '실제로 보낸 전체 자료·질문이 없습니다');
     if (DERIVED_METHODS.includes(record.methodId)) {
@@ -186,7 +192,117 @@ export function validateRecordedInputs(plan, run) {
         assert(typeof request.prompt === 'string' && request.prompt.includes(c.sourceText)
           && request.prompt.includes(c.question), '실제로 보낸 전체 자료·질문이 없습니다');
       }
+      validateGenerationTrace(plan, record);
     }
   }
+  if (plan.config.generationAuditVersion === 1) validateGenerationLedger(plan, run);
   return run;
+}
+
+function validateGenerationTrace(plan, record) {
+  const strict = plan.config.generationAuditVersion === 1;
+  assert(Array.isArray(record.attempts), '생성 시도 기록이 없습니다');
+  const full = record.attempts.length === record.calls;
+  assert(!strict || full, '생성 호출 수와 시도 기록이 다릅니다');
+  // Older partial-cost analyses remain readable, but are not certified as a
+  // complete new execution. Newly prepared plans require the full call ledger.
+  if (!full) return;
+  const stages = record.methodId === 'evidence-first' ? ['extract', 'answer'] : ['answer'];
+  let cursor = 0, inputs = 0, last;
+  for (const stage of stages) {
+    const group = [];
+    while (record.attempts[cursor]?.stage === stage) group.push(record.attempts[cursor++]);
+    assert(group.length > 0 && group.length <= plan.config.retries + 1, '생성 단계·재시도 횟수가 고정 계획과 다릅니다');
+    const request = record.rawInput[inputs++];
+    for (const [index, attempt] of group.entries()) {
+      assert(attempt.attempt === index && ['completed', 'failed'].includes(attempt.state)
+        && (index === group.length - 1 || attempt.state === 'failed'), '생성 시도 순서·상태가 잘못됐습니다');
+      assert(request?.stage === stage && hash(attempt.request) === hash(request), '생성 시도와 단계별 실제 요청이 다릅니다');
+      if (attempt.state === 'completed') validateWireAnswer(attempt, strict);
+    }
+    last = group.at(-1);
+    if (last.state === 'failed') {
+      assert(group.length === plan.config.retries + 1, '허용된 생성 재시도를 끝내기 전에 종료됐습니다');
+      break;
+    }
+  }
+  assert(cursor === record.attempts.length && inputs === record.rawInput.length, '생성 단계 순서·추가 호출이 고정 계획과 다릅니다');
+  const answered = last?.stage === 'answer' && last.state === 'completed';
+  if (record.state === 'completed' || record.rawAnswer?.trim()) {
+    assert(answered && record.rawAnswer === last.answer, '집계 답변이 마지막 생성 원답변과 다릅니다');
+  }
+  if (record.state === 'completed') assert(answered, '완료된 최종 답변 호출이 없습니다');
+  if (strict && record.state === 'failed') assert(last.state === 'failed'
+    || (record.executionInspection?.state === 'failed' && record.executionInspection.originalRecordHash
+      && record.executionInspection.reviewerId && record.executionInspection.reason && record.executionInspection.evidence),
+  '생성 성공 기록을 확인 근거 없이 실패로 바꿀 수 없습니다');
+}
+
+function validateWireAnswer(attempt, strict) {
+  let output;
+  try { output = JSON.parse(attempt.raw); } catch { /* Legacy injected generators can lack a transport body. */ }
+  assert(!strict || (output && typeof output === 'object' && !Array.isArray(output)), '생성 원응답 JSON이 없습니다');
+  if (!output || !Object.hasOwn(output, 'response')) {
+    assert(!strict, '생성 원응답에 답변이 없습니다');
+    return;
+  }
+  assert(output.done === true && !output.error && typeof output.response === 'string'
+    && output.response === attempt.answer, '생성 원응답과 해석한 답변이 다릅니다');
+  if (strict || Object.hasOwn(output, 'done_reason')) assert((output.done_reason ?? null) === (attempt.finishReason ?? null), '생성 원응답의 종료 사유가 다릅니다');
+  for (const [field, wire] of [['inputTokens', 'prompt_eval_count'], ['outputTokens', 'eval_count']]) {
+    const expected = Number.isInteger(output[wire]) && output[wire] >= 0 ? output[wire] : null;
+    if (strict || Object.hasOwn(output, wire)) assert((attempt[field] ?? null) === expected, '생성 원응답과 토큰 기록이 다릅니다');
+  }
+}
+
+/** New operator runs embed the original ledger; import also checks its files. */
+function validateGenerationLedger(plan, run) {
+  const ledger = run.generationLedger;
+  assert(Array.isArray(ledger), '원본 생성 호출 명세가 없습니다');
+  const hasGeneration = plan.config.methods.some(m => !DERIVED_METHODS.includes(m.id) && m.id !== 'rule-baseline');
+  if (hasGeneration) {
+    const identity = value => ({ name: value?.name, digest: value?.digest,
+      quantization: value?.details?.quantization_level ?? null });
+    const expected = identity(plan.config.modelIdentity);
+    assert(expected.name && expected.digest && run.modelVerification?.before && run.modelVerification?.after
+      && ['before', 'after'].every(key => hash(identity(run.modelVerification[key])) === hash(expected)),
+    '실행 전후 모델 파일·양자화 확인 기록이 고정 계획과 다릅니다');
+  }
+  unique(ledger.map(e => e.callId), '생성 호출');
+  const calls = new Map();
+  const warmups = [];
+  for (const [index, entry] of ledger.entries()) {
+    assert(entry.schemaVersion === 1 && entry.planId === plan.id && entry.callId === index + 1,
+      '생성 호출 명세의 계획·번호·누락이 잘못됐습니다');
+    assert(['completed', 'failed'].includes(entry.state), '미확인 생성 호출은 확정할 수 없습니다');
+    if (entry.context?.stage === 'warmup') {
+      assert(entry.context.recordId === null && entry.context.attempt === 0 && entry.state === 'completed', '준비 호출 명세가 잘못됐습니다');
+      assert(plan.config.warmup && entry.request?.stage === 'warmup' && entry.request.model === plan.config.model
+        && entry.request.think === plan.config.think && hash(entry.request.options) === hash(plan.config.options),
+      '준비 호출 조건이 고정 계획과 다릅니다');
+      validateWireAnswer(entry.result, true);
+      warmups.push({ request: entry.request, result: entry.result });
+    } else {
+      const key = JSON.stringify([entry.context?.recordId, entry.context?.stage, entry.context?.attempt]);
+      assert(!calls.has(key), '중복 생성 단계·시도 명세');
+      calls.set(key, entry);
+    }
+  }
+  assert(!plan.config.warmup || calls.size === 0 || warmups.length > 0, '계획에 있는 준비 호출 원본이 없습니다');
+  assert(hash(warmups) === hash(run.warmup ?? []), '준비 호출 원본 명세와 실행 기록이 다릅니다');
+  for (const record of run.records.filter(r => !DERIVED_METHODS.includes(r.methodId) && r.methodId !== 'rule-baseline')) {
+    for (const attempt of record.attempts ?? []) {
+      const key = JSON.stringify([record.id, attempt.stage, attempt.attempt]), entry = calls.get(key);
+      assert(entry && entry.context.caseId === record.caseId && entry.context.methodId === record.methodId
+        && entry.context.repeat === record.repeat && hash(entry.request) === hash(attempt.request)
+        && entry.state === attempt.state, '생성 호출 원본 명세와 시도 기록이 다릅니다');
+      const result = entry.state === 'completed' ? entry.result : entry;
+      for (const field of ['raw', 'inputTokens', 'outputTokens', ...(entry.state === 'completed' ? ['answer', 'finishReason'] : ['error', 'type'])]) {
+        assert((result?.[field] ?? (field === 'raw' ? '' : null)) === (attempt[field] ?? (field === 'raw' ? '' : null)),
+          '생성 호출 원본 명세와 답변·오류·비용이 다릅니다');
+      }
+      calls.delete(key);
+    }
+  }
+  assert(calls.size === 0, '실행에 연결되지 않은 추가 생성 호출이 있습니다');
 }

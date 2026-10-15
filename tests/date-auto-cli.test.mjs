@@ -165,9 +165,18 @@ test('synthetic CLI freezes 60 outputs, exports blind inputs and audits every sa
   // Inject the generator directly into runPlan; CLI import/audit paths use the
   // real exported plan and recorded prompts, with no fetch/model invocation.
   let calls = 0;
-  const run = await runPlan(publicPlan, { generate: async () => {
-    calls++; return { answer, inputTokens: 2, outputTokens: 3 };
+  const ledger = [];
+  await mkdir(join(out, 'generation-calls'));
+  const run = await runPlan(publicPlan, { generate: async (request, _config, context) => {
+    const result = { answer, inputTokens: 2, outputTokens: 3, finishReason: 'stop',
+      raw: JSON.stringify({ done: true, done_reason: 'stop', response: answer, prompt_eval_count: 2, eval_count: 3 }) };
+    const entry = { schemaVersion: 1, planId: publicPlan.id, callId: ++calls, context, request, state: 'completed', result };
+    ledger.push(entry);
+    await writeFile(join(out, 'generation-calls', String(calls).padStart(4, '0') + '.json'), JSON.stringify(entry));
+    return result;
   } });
+  run.generationLedger = ledger;
+  run.modelVerification = { before: publicPlan.config.modelIdentity, after: publicPlan.config.modelIdentity };
   assert.equal(run.records.length, 265); assert.ok(run.records.every(r => r.state === 'completed'));
   assert.equal(calls, 159); // P once and E twice per population question; R/T/V make no calls.
   await writeFile(join(out, 'run.json'), JSON.stringify(run));
