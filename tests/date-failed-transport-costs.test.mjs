@@ -203,9 +203,18 @@ test('a recovered retry adds failed usage exactly once and uses only the success
   }
 });
 
-test('ruleAnswer is re-exported unchanged and pilot answers remain byte-identical after relocation', async () => {
+test('ruleAnswer is re-exported unchanged and fixed LF/CRLF inputs retain their original output bytes', async () => {
   const { ruleAnswer: movedRuleAnswer } = await import('../evals/sejong/date-eval/postprocess.mjs');
   assert.equal(ruleAnswer, movedRuleAnswer);
   const { dataset } = await loadPilot();
-  assert.equal(hash(dataset.cases.map(ruleAnswer)), 'bcaa4d3bf17961d80dbf75ce858d94ab866b26c45c27fe1a52394a6ad133c936');
+  // Markdown checkout line endings affect quote bytes and evidence offsets.
+  // Control only these synthetic test copies, never normalize actual inputs,
+  // answer keys, recorded outputs or hashes to make an experiment pass.
+  for (const [eol, expected] of [
+    ['\n', 'bcaa4d3bf17961d80dbf75ce858d94ab866b26c45c27fe1a52394a6ad133c936'],
+    ['\r\n', '7f5d9c509b4c8b479a9431d2ff1fb072f56def49a97bc6727ef2c70da07093f2'],
+  ]) {
+    const cases = dataset.cases.map(c => ({ ...c, sourceText: c.sourceText.replace(/\r?\n/g, eol) }));
+    assert.equal(hash(cases.map(ruleAnswer)), expected);
+  }
 });
