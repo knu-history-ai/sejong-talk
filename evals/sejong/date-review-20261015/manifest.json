@@ -1,0 +1,42 @@
+{
+  "version": "date-review-20261015-20articles-draft-v3",
+  "checkedOn": "2026-10-14",
+  "status": "draft-awaiting-human-source-review",
+  "requestedReviewDate": "2026-10-15",
+  "reviewAvailability": "unconfirmed",
+  "reviewedBy": [],
+  "relatedIssue": 62,
+  "articles": 20,
+  "candidateEventGroups": 20,
+  "questions": 53,
+  "coreQuestions": 40,
+  "controlQuestions": 13,
+  "targetJudgments": 58,
+  "plannedMethodSlots": 159,
+  "categoryCounts": {
+    "unknown-day": 10,
+    "false-date-premise": 11,
+    "header-control": 13,
+    "mixed-events": 5,
+    "known-day": 14
+  },
+  "datasetHash": "2010d83be295caf8e769781eda89b3c3a701c36a0c6114d0e44d9a8fcfced747",
+  "goldHash": "5ea4d8b2ce6e829ecea33527d2830d7f992d7baa0eb3ec696189fd7ebaae2309",
+  "criteriaHash": "c617525af719168e2b2acbff2cfa8f124dbfa6d5d294d760e3912d6dceaa820c",
+  "checks": {
+    "datasetGoldHash": "passed",
+    "allQuoteOffsets": "passed",
+    "questionTargetAgreement": "passed",
+    "targetIdsDateHints": "absent",
+    "sourceAndQuestionMarkdownAgreement": "passed",
+    "priorPilotArticleIds": "no-overlap",
+    "supplementedEvidence": ["T07-Q01", "T13-Q01", "T14-Q01"],
+    "humanReview": "pending",
+    "fullDevelopmentHistoryOverlap": "requires-human-check",
+    "originalImages": "not-reviewed",
+    "liveModelExecution": "not-performed"
+  },
+  "evaluationToolCodeIncluded": false,
+  "operatorRunCommandIncluded": false,
+  "datasetMetadataIsNotGenerationInput": true
+}
