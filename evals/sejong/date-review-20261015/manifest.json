@@ -1,12 +1,20 @@
 {
-  "version": "date-review-20261015-20articles-draft-v3",
+  "version": "date-review-20261015-20articles-draft-v4",
   "checkedOn": "2026-10-14",
   "metadataUpdatedOn": "2026-10-15",
   "status": "draft-awaiting-human-source-review",
   "requestedReviewDate": "2026-10-15",
   "reviewAvailability": "accepted",
   "reviewAcceptanceDate": "2026-10-14",
-  "reviewCompletion": "not-confirmed",
+  "reviewCompletion": "first-pass-posted-final-approval-pending",
+  "sourceReviewPr": 77,
+  "questionRevisionApproval": {
+    "approvedBy": "민준",
+    "approvedOn": "2026-10-15",
+    "caseIds": ["T15-Q01", "T16-Q01", "T17-Q01", "T18-Q01"],
+    "scope": "clarify event time; preserve precision requirements, answers and scoring criteria",
+    "reviewerRecheck": "pending"
+  },
   "reviewedBy": [],
   "relatedIssue": 62,
   "relatedIssues": [62, 71, 76],
@@ -51,8 +59,8 @@
     "mixed-events": 5,
     "known-day": 14
   },
-  "datasetHash": "2010d83be295caf8e769781eda89b3c3a701c36a0c6114d0e44d9a8fcfced747",
-  "goldHash": "5ea4d8b2ce6e829ecea33527d2830d7f992d7baa0eb3ec696189fd7ebaae2309",
+  "datasetHash": "0cb218be19a277d062c8a3839466136783d0c74078e1cd71b9a58a45d82a75fd",
+  "goldHash": "c317e46c5c27f86405a9fb62372fad5820c73ff77fcc6e16ef15f69a2b072187",
   "criteriaHash": "c617525af719168e2b2acbff2cfa8f124dbfa6d5d294d760e3912d6dceaa820c",
   "checks": {
     "datasetGoldHash": "passed",
