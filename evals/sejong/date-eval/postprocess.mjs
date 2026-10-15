@@ -277,3 +277,41 @@ export function transformAnswer(c, rawAnswer, methodId) {
   return { answer, audit: { ...base, status: 'applied', applied: true,
     inputFormat: parsed.format, events: audits, omittedTargetIds } };
 }
+
+function quote(sourceText, text) {
+  const start = sourceText.indexOf(text);
+  return { quote: text, start, end: start + text.length };
+}
+/** Rule baseline reads ONLY source clauses, not the answer key. It can be wrong. */
+export function ruleAnswer(c) {
+  const header = c.sourceText.match(/기사 표제 날짜:\s*([^\n]+)/)?.[1] ?? '';
+  const year = Number(header.match(/\((\d{4})년\)/)?.[1] ?? header.match(/(\d{4})년/)?.[1]) || null;
+  const month = Number(header.match(/(\d+)월/)?.[1]) || null;
+  const day = Number(header.match(/(\d+)일/)?.[1]) || null;
+  const body = c.sourceText.match(/본문:\s*([\s\S]*)/)?.[1] ?? '';
+  const clauses = body.split(/(?<=[.。])\s*|,\s*|(?<=하여)\s*|(?=\d{1,2}월\s*\d{1,2}일)/).filter(Boolean);
+  const events = c.targets.map((target) => {
+    if (c.kind === 'control' && /표제/.test(c.question)) return { id: target.id, date: { year, month, day, calendar: 'lunar' }, unknownDay: false, evidence: header ? [quote(c.sourceText, header)] : [] };
+    const cues = [
+      [/시작|착공/, /시작|착공/], [/종료|마친|준공/, /끝마|마치|종료|준공/],
+      [/파견|보낸|보내/, /보내|파견/], [/창제|만들/, /지었|창제|만들/],
+      [/완성/, /이루어|완성/],
+    ];
+    const cue = cues.find(([label]) => label.test(target.label))?.[1];
+    const selected = cue ? clauses.find((clause) => cue.test(clause)) : null;
+    const explicit = selected?.match(/(?:(\d{4})년\s*)?(\d+)월\s*(?:(\d+)일)?/);
+    const relative = selected && /이달/.test(body.slice(0, body.indexOf(selected) + selected.length));
+    const eventMonth = explicit ? Number(explicit[2]) : relative ? month : null;
+    const eventDay = explicit?.[3] ? Number(explicit[3]) : null;
+    const eventYear = explicit?.[1] ? Number(explicit[1]) : eventMonth ? year : null;
+    const evidence = selected ? [quote(c.sourceText, selected)] : [];
+    if (relative && header) evidence.unshift(quote(c.sourceText, header));
+    return { id: target.id, date: { year: eventYear, month: eventMonth, day: eventDay, calendar: 'lunar' }, unknownDay: !eventDay, evidence };
+  });
+  const answer = events.map((e) => {
+    const label = c.targets.find((t) => t.id === e.id).label;
+    const date = [e.date.year && `${e.date.year}년`, e.date.month && `${e.date.month}월`, e.date.day && `${e.date.day}일`].filter(Boolean).join(' ');
+    return `${label}: ${date || '시점 확인 불가'}${e.unknownDay ? ', 정확한 일자는 이 자료로 확인할 수 없습니다' : ''}. 근거: ${e.evidence.map((e) => e.quote).join(' / ')}`;
+  }).join('\n');
+  return JSON.stringify({ answer, events });
+}

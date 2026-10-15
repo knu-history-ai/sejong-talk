@@ -16,8 +16,10 @@ export function resolveRunState(plan, original, decisions) {
     assert(record.state === 'unknown' || (record.state === 'completed' && d.state === 'failed'), '확정된 실패를 부분 답변으로 완료 처리할 수 없습니다');
     if (d.state === 'completed') assert(record.rawAnswer?.trim() && Number.isFinite(record.elapsedMs) && Number.isInteger(record.calls), '완료 원문/비용 누락');
     if (d.state === 'unexecuted') assert(record.calls === 0 && !record.rawAnswer?.trim(), '실제 호출·답변이 있는데 미실행 처리할 수 없습니다');
+    const previousInspection = record.executionInspection;
     record.state = d.state;
-    record.executionInspection = { ...d, beforeState: original.records.find((r) => r.id === d.recordId).state };
+    record.executionInspection = { ...d, beforeState: original.records.find((r) => r.id === d.recordId).state,
+      ...(previousInspection ? { previousInspection } : {}) };
   }
   const rederived = [];
   for (const record of run.records.filter(r => DERIVED_METHODS.includes(r.methodId))) {
@@ -41,6 +43,7 @@ export function resolveRunState(plan, original, decisions) {
     record.rawInput[0].parentRecordHash = hash(parent);
     rederived.push({ recordId: record.id, originalRecordHash: beforeHash, recordHash: hash(record), reason: 'P execution status inspected; deterministic derivative rebuilt, original run retained' });
   }
-  run.stateResolution = { sourceRunHash: hash(original), decisions: structuredClone(decisions), rederived };
+  run.stateResolution = { auditVersion: 1, sourceRunHash: hash(original), decisions: structuredClone(decisions), rederived,
+    derivedRecordHashes: Object.fromEntries(run.records.filter(r => DERIVED_METHODS.includes(r.methodId)).map(r => [r.id, hash(r)])) };
   return validateRecordedInputs(plan, validateRun(plan, run));
 }

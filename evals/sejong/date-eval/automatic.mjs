@@ -1,4 +1,4 @@
-import { assert, hash, validateRun, validateRecordedInputs } from './core.mjs';
+import { assert, hash, validateRun, validateRecordedInputs, validateGenerationTimes } from './core.mjs';
 import { codeGrade } from './grading.mjs';
 import { bindCost } from './costs.mjs';
 import { DERIVED_METHODS } from './postprocess.mjs';
@@ -18,6 +18,8 @@ const ratio = (numerator, denominator) => ({ numerator, denominator, value: deno
 const number = (value, label, integer = false) => assert(Number.isFinite(value) && value >= 0
   && (!integer || Number.isSafeInteger(value)), `${label}: invalid nonnegative cost`);
 const optionalNumber = (value, label, integer = false) => { if (value != null) number(value, label, integer); };
+const FRESH_BATCH_SCOPE = 'whole run; not allocated to methods';
+const RESUMED_BATCH_SCOPE = 'current resumed segment only; earlier batch wall time unavailable';
 const evaluatorHash = () => hash(['automatic.mjs', 'core.mjs', 'grading.mjs', 'costs.mjs', 'postprocess.mjs', 'runner.mjs']
   .map(name => [name, readFileSync(new URL(name, import.meta.url), 'utf8')]));
 
@@ -86,17 +88,13 @@ function validateAttempt(attempt, label) {
   for (const field of ['inputTokens', 'outputTokens']) optionalNumber(attempt[field], `${label}.${field}`, true);
 }
 
-function validateGenerationCosts(run) {
-  number(run.batchElapsedMs, 'batchElapsedMs');
-  assert(run.resumed === undefined || typeof run.resumed === 'boolean', 'invalid resumed flag');
-  assert(run.warmupHistoryComplete === undefined || typeof run.warmupHistoryComplete === 'boolean', 'invalid warmup history flag');
-  assert(run.warmup === undefined || Array.isArray(run.warmup), 'warmup: expected array');
+function validateGenerationCosts(plan, run) {
+  const strict = plan.config.generationAuditVersion === 1;
+  validateGenerationTimes(plan, run);
   for (const [i, warmup] of (run.warmup ?? []).entries()) {
-    assert(plain(warmup) && plain(warmup.result), 'invalid warmup result');
     validateAttempt(warmup.result, `warmup[${i}]`);
   }
   for (const record of run.records) {
-    number(record.elapsedMs, `${record.id}.elapsedMs`);
     number(record.calls, `${record.id}.calls`, true);
     assert(Array.isArray(record.attempts) && record.attempts.length <= record.calls, 'invalid generation attempts array/count');
     for (const attempt of record.attempts) validateAttempt(attempt, record.id);
@@ -105,15 +103,14 @@ function validateGenerationCosts(run) {
       const known = record.attempts.filter(a => a[field] != null);
       const subtotal = sum(known.map(a => a[field]));
       number(subtotal, `${record.id}.${field} attempt sum`, true);
+      if (strict && known.length < record.calls) {
+        assert(record[field] === null, 'unknown strict attempt tokens require a null record total');
+      }
       if (record[field] != null) {
         assert(record[field] >= subtotal, 'record tokens smaller than known attempt parts');
         if (known.length === record.calls) assert(record[field] === subtotal, 'record/attempt token totals mismatch');
         if (record.calls === 0) assert(record[field] === 0, 'tokens without generation calls');
       }
-    }
-    if (record.postprocessInspections !== undefined) {
-      assert(Array.isArray(record.postprocessInspections), 'invalid postprocess inspection array');
-      for (const inspection of record.postprocessInspections) number(inspection.elapsedMs, 'inspection elapsedMs');
     }
   }
 }
@@ -136,6 +133,7 @@ function usage(rows, field) {
 }
 
 function generationSummary(rows) {
+  for (const row of rows) number(row.elapsedMs, 'generation row.elapsedMs');
   const calls = sum(rows.map(r => r.calls));
   const itemElapsedMs = sum(rows.map(r => r.elapsedMs));
   number(calls, 'generation calls', true); number(itemElapsedMs, 'generation elapsed sum');
@@ -429,7 +427,7 @@ export function buildAutomaticReport(plan, run, ai = null) {
   validateRun(plan, run);
   validateRecordedInputs(plan, run);
   assert(run.records.every(r => ['completed', 'failed'].includes(r.state)), 'unknown/unexecuted record prevents automatic report');
-  validateGenerationCosts(run);
+  validateGenerationCosts(plan, run);
   const aiItems = ai === null ? null : validateAi(plan, run, ai);
   const diagnostic = codeGrade(plan, run);
   bindCost(plan, run, diagnostic, 'code');
@@ -534,7 +532,7 @@ export function buildAutomaticReport(plan, run, ai = null) {
       postprocessInspectionElapsedMs: sum(run.records.flatMap(r => r.postprocessInspections ?? []).map(i => i.elapsedMs)),
       scope: 'full physical batch; P counted once, failures and postprocess inspections included; warmup/evaluation separate' },
       batchWallMs: run.batchElapsedMs, batchWallComplete: !run.resumed,
-      batchWallScope: run.batchWallScope ?? 'whole run; not allocated to methods',
+      batchWallScope: run.resumed ? RESUMED_BATCH_SCOPE : run.batchWallScope ?? FRESH_BATCH_SCOPE,
       warmup: warmupSummary(plan, run) },
     // No plan/gold/run copies are needed: validation uses the live inputs. AI includes
     // private judge inputs; never copy this snapshot to the operator bundle or packets.

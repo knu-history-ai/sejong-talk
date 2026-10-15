@@ -95,7 +95,8 @@ test('CLI preserves originals and separates full automatic, sampled humans and l
   assert.equal(sample.graderValidation.aiVsHumanSemantic, null);
   assert.equal(sample.firstHumanAgreement.byField.date.value, 1);
   await assert.rejects(main(['report', '--dir', dir, '--final', join(dir, 'sample-final.json')]), /sample human/);
-  for (const command of ['automatic-report', 'sample-packets', 'sample-finalize', 'sample-report']) {
+  await main(['sample-packets', '--dir', dir]); // identical packet material is safely resumable
+  for (const command of ['automatic-report', 'sample-finalize', 'sample-report']) {
     await assert.rejects(main([command, '--dir', dir]), { code: 'EEXIST' });
   }
   assert.equal(await readFile(join(dir, 'run.json'), 'utf8'), original);
@@ -168,7 +169,7 @@ test('synthetic CLI freezes 60 outputs, exports blind inputs and audits every sa
   const ledger = [];
   await mkdir(join(out, 'generation-calls'));
   const run = await runPlan(publicPlan, { generate: async (request, _config, context) => {
-    const result = { answer, inputTokens: 2, outputTokens: 3, finishReason: 'stop',
+    const result = { answer, inputTokens: 2, outputTokens: 3, finishReason: 'stop', elapsedMs: 0,
       raw: JSON.stringify({ done: true, done_reason: 'stop', response: answer, prompt_eval_count: 2, eval_count: 3 }) };
     const entry = { schemaVersion: 1, planId: publicPlan.id, callId: ++calls, context, request, state: 'completed', result };
     ledger.push(entry);
@@ -219,7 +220,8 @@ test('synthetic CLI freezes 60 outputs, exports blind inputs and audits every sa
       assert.equal(method.byQuestionType[type].event.planned + method.byQuestionType[type].control.planned, quota);
     }
   }
-  for (const command of ['automatic-report', 'sample-packets', 'sample-finalize', 'sample-report']) {
+  await main(['sample-packets', '--dir', dir]);
+  for (const command of ['automatic-report', 'sample-finalize', 'sample-report']) {
     await assert.rejects(main([command, '--dir', dir]), { code: 'EEXIST' });
   }
   assert.equal(calls, beforeCalls);

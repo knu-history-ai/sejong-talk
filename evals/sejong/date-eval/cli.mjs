@@ -1,7 +1,7 @@
-import { readFile, writeFile, mkdir, readdir, rename } from 'node:fs/promises';
-import { resolve, join, dirname } from 'node:path';
+import { readFile, writeFile, mkdir, readdir, rename, realpath } from 'node:fs/promises';
+import { resolve, join, dirname, basename, relative, isAbsolute, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hash, assert, makePlan, validatePlan, validateRun, validateRecordedInputs, executionPlan, validateExecutionPlan, validateExecutionRun } from './core.mjs';
+import { hash, assert, makePlan, validatePlan, validateRun, validateRecordedInputs, validateGenerationProgress, executionPlan, validateExecutionPlan, validateExecutionRun } from './core.mjs';
 import { DERIVED_METHODS } from './postprocess.mjs';
 import { runPlan, ollamaGenerate, localEndpoint, METHOD_VERSION, modelIdentity, sameModelIdentity } from './runner.mjs';
 import { codeGrade, aiGrade, createReviewPackets, finalizeReviews, validateJudge, validateFinalAudit } from './grading.mjs';
@@ -13,6 +13,13 @@ const read = async (path) => JSON.parse(await readFile(path, 'utf8'));
 async function save(path, value) {
   await mkdir(resolve(path, '..'), { recursive: true });
   await writeFile(path, JSON.stringify(value, null, 2) + '\n', { flag: 'wx' });
+}
+async function canonicalDestination(path) {
+  try { return await realpath(path); }
+  catch (error) {
+    if (error.code !== 'ENOENT' || dirname(path) === path) throw error;
+    return join(await canonicalDestination(dirname(path)), basename(path));
+  }
 }
 async function prepareOperatorBundle(dir) {
   const modules = ['core.mjs', 'runner.mjs', 'postprocess.mjs', 'grading.mjs', 'report.mjs', 'state.mjs', 'costs.mjs', 'cli.mjs'];
@@ -60,6 +67,14 @@ async function checkpoint(path, value) {
 async function maybe(path) {
   try { return await read(path); } catch (e) { if (e.code === 'ENOENT') return null; throw e; }
 }
+async function saveMatching(path, value) {
+  const existing = await maybe(path);
+  if (existing !== null) {
+    assert(hash(existing) === hash(value), '기존 산출물이 현재 원본과 다릅니다. 덮어쓰지 않고 확인을 중단합니다: ' + path);
+    return;
+  }
+  await save(path, value);
+}
 async function generationLedger(dir) {
   let names = [];
   try { names = await readdir(join(dir, 'generation-calls')); }
@@ -75,7 +90,8 @@ function parse(args) {
   const [command, ...rest] = args, flags = {};
   const accepted = {
     help: [], prepare: ['dir', 'model', 'model-identity', 'methods', 'dataset', 'gold', 'options', 'endpoint', 'timeout', 'retries', 'repeats', 'seed', 'warmup'],
-    run: ['dir'], 'export-operator': ['dir', 'out'], 'import-run': ['dir', 'file'], code: ['dir', 'run'],
+    run: ['dir'], 'export-operator': ['dir', 'out'], 'import-run': ['dir', 'file'],
+    'inspect-interruption': ['dir', 'folder', 'out'], code: ['dir', 'run'],
     ai: ['dir', 'run', 'model', 'endpoint', 'timeout', 'retries'], packets: ['dir', 'run'],
     'import-review': ['dir', 'run', 'file', 'reviewer'], finalize: ['dir', 'run', 'adjudications', 'out'],
     report: ['dir', 'run', 'final'], 'resolve-state': ['dir', 'run', 'file', 'out'],
@@ -153,7 +169,7 @@ async function evaluationCosts(dir, plan, run, humanEntries = null) {
 export async function main(args = process.argv.slice(2)) {
   const { command, flags } = parse(args);
   if (!command || command === 'help') {
-    console.log('날짜 평가: prepare --dir 경로 --model 모델 | run --dir 경로 | sample-freeze --dir 경로 (실행 전) | automatic-report --dir 경로 | sample-packets --dir 경로 | import-sample-review --dir 경로 --file 판정.json --reviewer 이름 | sample-finalize --dir 경로 | sample-report --dir 경로 | 기존 전수 채점: packets / import-review / finalize / report / validate-judge | compare --before 결과.json --after 결과.json --out 비교.json');
+    console.log('날짜 평가: prepare --dir 경로 --model 모델 | run --dir 경로 | sample-freeze --dir 경로 (실행 전) | 담당자 중단 확인: inspect-interruption --dir 담당자폴더 --folder 반환폴더 --out 원본밖의진단.json | automatic-report --dir 경로 | sample-packets --dir 경로 | import-sample-review --dir 경로 --file 판정.json --reviewer 이름 | sample-finalize --dir 경로 | sample-report --dir 경로 | 기존 전수 채점: packets / import-review / finalize / report / validate-judge | compare --before 결과.json --after 결과.json --out 비교.json');
     return;
   }
   if (command === 'compare') {
@@ -170,6 +186,8 @@ export async function main(args = process.argv.slice(2)) {
     const gold = flags.gold ? await read(flags.gold) : pilot.gold;
     assert(Boolean(flags.dataset) === Boolean(flags.gold), '자료와 정답표는 함께 지정하세요');
     assert(dataset.split !== 'final' || gold.reviewStatus === 'approved', '본실험은 원문·정답표 검수 승인 후 준비하세요');
+    if (dataset.split === 'final') assert(Array.isArray(gold.reviewedBy) && gold.reviewedBy.length > 0
+      && gold.reviewedBy.every(id => typeof id === 'string' && id.trim()), '본실험은 실제 검수자 기록이 필요합니다');
     const methods = (typeof flags.methods === 'string' ? flags.methods : 'prompt-baseline,rule-baseline,evidence-first').split(',');
     assert(methods.every((id) => ['prompt-baseline','rule-baseline','evidence-first', ...DERIVED_METHODS].includes(id)), '방법 ID 오류');
     assert(!methods.some(id => DERIVED_METHODS.includes(id)) || methods.includes('prompt-baseline'), 'T·V는 같은 계획의 P가 필요합니다');
@@ -221,6 +239,8 @@ export async function main(args = process.argv.slice(2)) {
   }
   if (command === 'export-operator') {
     assert(plan.dataset.split !== 'final' || plan.gold.reviewStatus === 'approved', '검수 전 본실험 자료는 전달할 수 없습니다');
+    if (plan.dataset.split === 'final') assert(Array.isArray(plan.gold.reviewedBy) && plan.gold.reviewedBy.length > 0
+      && plan.gold.reviewedBy.every(id => typeof id === 'string' && id.trim()), '본실험은 실제 검수자 기록이 필요합니다');
     const out = resolve(requireFlag(flags, 'out'));
     assert(out !== dir, '담당자 폴더와 실행 폴더는 분리하세요');
     assert(plan.config.methods.every(m => m.codeHash === plan.config.methods[0].codeHash)
@@ -258,14 +278,22 @@ export async function main(args = process.argv.slice(2)) {
     console.log('기존 원문 기록을 재사용합니다. 모델을 다시 실행하지 않았습니다.');
     return;
   }
+  if (command === 'inspect-interruption') {
+    const folder = resolve(requireFlag(flags, 'folder')), out = resolve(requireFlag(flags, 'out'));
+    const location = relative(await realpath(folder), await canonicalDestination(out));
+    assert(location && (isAbsolute(location) || location === '..' || location.startsWith('..' + sep)),
+      '중단 진단은 반환 원본 폴더 밖의 새 파일에 저장하세요');
+    const { inspectInterruption } = await import('./interruption.mjs');
+    await save(out, await inspectInterruption(plan, folder));
+    console.log('중단 원본의 상태·확인된 비용·미확인 범위를 별도 등록했습니다. 최종 점수·재실행 승인이 아닙니다. 유진님은 추가 작업 없이 폴더만 전달합니다.');
+    return;
+  }
   if (command === 'run') {
     const current = await maybe(join(dir, 'run.json'));
     assert(!current, '완료된 실행은 덮어쓰지 않습니다. 비교 실행은 새 폴더를 쓰세요');
     assert(plan.config.methods.every((m) => m.codeHash) && plan.config.methods.every((m) => m.codeHash === plan.config.methods[0].codeHash), '방법 코드 버전 누락/불일치');
     assert(await implementationHash() === plan.config.methods[0].codeHash, '실행 코드가 준비 후 바뀌었습니다. 새 계획을 준비하세요');
     const hasGeneration = plan.config.methods.some((m) => m.id !== 'rule-baseline');
-    const modelBefore = hasGeneration ? await modelIdentity(plan.config.model, plan.config.endpoint) : null;
-    if (hasGeneration) assert(sameModelIdentity(plan.config.modelIdentity, modelBefore), '모델 파일/양자화 정보가 준비 후 바뀌었습니다');
     const progressPath = join(dir, 'progress.json');
     const progress = await maybe(progressPath);
     assert(!progress || progress.planId === plan.id, '다른 계획의 진행 기록');
@@ -285,6 +313,9 @@ export async function main(args = process.argv.slice(2)) {
         previousWarmup.push({ request: entry.request, result: entry.result });
       }
     }
+    validateGenerationProgress(plan, records, await generationLedger(dir));
+    const modelBefore = hasGeneration ? await modelIdentity(plan.config.model, plan.config.endpoint) : null;
+    if (hasGeneration) assert(sameModelIdentity(plan.config.modelIdentity, modelBefore), '모델 파일/양자화 정보가 준비 후 바뀌었습니다');
     // The CLI owns the durable, sequential call ledger. A nonempty array from
     // an arbitrary API caller alone is not evidence that earlier calls exist.
     const warmupHistoryComplete = progress?.warmupHistoryComplete
@@ -375,10 +406,15 @@ export async function main(args = process.argv.slice(2)) {
       mode: 'automatic-sample', manifestHash: manifest.manifestHash }), '전달 전에 고정한 계획·표본과 현재 매니페스트가 다릅니다');
     assert(manifest.seed === 62, '이번 표본 검증은 실행 전 고정한 seed 62를 사용합니다');
     if (command === 'sample-packets') {
-      const bundle = createSamplePackets(plan, run, manifest);
-      await save(join(dir, 'sample-review-private.json'), bundle);
-      await save(join(dir, 'sample-review-share', 'packets.json'), bundle.packets);
-      await save(join(dir, 'sample-review-share', 'blank-review.json'), bundle.packets.map(p => ({
+      const privateFile = join(dir, 'sample-review-private.json');
+      const existing = await maybe(privateFile);
+      const bundle = existing ?? createSamplePackets(plan, run, manifest);
+      assert(bundle.type === 'sample-review-packets' && hash(bundle.caseIds) === hash(manifest.caseIds),
+        '기존 표본 검토 묶음이 사전 고정한 문항과 다릅니다');
+      finalizeReviews(plan, run, bundle, []); // validate original packet IDs/bindings before any recovery write.
+      await saveMatching(privateFile, bundle);
+      await saveMatching(join(dir, 'sample-review-share', 'packets.json'), bundle.packets);
+      await saveMatching(join(dir, 'sample-review-share', 'blank-review.json'), bundle.packets.map(p => ({
         ...blankJudgment(p), structuredDate: null, structuredReason: '',
       })));
       console.log('sample-review-share만 검토자 두 명에게 각각 전달하세요. 표본 대응표·방법·자동 점수·상대 판정은 가립니다.');

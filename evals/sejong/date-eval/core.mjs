@@ -1,5 +1,5 @@
 import { createHash } from 'node:crypto';
-import { DERIVED_METHODS, POSTPROCESS_VERSION, transformAnswer } from './postprocess.mjs';
+import { DERIVED_METHODS, POSTPROCESS_VERSION, transformAnswer, ruleAnswer } from './postprocess.mjs';
 
 function canonical(value) {
   if (Array.isArray(value)) return value.map(canonical);
@@ -44,6 +44,12 @@ export function validateExecutionPlan(plan) {
   assert(plan.configHash === hash(plan.config), '실행 조건이 변경됐습니다');
   assert(plan.id === hash({ datasetHash: plan.datasetHash, goldHash: plan.goldHash, configHash: plan.configHash }), '계획 ID가 맞지 않습니다');
   assert(['pilot', 'development', 'final'].includes(plan.dataset.split), '자료 구분 누락');
+  if (plan.dataset.split === 'final' && plan.config.generationAuditVersion === 1) {
+    const approval = plan.config.datasetApproval;
+    assert(approval?.goldReviewStatus === 'approved' && Array.isArray(approval.reviewedBy)
+      && approval.reviewedBy.length > 0 && approval.reviewedBy.every(id => typeof id === 'string' && id.trim()),
+    '본실험은 실제 검수자 기록과 승인된 정답표가 필요합니다');
+  }
   assert(Number.isInteger(plan.config.repeats) && plan.config.repeats > 0, '반복 횟수 오류');
   assert(Number.isInteger(plan.config.retries) && plan.config.retries >= 0 && plan.config.retries <= 5, '재시도 횟수는 0~5회');
   assert(Number.isFinite(plan.config.timeoutMs) && plan.config.timeoutMs > 0 && plan.config.timeoutMs <= 2147483647, '시간 제한 오류');
@@ -112,9 +118,10 @@ export function validateExecutionRun(plan, run) {
       assert(Number.isFinite(r.elapsedMs) && r.elapsedMs >= 0, '처리 시간 누락');
       assert(Number.isInteger(r.calls) && r.calls >= 0, '호출 수 누락');
     }
-    for (const k of ['inputTokens', 'outputTokens']) assert(r[k] == null || (Number.isInteger(r[k]) && r[k] >= 0), '토큰 수 오류');
+    for (const k of ['inputTokens', 'outputTokens']) assert(r[k] == null || (Number.isSafeInteger(r[k]) && r[k] >= 0), '토큰 수 오류');
   }
   validateDerivations(plan, run.records);
+  validateDerivedInspectionAudit(plan, run);
   return run;
 }
 
@@ -169,7 +176,39 @@ export function makePlan(dataset, gold, config) {
 
 /** Imported or status-confirmed runs must retain actual requests, not just copied plan hashes. */
 export function validateRecordedInputs(plan, run) {
-  for (const record of run.records) {
+  validateRecordedRecords(plan, run.records);
+  validateDerivedInspectionAudit(plan, run);
+  if (plan.config.generationAuditVersion === 1) {
+    validateGenerationLedger(plan, run);
+    validateGenerationTimes(plan, run);
+  }
+  return run;
+}
+
+function validateDerivedInspectionAudit(plan, run) {
+  const derived = run.records.filter(r => DERIVED_METHODS.includes(r.methodId));
+  if (!derived.some(r => r.postprocessInspections?.length)) return;
+  const audit = run.stateResolution;
+  // Old synthetic/partial histories predate the resolution snapshot. Keep them
+  // readable without certifying them as fully audited new executions.
+  if (!audit && plan.config.generationAuditVersion !== 1) return;
+  assert(audit && Array.isArray(audit.rederived), 'T·V 재검사의 상태 확인 감사 기록이 없습니다');
+  // Older resolutions retained hashes only for the latest changed subset.
+  // New resolutions snapshot every derived record so unrelated later state
+  // decisions cannot silently drop protection of earlier original timings.
+  for (const entry of audit.rederived) {
+    const record = derived.find(r => r.id === entry.recordId);
+    assert(record && entry.recordHash === hash(record), 'T·V 재검사 이후 원기록·시간이 변경됐습니다');
+  }
+  if (audit.auditVersion === 1) {
+    assert(audit.derivedRecordHashes && !Array.isArray(audit.derivedRecordHashes)
+      && hash(audit.derivedRecordHashes) === hash(Object.fromEntries(derived.map(r => [r.id, hash(r)]))),
+    'T·V 재검사 원기록·시간 해시가 다릅니다');
+  }
+}
+
+function validateRecordedRecords(plan, records) {
+  for (const record of records) {
     if (record.state === 'unexecuted') {
       assert((record.calls ?? 0) === 0 && !record.rawAnswer?.trim()
         && (record.attempts === undefined || (Array.isArray(record.attempts) && record.attempts.length === 0))
@@ -180,10 +219,21 @@ export function validateRecordedInputs(plan, run) {
     const c = plan.dataset.cases.find(c => c.id === record.caseId);
     assert(Array.isArray(record.rawInput) && record.rawInput.length > 0, '실제로 보낸 전체 자료·질문이 없습니다');
     if (DERIVED_METHODS.includes(record.methodId)) {
-      validateDerivations(plan, run.records);
+      validateDerivations(plan, records);
     } else if (record.methodId === 'rule-baseline') {
       assert(record.rawInput.length === 1 && record.rawInput[0].sourceText === c.sourceText
         && record.rawInput[0].question === c.question && hash(record.rawInput[0].targets) === hash(c.targets), '규칙 입력 자료·질문·대상 불일치');
+      if (plan.config.generationAuditVersion === 1) {
+        assert(record.calls === 0 && record.inputTokens === 0 && record.outputTokens === 0
+          && Array.isArray(record.attempts) && record.attempts.length === 0, '규칙 방식의 모델 호출·시도·토큰은 0이어야 합니다');
+        if (record.state === 'completed') assert(record.rawAnswer === ruleAnswer(c), '규칙 원답변이 고정된 계산 결과와 다릅니다');
+        if (record.state === 'failed') {
+          let ruleError;
+          try { ruleAnswer(c); } catch (error) { ruleError = error; }
+          assert((ruleError && record.error?.message === ruleError.message && !record.rawAnswer?.trim())
+            || validInspection(record, 'failed'), '규칙 실패의 실행 오류 또는 상태 확인 근거가 없습니다');
+        }
+      }
     } else {
       const requests = [...record.rawInput, ...(record.attempts ?? []).map(attempt => attempt.request)];
       for (const request of requests) {
@@ -195,8 +245,46 @@ export function validateRecordedInputs(plan, run) {
       validateGenerationTrace(plan, record);
     }
   }
-  if (plan.config.generationAuditVersion === 1) validateGenerationLedger(plan, run);
-  return run;
+}
+
+/** A partial checkpoint is not a scored run. Resume must prove all old calls
+ * are bound before issuing even one new request; inspection may retain orphans. */
+export function validateGenerationProgress(plan, records, ledger, { inspection = false } = {}) {
+  assert(Array.isArray(records) && Array.isArray(ledger), '진행 기록·호출 명세가 없습니다');
+  unique(records.map(r => r.id), '진행 결과');
+  for (const record of records) assert(plan.slots.some(s => s.id === record.id
+    && ['caseId', 'repeat', 'methodId'].every(k => s[k] === record[k])), '계획 밖 진행 기록');
+  for (const record of records) {
+    assert(['completed', 'failed', 'unknown', 'unexecuted'].includes(record.state), '진행 기록 실행 상태 오류');
+    assert(Number.isFinite(record.elapsedMs) && record.elapsedMs >= 0
+      && Number.isInteger(record.calls) && record.calls >= 0, '진행 기록 시간·호출 오류');
+    for (const field of ['inputTokens', 'outputTokens']) assert(record[field] == null
+      || (Number.isSafeInteger(record[field]) && record[field] >= 0), '진행 기록 토큰 오류');
+    if (record.state === 'completed') assert(typeof record.rawAnswer === 'string' && record.rawAnswer.trim(), '완료 진행 원답변 누락');
+  }
+  validateRecordedRecords(plan, records);
+  if (plan.config.generationAuditVersion === 1) {
+    const warmup = ledger.filter(e => e.context?.stage === 'warmup' && e.state === 'completed')
+      .map(e => ({ request: e.request, result: e.result }));
+    validateGenerationLedger(plan, { records, generationLedger: ledger, warmup },
+      { verifyModel: false, inspection });
+  }
+  validateGenerationTimes(plan, { records, generationLedger: ledger,
+    warmup: ledger.filter(e => e.context?.stage === 'warmup' && e.state === 'completed')
+      .map(e => ({ request: e.request, result: e.result })) }, { partial: true });
+}
+
+function validInspection(record, state) {
+  const inspection = record.executionInspection;
+  if (!inspection || inspection.recordId !== record.id || inspection.state !== state
+    || !['unknown', 'completed'].includes(inspection.beforeState)
+    || (inspection.beforeState === 'completed' && state !== 'failed')
+    || !['reviewerId', 'reason', 'evidence'].every(k => typeof inspection[k] === 'string' && inspection[k].trim())) return false;
+  const original = { ...record, state: inspection.beforeState };
+  if (inspection.previousInspection) original.executionInspection = inspection.previousInspection;
+  else delete original.executionInspection;
+  return /^[a-f0-9]{64}$/.test(inspection.originalRecordHash ?? '')
+    && hash(original) === inspection.originalRecordHash;
 }
 
 function validateGenerationTrace(plan, record) {
@@ -219,6 +307,7 @@ function validateGenerationTrace(plan, record) {
         && (index === group.length - 1 || attempt.state === 'failed'), '생성 시도 순서·상태가 잘못됐습니다');
       assert(request?.stage === stage && hash(attempt.request) === hash(request), '생성 시도와 단계별 실제 요청이 다릅니다');
       if (attempt.state === 'completed') validateWireAnswer(attempt, strict);
+      else if (strict) validateFailureUsage(attempt);
     }
     last = group.at(-1);
     if (last.state === 'failed') {
@@ -227,15 +316,32 @@ function validateGenerationTrace(plan, record) {
     }
   }
   assert(cursor === record.attempts.length && inputs === record.rawInput.length, '생성 단계 순서·추가 호출이 고정 계획과 다릅니다');
+  if (strict) for (const field of ['inputTokens', 'outputTokens']) {
+    const values = record.attempts.map(attempt => attempt[field]);
+    const expected = values.some(value => value == null) ? null : values.reduce((a, b) => a + b, 0);
+    assert(record[field] === expected, '생성 시도 토큰의 합계·미확인 범위가 기록과 다릅니다');
+  }
   const answered = last?.stage === 'answer' && last.state === 'completed';
   if (record.state === 'completed' || record.rawAnswer?.trim()) {
     assert(answered && record.rawAnswer === last.answer, '집계 답변이 마지막 생성 원답변과 다릅니다');
   }
   if (record.state === 'completed') assert(answered, '완료된 최종 답변 호출이 없습니다');
-  if (strict && record.state === 'failed') assert(last.state === 'failed'
-    || (record.executionInspection?.state === 'failed' && record.executionInspection.originalRecordHash
-      && record.executionInspection.reviewerId && record.executionInspection.reason && record.executionInspection.evidence),
+  if (strict && record.state === 'completed' && last.finishReason === 'length') {
+    assert(validInspection(record, 'completed'), '길이 제한 원답변은 원기록에 연결된 담당자 상태 확인이 필요합니다');
+  }
+  if (strict && record.executionInspection) assert(validInspection(record, record.state), '실행 상태 확인의 원기록·담당·근거 연결이 다릅니다');
+  if (strict && record.state === 'failed') assert(last.state === 'failed' || validInspection(record, 'failed'),
   '생성 성공 기록을 확인 근거 없이 실패로 바꿀 수 없습니다');
+}
+
+function validateFailureUsage(attempt) {
+  let output;
+  try { output = JSON.parse(attempt.raw); } catch { /* Unparseable transport has no confirmed usage. */ }
+  if (!output || typeof output !== 'object' || Array.isArray(output)) output = {};
+  for (const [field, wire] of [['inputTokens', 'prompt_eval_count'], ['outputTokens', 'eval_count']]) {
+    const expected = Number.isSafeInteger(output[wire]) && output[wire] >= 0 ? output[wire] : null;
+    assert((attempt[field] ?? null) === expected, '실패 원응답과 토큰 기록이 다릅니다');
+  }
 }
 
 function validateWireAnswer(attempt, strict) {
@@ -250,17 +356,17 @@ function validateWireAnswer(attempt, strict) {
     && output.response === attempt.answer, '생성 원응답과 해석한 답변이 다릅니다');
   if (strict || Object.hasOwn(output, 'done_reason')) assert((output.done_reason ?? null) === (attempt.finishReason ?? null), '생성 원응답의 종료 사유가 다릅니다');
   for (const [field, wire] of [['inputTokens', 'prompt_eval_count'], ['outputTokens', 'eval_count']]) {
-    const expected = Number.isInteger(output[wire]) && output[wire] >= 0 ? output[wire] : null;
+    const expected = Number.isSafeInteger(output[wire]) && output[wire] >= 0 ? output[wire] : null;
     if (strict || Object.hasOwn(output, wire)) assert((attempt[field] ?? null) === expected, '생성 원응답과 토큰 기록이 다릅니다');
   }
 }
 
 /** New operator runs embed the original ledger; import also checks its files. */
-function validateGenerationLedger(plan, run) {
+function validateGenerationLedger(plan, run, { verifyModel = true, inspection = false } = {}) {
   const ledger = run.generationLedger;
   assert(Array.isArray(ledger), '원본 생성 호출 명세가 없습니다');
   const hasGeneration = plan.config.methods.some(m => !DERIVED_METHODS.includes(m.id) && m.id !== 'rule-baseline');
-  if (hasGeneration) {
+  if (hasGeneration && verifyModel) {
     const identity = value => ({ name: value?.name, digest: value?.digest,
       quantization: value?.details?.quantization_level ?? null });
     const expected = identity(plan.config.modelIdentity);
@@ -274,15 +380,31 @@ function validateGenerationLedger(plan, run) {
   for (const [index, entry] of ledger.entries()) {
     assert(entry.schemaVersion === 1 && entry.planId === plan.id && entry.callId === index + 1,
       '생성 호출 명세의 계획·번호·누락이 잘못됐습니다');
-    assert(['completed', 'failed'].includes(entry.state), '미확인 생성 호출은 확정할 수 없습니다');
+    assert(['completed', 'failed', ...(inspection ? ['in-flight'] : [])].includes(entry.state), '미확인 생성 호출은 확정할 수 없습니다');
+    assert(entry.request?.model === plan.config.model && entry.request.think === plan.config.think
+      && hash(entry.request.options) === hash(plan.config.options), '호출 원본의 모델·옵션이 계획과 다릅니다');
+    if (entry.state === 'failed') validateFailureUsage(entry);
     if (entry.context?.stage === 'warmup') {
-      assert(entry.context.recordId === null && entry.context.attempt === 0 && entry.state === 'completed', '준비 호출 명세가 잘못됐습니다');
+      assert(entry.context.recordId === null && entry.context.attempt === 0
+        && (entry.state === 'completed' || inspection), '준비 호출 명세가 잘못됐습니다');
       assert(plan.config.warmup && entry.request?.stage === 'warmup' && entry.request.model === plan.config.model
         && entry.request.think === plan.config.think && hash(entry.request.options) === hash(plan.config.options),
       '준비 호출 조건이 고정 계획과 다릅니다');
-      validateWireAnswer(entry.result, true);
-      warmups.push({ request: entry.request, result: entry.result });
+      if (entry.state === 'completed') {
+        validateWireAnswer(entry.result, true);
+        warmups.push({ request: entry.request, result: entry.result });
+      }
     } else {
+      const slot = plan.slots.find(s => s.id === entry.context?.recordId);
+      assert(slot && !DERIVED_METHODS.includes(slot.methodId) && slot.methodId !== 'rule-baseline'
+        && ['caseId', 'methodId', 'repeat'].every(k => entry.context[k] === slot[k])
+        && ['answer', ...(slot.methodId === 'evidence-first' ? ['extract'] : [])].includes(entry.context.stage)
+        && entry.request.stage === entry.context.stage && Number.isInteger(entry.context.attempt)
+        && entry.context.attempt >= 0 && entry.context.attempt <= plan.config.retries, '호출 원본의 실행 자리·단계·재시도가 다릅니다');
+      const c = plan.dataset.cases.find(c => c.id === slot.caseId);
+      assert(typeof entry.request.prompt === 'string' && entry.request.prompt.includes(c.sourceText)
+        && entry.request.prompt.includes(c.question), '호출 원본의 자료·질문이 없습니다');
+      if (entry.state === 'completed') validateWireAnswer(entry.result, true);
       const key = JSON.stringify([entry.context?.recordId, entry.context?.stage, entry.context?.attempt]);
       assert(!calls.has(key), '중복 생성 단계·시도 명세');
       calls.set(key, entry);
@@ -304,5 +426,80 @@ function validateGenerationLedger(plan, run) {
       calls.delete(key);
     }
   }
-  assert(calls.size === 0, '실행에 연결되지 않은 추가 생성 호출이 있습니다');
+  assert(inspection || calls.size === 0, '실행에 연결되지 않은 추가 생성 호출이 있습니다');
+}
+
+/** Pure timing validation shared by final reports and pre-call checkpoints.
+ * A partial checkpoint has no measured batch wall interval: validate its known
+ * records/transport, never infer a full or resumed batch total from them. */
+export function validateGenerationTimes(plan, run, { partial = false } = {}) {
+  const strict = plan.config.generationAuditVersion === 1;
+  const plain = value => value !== null && typeof value === 'object' && !Array.isArray(value);
+  const sum = values => values.reduce((a, b) => a + b, 0);
+  const number = (value, label) => assert(Number.isFinite(value) && value >= 0,
+    `${label}: invalid nonnegative cost`);
+  const optionalNumber = (value, label) => { if (value != null) number(value, label); };
+  const containsElapsed = (outer, inner, label, parts = 1) => {
+    number(inner, `${label} elapsed sum`);
+    // One monotonic clock, nested intervals: allow 1ns plus floating arithmetic
+    // noise, not a timer tick or percentage. A measured zero never covers work.
+    const tolerance = 1e-6 + 8 * Number.EPSILON * Math.max(1, outer, inner) * parts;
+    assert((outer !== 0 || inner === 0) && outer + tolerance >= inner,
+      `${label}: elapsedMs smaller than measured inner work`);
+  };
+  if (!partial) {
+    number(run.batchElapsedMs, 'batchElapsedMs');
+    assert(run.resumed === undefined || typeof run.resumed === 'boolean', 'invalid resumed flag');
+    if (strict) {
+      assert(typeof run.resumed === 'boolean', 'strict generation requires a measured batch scope');
+      assert(run.batchWallScope === (run.resumed
+        ? 'current resumed segment only; earlier batch wall time unavailable' : 'whole run; not allocated to methods'),
+      'batchWallScope must document fresh or current resumed segment timing');
+    }
+  }
+  assert(run.warmupHistoryComplete === undefined || typeof run.warmupHistoryComplete === 'boolean', 'invalid warmup history flag');
+  assert(run.warmup === undefined || Array.isArray(run.warmup), 'warmup: expected array');
+  for (const [i, warmup] of (run.warmup ?? []).entries()) {
+    assert(plain(warmup) && plain(warmup.result), 'invalid warmup result');
+    if (strict) number(warmup.result.elapsedMs, `warmup[${i}].elapsedMs`);
+    else optionalNumber(warmup.result.elapsedMs, `warmup[${i}].elapsedMs`);
+  }
+  assert(Array.isArray(run.records), 'generation times: expected records array');
+  assert(!strict || Array.isArray(run.generationLedger), '원본 생성 호출 명세가 없습니다');
+  const ledger = strict ? new Map(run.generationLedger.filter(e => e.context?.stage !== 'warmup')
+    .map(e => [JSON.stringify([e.context?.recordId, e.context?.stage, e.context?.attempt]), e])) : null;
+  for (const record of run.records) {
+    number(record.elapsedMs, `${record.id}.elapsedMs`);
+    assert(Array.isArray(record.attempts), 'invalid generation attempts array/count');
+    for (const attempt of record.attempts) {
+      assert(plain(attempt), `${record.id}: invalid attempt`);
+      if (strict) {
+        number(attempt.elapsedMs, `${record.id} attempt.elapsedMs`);
+        const entry = ledger.get(JSON.stringify([record.id, attempt.stage, attempt.attempt]));
+        assert(entry, `${record.id}: original generation time record missing`);
+        const transport = entry.state === 'completed' ? entry.result : entry;
+        number(transport?.elapsedMs, `${record.id} transport.elapsedMs`);
+        containsElapsed(attempt.elapsedMs, transport.elapsedMs, `${record.id} attempt/transport`);
+      } else optionalNumber(attempt.elapsedMs, `${record.id}.elapsedMs`);
+    }
+    const measuredAttempts = record.attempts.filter(a => a.elapsedMs != null);
+    containsElapsed(record.elapsedMs, sum(measuredAttempts.map(a => a.elapsedMs)),
+      `${record.id} record/attempt`, measuredAttempts.length);
+    if (record.postprocessInspections !== undefined) {
+      assert(Array.isArray(record.postprocessInspections), 'invalid postprocess inspection array');
+      for (const inspection of record.postprocessInspections) number(inspection.elapsedMs, 'inspection elapsedMs');
+    }
+  }
+  if (!partial && !run.resumed) {
+    // Inspections occur later: exclude them from original response/batch time.
+    const originalTimes = run.records.map(r => r.elapsedMs);
+    const warmupTimes = (run.warmup ?? []).flatMap(w => w.result.elapsedMs == null ? [] : [w.result.elapsedMs]);
+    const knownElapsed = sum([...originalTimes, ...warmupTimes]);
+    number(knownElapsed, 'fresh batch elapsed sum');
+    // Legacy injected fixtures used loose warmup/batch clocks. Keep readability
+    // while still rejecting clear measured-zero/positive-work contradictions.
+    if (strict || run.batchElapsedMs === 0) containsElapsed(run.batchElapsedMs, knownElapsed,
+      'fresh batch/records+warmup', originalTimes.length + warmupTimes.length);
+  }
+  return run;
 }
