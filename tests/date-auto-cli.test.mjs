@@ -73,7 +73,7 @@ test('CLI preserves originals and separates full automatic, sampled humans and l
   assert.deepEqual(manifest.questionTypes.quotas, manifest.questionTypes.available);
   const blanks = await read(join(dir, 'sample-review-share/blank-review.json'));
   assert.equal(blanks[0].structuredDate, null);
-  for (const reviewer of ['민준', '시연']) {
+  for (const reviewer of ['시연', '선영']) {
     const file = join(dir, `${reviewer}.json`);
     await writeFile(file, JSON.stringify(packets.map(p => review(p, reviewer))));
     await main(['import-sample-review', '--dir', dir, '--file', file, '--reviewer', reviewer]);
