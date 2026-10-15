@@ -55,7 +55,7 @@ test('CLI preserves originals and separates full automatic, sampled humans and l
   const dir = await fixture();
   const original = await readFile(join(dir, 'run.json'), 'utf8');
   const frozen = await readFile(join(dir, 'sample-manifest.json'), 'utf8');
-  await assert.rejects(main(['sample-freeze', '--dir', dir]), /실행 결과/);
+  await assert.rejects(main(['sample-freeze', '--dir', dir]), /실행 (결과|환경 기록)/);
   await main(['automatic-report', '--dir', dir]);
   const automatic = await read(join(dir, 'automatic-report.json'));
   assert.equal(automatic.items.length, 8); assert.equal(automatic.humanValidated, false);
@@ -164,24 +164,23 @@ test('synthetic CLI freezes 60 outputs, exports blind inputs and audits every sa
   assert.equal((await read(join(out, 'operator.json'))).sampleManifestHash, manifest.manifestHash);
   await assert.rejects(readFile(join(out, 'sample-manifest.json')), { code: 'ENOENT' });
   await assert.rejects(main(['sample-freeze', '--dir', dir]), /전달한 뒤/);
-  // Inject the generator directly into runPlan; CLI import/audit paths use the
-  // real exported plan and recorded prompts, with no fetch/model invocation.
+  // Exercise the actual CLI so durable environment/call evidence is produced
+  // before import. fetch is mocked in-process; no network/model invocation.
   let calls = 0;
-  const ledger = [];
-  await mkdir(join(out, 'generation-calls'));
-  const run = await runPlan(publicPlan, { generate: async (request, _config, context) => {
-    const result = { answer, inputTokens: 2, outputTokens: 3, finishReason: 'stop', elapsedMs: 0,
-      raw: JSON.stringify({ done: true, done_reason: 'stop', response: answer, prompt_eval_count: 2, eval_count: 3 }) };
-    const entry = { schemaVersion: 1, planId: publicPlan.id, callId: ++calls, context, request, state: 'completed', result };
-    ledger.push(entry);
-    await writeFile(join(out, 'generation-calls', String(calls).padStart(4, '0') + '.json'), JSON.stringify(entry));
-    return result;
-  } });
-  run.generationLedger = ledger;
-  run.modelVerification = { before: publicPlan.config.modelIdentity, after: publicPlan.config.modelIdentity };
+  const originalFetch = globalThis.fetch;
+  globalThis.fetch = async url => {
+    if (String(url).endsWith('/api/tags')) return Response.json({ models: [publicPlan.config.modelIdentity] });
+    assert.ok(String(url).endsWith('/api/generate'));
+    calls++;
+    return Response.json({ done: true, done_reason: 'stop', response: answer, prompt_eval_count: 2, eval_count: 3 });
+  };
+  try { await main(['run', '--dir', out]); }
+  finally { globalThis.fetch = originalFetch; }
+  const run = await read(join(out, 'run.json'));
+  assert.equal(run.environmentHistory.length, 1);
+  assert.deepEqual(await read(join(out, 'environment-segments/0001.json')), run.environmentHistory[0]);
   assert.equal(run.records.length, 265); assert.ok(run.records.every(r => r.state === 'completed'));
   assert.equal(calls, 159); // P once and E twice per population question; R/T/V make no calls.
-  await writeFile(join(out, 'run.json'), JSON.stringify(run));
   await main(['import-run', '--dir', dir, '--file', join(out, 'run.json')]);
   const original = await readFile(join(dir, 'run.json'), 'utf8'), beforeCalls = calls;
   await main(['automatic-report', '--dir', dir]);

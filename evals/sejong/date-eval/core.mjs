@@ -61,6 +61,10 @@ export function validateExecutionPlan(plan) {
   assert(Number.isFinite(plan.config.timeoutMs) && plan.config.timeoutMs > 0 && plan.config.timeoutMs <= 2147483647, '시간 제한 오류');
   assert(typeof plan.config.model === 'string' && plan.config.model.length > 0, '모델 누락');
   generationCompletionVersion(plan.config);
+  assert(plan.config.environmentAuditVersion === undefined || plan.config.environmentAuditVersion === 1,
+    '지원하지 않는 실행 환경 감사 버전');
+  assert(plan.config.environmentAuditVersion !== 1 || plan.config.generationAuditVersion === 1,
+    '실행 환경 감사 v1은 원본 생성 감사 버전 1이 필요합니다');
   if (Object.hasOwn(plan.config, 'think')) assert(typeof plan.config.think === 'boolean', 'thinking 설정은 boolean이어야 합니다');
   unique(plan.dataset.cases.map((c) => c.id), '질문');
   if (plan.gold) unique(plan.gold.cases.map((c) => c.id), '정답');
@@ -130,7 +134,54 @@ export function validateExecutionRun(plan, run) {
   }
   validateDerivations(plan, run.records);
   validateDerivedInspectionAudit(plan, run);
+  validateEnvironmentHistory(plan, run);
   return run;
+}
+
+/** New plans pin this contract. Legacy completed runs remain readable without
+ * inventing a historical environment; checkpoints without it cannot resume. */
+export function validateEnvironmentHistory(plan, run, { partial = false } = {}) {
+  const history = run.environmentHistory;
+  if (!history && plan.config.environmentAuditVersion !== 1) return;
+  assert(Array.isArray(history) && history.length > 0, '실행 환경 이력이 없습니다. 과거 환경을 소급 인증할 수 없습니다');
+  const ledger = run.generationLedger ?? [], records = run.records ?? [];
+  const identity = value => ({ name: value?.name, digest: value?.digest,
+    quantization: value?.details?.quantization_level ?? null });
+  const generated = plan.config.methods.some(m => m.id !== 'rule-baseline' && !DERIVED_METHODS.includes(m.id));
+  const first = history[0];
+  for (const [index, segment] of history.entries()) {
+    assert(segment && typeof segment === 'object' && !Array.isArray(segment), '실행 환경 구간 형식 오류');
+    const { segmentHash, ...body } = segment;
+    assert(segment.schemaVersion === 1 && segment.planId === plan.id && segment.index === index + 1
+      && segment.previousHash === (history[index - 1]?.segmentHash ?? null)
+      && segmentHash === hash(body), '실행 환경 이력의 연결·해시가 다릅니다');
+    const env = segment.environment;
+    assert(env && ['platform', 'release', 'arch', 'hostHash', 'cpu', 'node'].every(k => typeof env[k] === 'string' && env[k].trim())
+      && /^[a-f0-9]{64}$/.test(env.hostHash) && Number.isSafeInteger(env.cpus) && env.cpus > 0
+      && Number.isSafeInteger(env.memoryBytes) && env.memoryBytes > 0, '실행 환경 기록이 불완전합니다');
+    assert(hash(env) === hash(first.environment), '재개 전 실행 환경이 바뀌었습니다. 같은 실행으로 합칠 수 없습니다');
+    assert(typeof segment.startedAt === 'string' && Number.isFinite(Date.parse(segment.startedAt))
+      && (!index || Date.parse(segment.startedAt) >= Date.parse(history[index - 1].startedAt)), '환경 구간 시작 시각 오류');
+    assert(Number.isSafeInteger(segment.callCount) && segment.callCount >= 0 && segment.callCount <= ledger.length
+      && Array.isArray(segment.recordIds) && segment.recordIds.length <= records.length
+      && hash(segment.recordIds) === hash(records.slice(0, segment.recordIds.length).map(r => r.id))
+      && segment.ledgerPrefixHash === hash(ledger.slice(0, segment.callCount)), '환경 구간의 이전 결과·호출 연결이 다릅니다');
+    assert(index ? segment.callCount >= history[index - 1].callCount
+      && segment.recordIds.length >= history[index - 1].recordIds.length
+      : segment.callCount === 0 && segment.recordIds.length === 0, '최초 실행 또는 재개 구간이 누락됐습니다');
+    assert(generated ? segment.modelBefore?.name && segment.modelBefore?.digest
+      && hash(identity(segment.modelBefore)) === hash(identity(plan.config.modelIdentity))
+      : segment.modelBefore === null, '환경 구간의 실행 전 모델 확인 기록이 고정 계획과 다릅니다');
+    const end = history[index + 1]?.callCount ?? ledger.length;
+    assert(ledger.slice(segment.callCount, end).every(entry => entry.environmentSegmentHash === segmentHash),
+      '생성 호출의 환경 구간 연결이 다릅니다');
+  }
+  if (!partial) {
+    assert(hash(run.environment) === hash(first.environment), '최종 환경이 최초 실행 환경과 다릅니다');
+    assert(history.length <= 1 || run.resumed === true, '재개 구간이 있는 실행을 새 실행으로 표시할 수 없습니다');
+    if (generated) assert(hash(run.modelVerification?.before) === hash(first.modelBefore),
+      '최종 실행 전 모델 확인값이 최초 구간과 다릅니다');
+  }
 }
 
 export function executionPlan(plan) {
@@ -185,6 +236,7 @@ export function makePlan(dataset, gold, config) {
 
 /** Imported or status-confirmed runs must retain actual requests, not just copied plan hashes. */
 export function validateRecordedInputs(plan, run) {
+  validateEnvironmentHistory(plan, run);
   validateRecordedRecords(plan, run.records);
   validateDerivedInspectionAudit(plan, run);
   if (plan.config.generationAuditVersion === 1) {

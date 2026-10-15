@@ -2,9 +2,9 @@ import { readFile, writeFile, mkdir, readdir, rename, realpath, link, unlink, ls
 import { randomUUID } from 'node:crypto';
 import { resolve, join, dirname, basename, relative, isAbsolute, sep } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { hash, assert, makePlan, validatePlan, validateRun, validateRecordedInputs, validateGenerationProgress, executionPlan, validateExecutionPlan, validateExecutionRun } from './core.mjs';
+import { hash, assert, makePlan, validatePlan, validateRun, validateRecordedInputs, validateGenerationProgress, validateEnvironmentHistory, executionPlan, validateExecutionPlan, validateExecutionRun } from './core.mjs';
 import { DERIVED_METHODS, POSTPROCESS_VERSION } from './postprocess.mjs';
-import { runPlan, ollamaGenerate, localEndpoint, METHOD_VERSION, modelIdentity, sameModelIdentity } from './runner.mjs';
+import { runPlan, ollamaGenerate, localEndpoint, METHOD_VERSION, modelIdentity, sameModelIdentity, executionEnvironment } from './runner.mjs';
 import { codeGrade, aiGrade, createReviewPackets, finalizeReviews, validateJudge, validateFinalAudit } from './grading.mjs';
 import { buildReport, compareReports } from './report.mjs';
 import { resolveRunState } from './state.mjs';
@@ -123,7 +123,8 @@ async function generationLedger(dir) {
         // link remains valid only if it is exactly the same call's start record.
         try {
           const terminal = JSON.parse(published.toString('utf8'));
-          const original = Object.fromEntries(['schemaVersion', 'planId', 'callId', 'context', 'request', 'startedAt']
+          const original = Object.fromEntries(['schemaVersion', 'planId', 'callId', 'context', 'request', 'startedAt',
+            ...(terminal.environmentSegmentHash ? ['environmentSegmentHash'] : [])]
             .map(key => [key, terminal[key]]));
           committed = ['completed', 'failed'].includes(terminal.state)
             && hash(JSON.parse(staging.toString('utf8'))) === hash({ ...original, state: 'in-flight' });
@@ -136,6 +137,25 @@ async function generationLedger(dir) {
   return Promise.all(names.filter(name => /^\d+\.json$/.test(name))
     .sort((a, b) => Number(a.slice(0, -5)) - Number(b.slice(0, -5)))
     .map(name => read(join(dir, 'generation-calls', name))));
+}
+async function environmentSegments(dir) {
+  const folder = join(dir, 'environment-segments');
+  let names;
+  try { names = await readdir(folder); }
+  catch (error) { if (error.code === 'ENOENT') return []; throw error; }
+  for (const name of names.filter(n => /^\d+\.json\.pending-.+$/.test(n))) {
+    const target = join(folder, name.replace(/\.pending-.+$/, ''));
+    let published;
+    try { published = await readFile(target); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    assert(published && published.equals(await readFile(join(folder, name))),
+      '실행 환경 기록의 저장 중단 흔적이 있습니다. 진행 기록과 원본을 담당자에게 전달하세요');
+  }
+  const files = names.filter(n => /^\d+\.json$/.test(n)).sort((a, b) => Number(a.slice(0, -5)) - Number(b.slice(0, -5)));
+  return Promise.all(files.map(async (name, index) => {
+    assert(Number(name.slice(0, -5)) === index + 1, '실행 환경 원본 구간이 누락됐습니다');
+    return read(join(folder, name));
+  }));
 }
 export async function implementationHash() {
   return hash(await Promise.all(['core.mjs', 'runner.mjs', 'postprocess.mjs', 'grading.mjs', 'report.mjs', 'state.mjs', 'costs.mjs', 'cli.mjs'].map(async (name) => [name, await readFile(new URL(name, import.meta.url), 'utf8')])));
@@ -253,6 +273,7 @@ export async function main(args = process.argv.slice(2)) {
       warmup: flags.warmup === true,
       generationAuditVersion: 1,
       generationCompletionVersion: 2,
+      environmentAuditVersion: 1,
       methods: methods.map((id) => ({ id, version: METHOD_VERSION, codeHash: null,
         ...(DERIVED_METHODS.includes(id) ? { postprocessVersion: POSTPROCESS_VERSION } : {}) })),
     };
@@ -280,6 +301,10 @@ export async function main(args = process.argv.slice(2)) {
   }
   const plan = (command === 'run' ? validateExecutionPlan : validatePlan)(await read(join(dir, 'plan.json')));
   if (command === 'sample-freeze') {
+    let environmentFiles = [];
+    try { environmentFiles = await readdir(join(dir, 'environment-segments')); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    assert(environmentFiles.length === 0, '실행 환경 기록이 생긴 뒤 표본을 사전 고정할 수 없습니다');
     assert(!(await maybe(join(dir, 'operator-export.json'))),
       '실행 폴더를 전달한 뒤 표본을 사전 고정할 수 없습니다. 새 계획에서 표본을 먼저 고정하세요');
     assert(!(await maybe(join(dir, 'run.json'))) && !(await maybe(join(dir, 'progress.json'))),
@@ -294,6 +319,10 @@ export async function main(args = process.argv.slice(2)) {
     return;
   }
   if (command === 'export-operator') {
+    let environmentFiles = [];
+    try { environmentFiles = await readdir(join(dir, 'environment-segments')); }
+    catch (error) { if (error.code !== 'ENOENT') throw error; }
+    assert(environmentFiles.length === 0, '실행 환경 기록이 있는 계획은 새 실행 폴더로 전달할 수 없습니다. 시작 전 계획을 준비하세요');
     assert(plan.dataset.split !== 'final' || plan.gold.reviewStatus === 'approved', '검수 전 본실험 자료는 전달할 수 없습니다');
     if (plan.dataset.split === 'final') assert(Array.isArray(plan.gold.reviewedBy) && plan.gold.reviewedBy.length > 0
       && plan.gold.reviewedBy.every(id => typeof id === 'string' && id.trim()), '본실험은 실제 검수자 기록이 필요합니다');
@@ -330,6 +359,9 @@ export async function main(args = process.argv.slice(2)) {
     validateRecordedInputs(plan, run);
     if (plan.config.generationAuditVersion === 1) assert(hash(await generationLedger(dirname(resolve(flags.file)))) === hash(run.generationLedger),
       '반환 폴더의 원본 생성 호출 파일과 실행 명세가 다릅니다. 전체 폴더를 보존해 전달하세요');
+    if (plan.config.environmentAuditVersion === 1 || run.environmentHistory) assert(
+      hash(await environmentSegments(dirname(resolve(flags.file)))) === hash(run.environmentHistory),
+      '반환 폴더의 원본 환경 이력과 실행 기록이 다릅니다. 전체 폴더를 보존해 전달하세요');
     await save(join(dir, 'run.json'), run);
     console.log('기존 원문 기록을 재사용합니다. 모델을 다시 실행하지 않았습니다.');
     return;
@@ -376,14 +408,36 @@ export async function main(args = process.argv.slice(2)) {
       }
     }
     validateGenerationProgress(plan, records, previousLedger);
+    const previousEnvironment = await environmentSegments(dir);
+    const environment = executionEnvironment();
+    if (progress) {
+      assert(Array.isArray(progress.environmentHistory) && progress.environmentHistory.length > 0,
+        '과거 진행 기록에 실행 환경 이력이 없습니다. 현재 환경으로 소급 인증하지 않고 재개를 중단합니다');
+      assert(hash(previousEnvironment) === hash(progress.environmentHistory), '진행 기록과 원본 실행 환경 이력이 다릅니다');
+      validateEnvironmentHistory(plan, { records, generationLedger: previousLedger,
+        environmentHistory: progress.environmentHistory }, { partial: true });
+      assert(hash(environment) === hash(previousEnvironment[0].environment),
+        '재개 전 실행 환경이 바뀌었습니다. 같은 실행으로 합칠 수 없습니다. 원본 폴더를 담당자에게 전달하세요');
+    } else assert(previousEnvironment.length === 0, '환경 원본은 있지만 진행 기록이 없습니다. 확인 전 재실행하지 않습니다');
     const modelBefore = hasGeneration ? await modelIdentity(plan.config.model, plan.config.endpoint) : null;
     if (hasGeneration) assert(sameModelIdentity(plan.config.modelIdentity, modelBefore), '모델 파일/양자화 정보가 준비 후 바뀌었습니다');
+    const body = { schemaVersion: 1, planId: plan.id, index: previousEnvironment.length + 1,
+      previousHash: previousEnvironment.at(-1)?.segmentHash ?? null, environment, modelBefore,
+      startedAt: new Date().toISOString(), callCount: previousLedger.length,
+      ledgerPrefixHash: hash(previousLedger), recordIds: records.map(r => r.id) };
+    const segment = { ...body, segmentHash: hash(body) };
+    await save(join(dir, 'environment-segments', String(segment.index).padStart(4, '0') + '.json'), segment);
+    const environmentHistory = [...previousEnvironment, segment];
     // The CLI owns the durable, sequential call ledger. A nonempty array from
     // an arbitrary API caller alone is not evidence that earlier calls exist.
     const warmupHistoryComplete = progress?.warmupHistoryComplete
       ?? (!plan.config.warmup || records.length === 0
         || (previousWarmup.length > 0 && callIds.every((id, index) => id === index + 1)));
     assert(typeof warmupHistoryComplete === 'boolean', '준비 호출 이력 상태 오류');
+    // Flush the environment and pre-call model identity before any warmup,
+    // generation or zero-call rule/postprocess work can start.
+    const progressValue = extra => ({ planId: plan.id, records, warmupHistoryComplete, environmentHistory, ...extra });
+    await checkpoint(progressPath, progressValue({ inFlight: null }));
     let callId = Math.max(0, ...callIds);
     let active = null;
     async function persist(write) {
@@ -398,10 +452,11 @@ export async function main(args = process.argv.slice(2)) {
       const file = join('generation-calls', String(id).padStart(4, '0') + '.json');
       const path = join(dir, file);
       const entry = { schemaVersion: 1, planId: plan.id, callId: id, context, request,
+        environmentSegmentHash: segment.segmentHash,
         startedAt: new Date().toISOString(), state: 'in-flight' };
       await persist(() => save(path, entry));
-      await persist(() => checkpoint(progressPath, { planId: plan.id, records, warmupHistoryComplete,
-        inFlight: { request, callFile: file, context, startedAt: entry.startedAt } }));
+      await persist(() => checkpoint(progressPath, progressValue({
+        inFlight: { request, callFile: file, context, startedAt: entry.startedAt } })));
       active = request;
       let result;
       try { result = await ollamaGenerate(request, config); }
@@ -417,9 +472,10 @@ export async function main(args = process.argv.slice(2)) {
     };
     const result = await runPlan(plan, { existingRecords: records, existingWarmup: previousWarmup,
       existingWarmupHistoryComplete: warmupHistoryComplete, generate,
+      environment: environmentHistory[0].environment, environmentHistory,
       onRecord: async (record) => {
         records.push(record); active = null;
-        await checkpoint(progressPath, { planId: plan.id, records, warmupHistoryComplete, inFlight: null });
+        await checkpoint(progressPath, progressValue({ inFlight: null }));
         console.log(`${records.length}/${plan.slots.length}: ${record.caseId} ${record.methodId} ${record.state}`);
       } });
     assert(!active, '확인되지 않은 실행 상태');
@@ -429,12 +485,12 @@ export async function main(args = process.argv.slice(2)) {
         modelAfter = await modelIdentity(plan.config.model, plan.config.endpoint);
         assert(sameModelIdentity(modelBefore, modelAfter), '실행 중 모델 파일/양자화 정보가 바뀌었습니다. 결과를 확정하지 않고 원본 폴더를 보존합니다');
       } catch (error) {
-        await checkpoint(progressPath, { planId: plan.id, records, warmupHistoryComplete, inFlight: null,
+        await checkpoint(progressPath, progressValue({ inFlight: null,
           modelVerificationIssue: { before: modelBefore, after: modelAfter ?? null, error: error.message,
-            recordedAt: new Date().toISOString() } });
+            recordedAt: new Date().toISOString() } }));
         throw error;
       }
-      result.modelVerification = { before: modelBefore, after: modelAfter, scope: 'tag identity checked before and after batch; not per-response digest attestation' };
+      result.modelVerification = { before: environmentHistory[0].modelBefore, after: modelAfter, scope: 'tag identity checked before each segment and after final batch; not per-response digest attestation' };
     }
     if (plan.config.generationAuditVersion === 1) result.generationLedger = await generationLedger(dir);
     validateExecutionRun(plan, result);

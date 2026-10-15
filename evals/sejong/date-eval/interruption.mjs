@@ -4,7 +4,7 @@
 import { readFile, readdir } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { join } from 'node:path';
-import { assert, hash, validatePlan, validateExecutionPlan, executionPlan, validateGenerationProgress } from './core.mjs';
+import { assert, hash, validatePlan, validateExecutionPlan, executionPlan, validateGenerationProgress, validateEnvironmentHistory } from './core.mjs';
 
 export async function inspectInterruption(plan, folder) {
   validatePlan(plan);
@@ -70,6 +70,35 @@ export async function inspectInterruption(plan, folder) {
   // unvalidated evidence, never manufacture a replacement call to fill the gap.
   const validatedLedger = unreadableCalls.length ? ledger.filter(e => e.callId < Math.min(...unreadableCalls)) : ledger;
   validateGenerationProgress(plan, unreadableCalls.length ? [] : progress.records, validatedLedger, { inspection: true });
+  // An interruption report is evidence, not certification. Retain missing or
+  // damaged historical environment files as explicit uncertainty while still
+  // allowing original call costs to be inspected without model access.
+  let environmentNames = [];
+  try { environmentNames = await readdir(join(folder, 'environment-segments')); }
+  catch (error) { if (error.code !== 'ENOENT') throw error; }
+  const environmentHistory = [], environmentIssues = [];
+  for (const name of environmentNames.filter(n => /^\d+\.json(?:\.pending-.+)?$/.test(n)).sort()) {
+    const path = join('environment-segments', name);
+    if (name.includes('.pending-')) {
+      await bytes(path);
+      storageArtifacts.push({ path, state: 'environment-storage-artifact', sha256: sourceByteHashes[path] });
+    } else {
+      try { environmentHistory.push(await read(path)); }
+      catch (error) {
+        if (!(error instanceof SyntaxError)) throw error;
+        environmentIssues.push('환경 원본 파일을 읽을 수 없습니다: ' + path);
+        storageArtifacts.push({ path, state: 'unreadable-environment', sha256: sourceByteHashes[path] });
+      }
+    }
+  }
+  if (!progress.environmentHistory?.length) environmentIssues.push('진행 기록에 과거 환경 이력이 없습니다. 소급 인증하지 않습니다');
+  else {
+    try {
+      assert(hash(environmentHistory) === hash(progress.environmentHistory), '진행 기록과 원본 환경 이력이 다릅니다');
+      validateEnvironmentHistory(plan, { records: progress.records, generationLedger: ledger,
+        environmentHistory: progress.environmentHistory }, { partial: true });
+    } catch (error) { environmentIssues.push(error.message); }
+  }
   if (progress.inFlight) {
     const entry = ledger.find(e => hash(e.request) === hash(progress.inFlight.request)
       && hash(e.context) === hash(progress.inFlight.context)
@@ -116,6 +145,8 @@ export async function inspectInterruption(plan, folder) {
     generationCost: { calls: null, recordedCalls: names.length, readableRecordedCalls: ledger.length, confirmedCalls: terminal.length,
       inputTokens: cost('inputTokens'), outputTokens: cost('outputTokens'), elapsedMs: cost('elapsedMs') },
     modelVerificationIssue: progress.modelVerificationIssue ?? null,
+    environmentHistory, checkpointEnvironmentHistory: progress.environmentHistory ?? null,
+    environmentHistoryStatus: environmentIssues.length ? 'unverified' : 'validated-records-only', environmentIssues,
     warmupHistoryComplete: progress.warmupHistoryComplete ?? null,
     next: '담당자가 원본 호출·종료/시간초과·미확인 비용을 확인합니다. 원본을 고쳐 맞추거나 같은 자리를 임의 재실행하지 않습니다. 계속 확인 불가하면 이 중단 기록을 별도 보존하고 승인 자료·조건·사전 표본으로 새 실행 폴더를 준비합니다. 유진님은 실행·기록·전체 폴더 전달만 맡습니다.' };
 }

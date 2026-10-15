@@ -91,7 +91,9 @@ test('a partial final write preserves checkpoint/raw calls and resumes publicati
   assert.equal(f.requests.generate, calls);
   const run = await read(join(f.out, 'run.json'));
   assert.equal(run.resumed, true); assert.deepEqual(run.records, progress.records);
-  for (const [file, bytes] of Object.entries(before)) assert.equal((await snapshot(f.out))[file], bytes);
+  for (const [file, bytes] of Object.entries(before).filter(([file]) => file !== 'progress.json')) assert.equal((await snapshot(f.out))[file], bytes);
+  assert.deepEqual(run.environmentHistory.slice(0, -1), progress.environmentHistory);
+  assert.deepEqual((await read(join(f.out, 'progress.json'))).records, progress.records);
 });
 
 test('a failed import leaves only staging evidence; retry imports without touching the source and then rejects duplicates', async () => {
@@ -146,11 +148,11 @@ for (const mode of ['rename', 'partial-checkpoint', 'partial-call']) test(`initi
   });
   assert.deepEqual(f.requests, requests); assert.deepEqual(await snapshot(f.out), before);
   const report = await read(diagnostic);
-  assert.equal(report.progressStatus, 'missing'); assert.equal(report.records.length, 0);
+  assert.equal(report.progressStatus, mode === 'partial-call' ? 'committed' : 'missing'); assert.equal(report.records.length, 0);
   assert.equal(report.automaticResumeAllowed, false); assert.equal(report.blocksFinalReport, true);
   assert.equal(report.generationCost.calls, null); assert.equal(report.generationCost.inputTokens.sum, null);
   assert.ok(report.plannedSlots.every(row => row.state === 'unknown'));
-  assert.ok(report.storageArtifacts.length >= 2);
+  assert.ok(report.storageArtifacts.length >= (mode === 'partial-call' ? 1 : 2));
 });
 
 for (const file of ['run.json', 'progress.json']) test(`legacy unreadable ${file} can be diagnosed without modifying or certifying it`, async () => {

@@ -402,6 +402,13 @@ function score(judgment, field) {
 }
 const ratio = (n, d) => ({ numerator: n, denominator: d, value: d ? n / d : null, reason: d ? null : 'N/A: no eligible items' });
 
+function validateReviewTime(review) {
+  // Missing/null means unmeasured, not zero. Reject malformed times before
+  // an immutable first review or adjudication can be registered.
+  assert(review.elapsedMs == null || (Number.isFinite(review.elapsedMs) && review.elapsedMs >= 0),
+    '사람 채점 elapsedMs: 검토 시간은 유효한 0 이상의 숫자여야 합니다');
+}
+
 export function finalizeReviews(plan, run, packetBundle, reviews, adjudications = []) {
   validateRun(plan, run);
   const { packets, records, selected, caseIds } = validatePackets(plan, run, packetBundle);
@@ -412,12 +419,16 @@ export function finalizeReviews(plan, run, packetBundle, reviews, adjudications 
   for (const review of reviews) {
     assert(packets.get(review.packetId)?.hash === review.packetHash, 'review packet mismatch');
     assert(text(review.reviewerId) && review.independent === true && review.blind === true, 'independent blind reviewer attestation required');
+    validateReviewTime(review);
     const rows = byPacket.get(review.packetId) ?? [];
     assert(rows.length < 2 && !rows.some(r => r.reviewerId === review.reviewerId), 'exactly two distinct first reviewers required');
     rows.push(clone(review)); byPacket.set(review.packetId, rows);
   }
   const resolutions = index(adjudications, 'packetId', 'adjudications');
-  for (const resolution of resolutions.values()) assert(packets.get(resolution.packetId)?.hash === resolution.packetHash, 'adjudication packet mismatch');
+  for (const resolution of resolutions.values()) {
+    assert(packets.get(resolution.packetId)?.hash === resolution.packetHash, 'adjudication packet mismatch');
+    validateReviewTime(resolution);
+  }
   const details = [], items = [];
   let agreed = 0, total = 0;
   for (const record of selected) {

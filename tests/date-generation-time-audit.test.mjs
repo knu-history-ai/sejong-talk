@@ -122,9 +122,11 @@ async function checkpointFixture() {
   assert.deepEqual(ledger.map(e => e.callId), ledger.map((_, i) => i + 1));
   async function checkpoint(name, mutate = () => {}) {
     const folder = join(root, name), progress = { planId: plan.id, records: clone(records),
-      warmupHistoryComplete: true, inFlight: null }, calls = clone(ledger);
+      warmupHistoryComplete: true, inFlight: null, environmentHistory: clone(run.environmentHistory) }, calls = clone(ledger);
     mutate(progress, calls);
     await mkdir(join(folder, 'generation-calls'), { recursive: true });
+    await mkdir(join(folder, 'environment-segments'));
+    await writeFile(join(folder, 'environment-segments/0001.json'), await readFile(join(out, 'environment-segments/0001.json')));
     await writeFile(join(folder, 'plan.json'), await readFile(join(out, 'plan.json')));
     await write(join(folder, 'progress.json'), progress);
     for (const entry of calls) await write(join(folder, 'generation-calls', String(entry.callId).padStart(4, '0') + '.json'), entry);
