@@ -34,6 +34,7 @@ test("Ollama request sends Qwen JSON generation body and records local token usa
     model: "qwen3.5:4b-q4_K_M",
     prompt: "prompt",
     stream: false,
+    think: false,
     format: "json",
     options: {
       temperature: 0.2,
