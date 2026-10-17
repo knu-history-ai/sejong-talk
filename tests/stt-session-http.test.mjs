@@ -26,11 +26,11 @@ function request(cookie, { audio = wav(), id = "stt-request-1", from = origin, s
   });
 }
 
-function harness(t, run = async (provider) => ({ provider, text: "세종대왕은 왜 훈민정음을 만들었나요?", latencyMs: 1, success: true })) {
+function harness(t, run = async (provider) => ({ provider, text: "세종대왕은 왜 훈민정음을 만들었나요?", latencyMs: 1, success: true }), sessionOptions = {}) {
   const saved = { APP_ORIGIN: process.env.APP_ORIGIN, STT_PROVIDER: process.env.STT_PROVIDER };
   process.env.APP_ORIGIN = origin;
   process.env.STT_PROVIDER = "azure";
-  const sessions = new SessionStore();
+  const sessions = new SessionStore(sessionOptions);
   const tokens = [];
   t.after(() => {
     tokens.forEach((token) => sessions.revoke(token));
@@ -94,6 +94,115 @@ test("duplicate request IDs share one call; different audio under the same ID co
   const conflict = await h.http.post(request(owner.cookie, { audio: wav(100, 7) }));
   assert.equal(conflict.status, 409);
   assert.equal((await conflict.json()).code, "REQUEST_CONFLICT");
+});
+
+test("completed jobs expire without another request; replay does not extend the 60-second TTL", async (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+  const h = harness(t);
+  const owner = h.create();
+  const signal = h.sessions.authenticate(owner.token, false).signal;
+  const original = await (await h.http.post(request(owner.cookie))).json();
+  const jobs = h.http.jobs.get(signal);
+  assert.equal(jobs.size, 1);
+
+  t.mock.timers.tick(59_999);
+  assert.equal(jobs.size, 1);
+  assert.deepEqual(await (await h.http.post(request(owner.cookie))).json(), original);
+  assert.equal(h.calls.length, 1);
+  t.mock.timers.tick(1);
+  // Inspect directly: another POST would hide the bug by pruning expired jobs.
+  assert.equal(jobs.size, 0);
+
+  const reused = await h.http.post(request(owner.cookie, { audio: wav(100, 7) }));
+  assert.equal(reused.status, 200);
+  assert.equal(h.calls.length, 2);
+});
+
+test("pending duplicates stay shared across the TTL boundary and expire 60 seconds after completion", async (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+  let finish;
+  const ready = new Promise((resolve) => { finish = resolve; });
+  t.after(() => finish());
+  const h = harness(t, async (provider) => {
+    await ready;
+    return { provider, text: "늦게 완료된 인식문", latencyMs: 60_001, success: true };
+  });
+  const owner = h.create();
+  const signal = h.sessions.authenticate(owner.token, false).signal;
+  const first = h.http.post(request(owner.cookie));
+  while (!h.calls.length) await new Promise((resolve) => setImmediate(resolve));
+  const jobs = h.http.jobs.get(signal);
+  t.mock.timers.tick(60_001);
+  assert.equal(jobs.size, 1);
+  const duplicate = h.http.post(request(owner.cookie));
+  await new Promise((resolve) => setImmediate(resolve));
+  assert.equal(h.calls.length, 1);
+  const conflict = await h.http.post(request(owner.cookie, { audio: wav(100, 7) }));
+  assert.equal(conflict.status, 409);
+  assert.equal((await conflict.json()).code, "REQUEST_CONFLICT");
+
+  finish();
+  assert.deepEqual(await (await first).json(), await (await duplicate).json());
+  assert.equal(h.calls.length, 1);
+  t.mock.timers.tick(59_999);
+  assert.equal(jobs.size, 1);
+  t.mock.timers.tick(1);
+  assert.equal(jobs.size, 0);
+  assert.equal(h.calls.length, 1);
+});
+
+for (const ending of ["reset", "idle expiry"]) {
+  test(`session ${ending} clears cached jobs and cancels all their expiration timers`, async (t) => {
+    t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+    const scheduled = t.mock.method(globalThis, "setTimeout");
+    const cleared = t.mock.method(globalThis, "clearTimeout");
+    const h = harness(t, undefined, { idleTimeoutMs: 1000 });
+    const owner = h.create();
+    const signal = h.sessions.authenticate(owner.token, false).signal;
+    await h.http.post(request(owner.cookie));
+    await h.http.post(request(owner.cookie, { id: "stt-request-2" }));
+    const jobs = h.http.jobs.get(signal);
+    assert.equal(jobs.size, 2);
+    const timers = scheduled.mock.calls.filter(({ arguments: args }) => args[1] === 60_000).map(({ result }) => result);
+    assert.equal(timers.length, 2);
+
+    if (ending === "reset") h.sessions.revoke(owner.token);
+    else t.mock.timers.tick(1000);
+    assert.equal(signal.aborted, true);
+    assert.equal(jobs.size, 0);
+    assert.equal(h.http.jobs.get(signal), undefined);
+    for (const timer of timers) {
+      assert.ok(cleared.mock.calls.some(({ arguments: args }) => args[0] === timer));
+    }
+    t.mock.timers.tick(60_000);
+    assert.equal(h.http.jobs.get(signal), undefined);
+  });
+}
+
+test("a late result after session expiry cannot recreate jobs or schedule an expiration timer", async (t) => {
+  t.mock.timers.enable({ apis: ["Date", "setTimeout"] });
+  const scheduled = t.mock.method(globalThis, "setTimeout");
+  let finish;
+  const ready = new Promise((resolve) => { finish = resolve; });
+  t.after(() => finish());
+  const h = harness(t, async (provider) => {
+    await ready;
+    return { provider, text: "만료 뒤 도착한 인식문", latencyMs: 1000, success: true };
+  }, { idleTimeoutMs: 1000 });
+  const owner = h.create();
+  const signal = h.sessions.authenticate(owner.token, false).signal;
+  const pending = h.http.post(request(owner.cookie));
+  while (!h.calls.length) await new Promise((resolve) => setImmediate(resolve));
+  const jobs = h.http.jobs.get(signal);
+  t.mock.timers.tick(1000);
+  assert.equal(jobs.size, 0);
+  assert.equal(h.calls[0].signal.aborted, true);
+  finish();
+  const response = await pending;
+  assert.equal(response.status, 401);
+  assert.equal((await response.json()).code, "SESSION_EXPIRED");
+  assert.equal(h.http.jobs.get(signal), undefined);
+  assert.equal(scheduled.mock.calls.filter(({ arguments: args }) => args[1] === 60_000).length, 0);
 });
 
 test("request IDs are scoped per session", async (t) => {
