@@ -18,8 +18,8 @@ const failed = (requestId: string | null, code: ErrorResponse["code"], message: 
 /** Only the audio hash and the final text response are retained. Never the audio. */
 interface TranscriptionJob {
   hash: string;
-  expires: number;
   response: Promise<Response>;
+  timer?: ReturnType<typeof setTimeout>;
 }
 
 export type TranscribeFn = typeof transcribe;
@@ -56,8 +56,6 @@ export class TranscriptionHttp {
       requestId = input.requestId;
       session.assertActive();
       const jobs = this.sessionJobs(session);
-      const now = Date.now();
-      for (const [key, job] of jobs) if (job.expires < now) jobs.delete(key);
       const prior = jobs.get(input.requestId);
       if (prior) {
         if (prior.hash !== input.hash) throw new SessionError("REQUEST_CONFLICT", 409, "같은 요청 번호에 다른 음성이 들어왔어요.");
@@ -87,14 +85,25 @@ export class TranscriptionHttp {
           audio = undefined;
         }
       })();
-      jobs.set(input.requestId, { hash: input.hash, expires: now + JOB_TTL_MS, response });
+      const job: TranscriptionJob = { hash: input.hash, response };
+      jobs.set(input.requestId, job);
       const result = await response;
       session.assertActive();
+      this.scheduleExpiry(jobs, input.requestId, job);
       return result.clone();
     } catch (error) {
       if (isSessionError(error)) return sessionErrorResponse(error, requestId);
       return failed(requestId, "UNAVAILABLE", "요청을 처리하지 못했어요.", true, 500);
     }
+  }
+
+  private scheduleExpiry(jobs: Map<string, TranscriptionJob>, requestId: string, job: TranscriptionJob): void {
+    // Start the TTL after completion so pending duplicates always share one call.
+    // Keep the timer closure outside post(), which also owns the uploaded audio.
+    job.timer = setTimeout(() => {
+      if (jobs.get(requestId) === job) jobs.delete(requestId);
+    }, JOB_TTL_MS);
+    job.timer.unref();
   }
 
   private sessionJobs(session: SessionHandle): Map<string, TranscriptionJob> {
@@ -104,6 +113,7 @@ export class TranscriptionHttp {
       jobs = created;
       this.jobs.set(session.signal, created);
       session.signal.addEventListener("abort", () => {
+        for (const job of created.values()) clearTimeout(job.timer);
         created.clear();
         this.jobs.delete(session.signal);
       }, { once: true });
