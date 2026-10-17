@@ -190,6 +190,8 @@ export function mountChat({ sourceRoot = process.env.CHAT_LIFECYCLE_SOURCE_ROOT 
       if (name === "react") return hooks.react;
       if (name === "react/jsx-runtime") return { jsx, jsxs: jsx, Fragment: Symbol.for("chat-test-fragment") };
       if (name === "next/image") return { __esModule: true, default: "img" };
+      // Browser recording is covered by voice-input tests; the chat lifecycle uses a stub control.
+      if (name.endsWith("/voice-input/chat-voice-button")) return { ChatVoiceButton: function ChatVoiceButton() { return null; } };
       if (name.startsWith(".")) return load(resolve(dirname(path), `${name}.ts`));
       throw new Error(`Unexpected dependency: ${name}`);
     };

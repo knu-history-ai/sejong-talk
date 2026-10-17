@@ -68,7 +68,7 @@ export function ChatVoiceButton({ disabled = false, draft, onTranscript, onBusyC
   const label = state.phase === "recording" ? `녹음 종료 ${seconds}초`
     : state.phase === "transcribing" || state.phase === "stopping" ? "인식 취소"
     : state.phase === "permission" ? "마이크 대기 취소" : "말로 질문";
-  const status = state.phase === "review" ? "인식된 글을 확인하고 고친 뒤 ‘질문 보내기’를 눌러 주세요."
+  const status = state.phase === "review" ? !draft.trim() ? "" : "인식된 글을 확인하고 고친 뒤 ‘질문 보내기’를 눌러 주세요."
     : state.phase === "recording" ? `녹음 중이에요. 최대 ${MAX_RECORDING_MS / 1000}초까지 말할 수 있어요.`
     : state.phase === "idle" ? "" : state.message;
 

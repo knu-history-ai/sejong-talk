@@ -3,6 +3,7 @@
 import Image from "next/image";
 import { requestSampleTurn } from "./sample-turn";
 import { CHAT_HISTORY_KEY, clearSavedChats, readSavedChats, saveChat, type Conversation, type SavedChat } from "./chat-history";
+import { ChatVoiceButton } from "../voice-input/chat-voice-button";
 import { createChatSession, deleteChatSession, requestTurn, cancelTurn } from "./api";
 import { FormEvent, KeyboardEvent, ReactNode, useEffect, useRef, useState } from "react";
 
@@ -20,6 +21,8 @@ export function ChatExperience() {
   const [started, setStarted] = useState(false);
   const [showSamples, setShowSamples] = useState(false);
   const [question, setQuestion] = useState("");
+  const [voiceBusy, setVoiceBusy] = useState(false);
+  const focusAfterVoice = useRef(false);
   const [sessionExpired, setSessionExpired] = useState(false);
   const [failNextAnswer, setFailNextAnswer] = useState(false);
   const [loading, setLoading] = useState(false);
@@ -44,6 +47,12 @@ export function ChatExperience() {
   useEffect(() => {
     return () => { activeRequest.current?.abort(); };
   }, []);
+  // The composer is disabled while recording; focus it once the transcript is ready to edit.
+  useEffect(() => {
+    if (voiceBusy || !focusAfterVoice.current) return;
+    focusAfterVoice.current = false;
+    input.current?.focus();
+  }, [voiceBusy]);
   useEffect(() => {
     const changed = (event: StorageEvent) => {
       if ((event.key === CHAT_HISTORY_KEY && event.newValue === null) || event.key === "sejong-chat-clear") {
@@ -91,7 +100,7 @@ export function ChatExperience() {
   function ask(event: FormEvent) {
     event.preventDefault();
     const text = question.trim();
-    if (!text || loading || starting || startingRef.current || sessionExpired || activeRequest.current) return;
+    if (!text || loading || starting || startingRef.current || sessionExpired || voiceBusy || activeRequest.current) return;
     const index = history.length;
     setHistory((items) => [...items, { question: text, answer: null, status: "loading" }]);
     setQuestion("");
@@ -360,7 +369,7 @@ export function ChatExperience() {
           <div className="suggestions">{recommended.map((item) => <button key={item} disabled={loading || starting || sessionExpired} onClick={() => selectQuestion(item)}>{item}</button>)}</div>
           <form className="composer" onSubmit={ask}>
             <div className="composer-label"><label htmlFor="question">이어서 궁금한 점을 물어보세요</label><small>{question.length} / 500</small></div>
-            <div className="composer-controls"><textarea ref={input} id="question" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={handleQuestionKeyDown} maxLength={500} rows={2} placeholder={sessionExpired ? "새 대화를 시작해 주세요." : "세종대왕에게 궁금한 것을 물어보세요."} disabled={loading || starting || sessionExpired} /><button type="button" className="outline-button mic-button" disabled={loading || starting || sessionExpired} onClick={() => setNotice("음성 질문은 준비 중이에요. 지금은 질문을 글로 입력해 주세요.")}><Icon name="mic" /><span>말로 질문</span></button><button className="primary-button send-button" disabled={!question.trim() || loading || starting || sessionExpired}><Icon name="send" /><span>{loading ? "답변 준비 중" : "질문 보내기"}</span></button></div>
+            <div className="composer-controls"><textarea ref={input} id="question" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={handleQuestionKeyDown} maxLength={500} rows={2} placeholder={sessionExpired ? "새 대화를 시작해 주세요." : "세종대왕에게 궁금한 것을 물어보세요."} disabled={loading || starting || sessionExpired || voiceBusy} />{showSamples ? <button type="button" className="outline-button mic-button" disabled={loading || starting || sessionExpired} onClick={() => setNotice("예시 대화에서는 음성 질문을 사용할 수 없어요. 글로 입력해 주세요.")}><Icon name="mic" /><span>말로 질문</span></button> : <ChatVoiceButton icon={<Icon name="mic" />} draft={question} disabled={loading || starting || sessionExpired} onBusyChange={setVoiceBusy} onSessionExpired={expireSession} onTranscript={(text) => { setQuestion(text.slice(0, 500)); focusAfterVoice.current = true; }} />}<button className="primary-button send-button" disabled={!question.trim() || loading || starting || sessionExpired || voiceBusy}><Icon name="send" /><span>{loading ? "답변 준비 중" : "질문 보내기"}</span></button></div>
           </form>
           {showSamples && <details className="sample-controls"><summary>예시 상태 확인</summary><p>실제 서비스 연결 전, 오류와 만료 상황을 확인하는 개발용 메뉴예요.</p><label><input type="checkbox" checked={failNextAnswer} disabled={loading || sessionExpired} onChange={(event) => setFailNextAnswer(event.target.checked)} /> 다음 질문에서 답변 오류 보기</label><button className="outline-button" disabled={sessionExpired} onClick={expireSession}>세션 만료 보기</button></details>}
         </section>
