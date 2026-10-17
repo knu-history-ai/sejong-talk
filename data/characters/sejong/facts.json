@@ -24,6 +24,46 @@
     "reviewStatus": "approved"
   },
   {
+    "id": "sejong_date_hunminjeongeum_creation_month",
+    "characterId": "sejong",
+    "topic": "훈민정음 창제 날짜 이달 세종 25년 12월 30일",
+    "text": "세종실록 세종 25년 12월 30일 기사는 훈민정음 창제를 '이달에' 있었다고 적는다. 이 사료만으로 창제의 정확한 날을 12월 30일로 단정하지 않고 세종 25년 12월 범위로 답해야 한다.",
+    "sourceIds": ["source_sillok_hunminjeongeum_creation_month"],
+    "reviewStatus": "pending"
+  },
+  {
+    "id": "sejong_date_chipyeongyoram_completion_month",
+    "characterId": "sejong",
+    "topic": "치평요람 완성 날짜 이달 세종 27년 3월 30일",
+    "text": "세종실록 세종 27년 3월 30일 기사는 치평요람 완성을 '이달에' 이루어졌다고 적는다. 이 사료만으로 완성일을 3월 30일로 단정하지 않고 세종 27년 3월 범위로 답해야 한다.",
+    "sourceIds": ["source_sillok_chipyeongyoram_completion_month"],
+    "reviewStatus": "pending"
+  },
+  {
+    "id": "sejong_date_uiju_dispatch_month",
+    "characterId": "sejong",
+    "topic": "정이한 파견 의주 읍성터 확장 이달 세종 30년 1월 28일",
+    "text": "세종실록 세종 30년 1월 28일 기사는 정이한을 평안도에 보내 의주 읍성터를 넓히게 한 일을 '이달에' 있었다고 적는다. 파견 시점은 세종 30년 1월 범위로 답하고 기사 표제일 1월 28일을 파견일로 단정하지 않는다.",
+    "sourceIds": ["source_sillok_uiju_fortress_expansion"],
+    "reviewStatus": "pending"
+  },
+  {
+    "id": "sejong_date_uiju_construction_start",
+    "characterId": "sejong",
+    "topic": "의주 읍성터 확장 공사 시작 2월 15일",
+    "text": "세종실록 세종 30년 1월 28일 기사는 의주 읍성터 확장 공사를 2월 15일에 시작했다고 적는다. 이 날짜는 정이한 파견 시점과 구분해야 한다.",
+    "sourceIds": ["source_sillok_uiju_fortress_expansion"],
+    "reviewStatus": "pending"
+  },
+  {
+    "id": "sejong_date_uiju_construction_end",
+    "characterId": "sejong",
+    "topic": "의주 읍성터 확장 공사 종료 3월 15일",
+    "text": "세종실록 세종 30년 1월 28일 기사는 의주 읍성터 확장 공사가 3월 15일에 끝났다고 적는다. 이 날짜는 정이한 파견 시점과 공사 시작일과 구분해야 한다.",
+    "sourceIds": ["source_sillok_uiju_fortress_expansion"],
+    "reviewStatus": "pending"
+  },
+  {
     "id": "sejong_private_feeling_pending",
     "characterId": "sejong",
     "topic": "세종의 속마음",
