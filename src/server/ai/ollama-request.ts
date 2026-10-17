@@ -81,6 +81,8 @@ export function buildOllamaRequestBody(prompt: string, model: string): unknown {
     model,
     prompt,
     stream: false,
+    // Qwen thinking output shares num_predict; left on, it uses the whole budget and response is empty.
+    think: false,
     format: "json",
     options: {
       temperature: 0.2,
