@@ -37,6 +37,15 @@ function approvedTurn(requestId) {
   };
 }
 
+async function buildPromptInputFor(requestId, text) {
+  const knowledgeBase = await loadSejongKnowledgeBase();
+  return buildSejongPromptInput({
+    knowledgeBase,
+    request: { requestId, text },
+    reviewedFacts: selectReviewedFactsForQuestion(knowledgeBase, text),
+  });
+}
+
 for (const scenario of ["cancel", "timeout", "parent-abort"]) {
   test(`late approved answer is never stored after ${scenario}`, async () => {
     const coordinator = new RequestCoordinator();
@@ -139,6 +148,9 @@ test("Sejong prompt input separates character, recent turns, and approved facts"
   assert.match(prompt, /\[최근 승인 대화\]/);
   assert.match(prompt, /\[검토 완료 사실 카드\]/);
   assert.match(prompt, /\[사용자 질문\]/);
+  assert.match(prompt, /세종 본인으로 대화하는 AI/);
+  assert.match(prompt, /자신을 '나'로 부르고/);
+  assert.match(prompt, /사실 카드가 3인칭 문장이어도 근거로만 사용/);
 });
 
 test("date source drafts stay out of prompts until they are approved", async () => {
@@ -221,6 +233,108 @@ test("answer validation only exposes server-approved fact IDs and sources", asyn
   assert.deepEqual(answer.factIds, ["sejong_hunminjeongeum_28_letters"]);
   assert.equal(answer.sources.length, 1);
   assert.equal(answer.sources[0].id, "source_urihistory_hunminjeongeum");
+});
+
+test("answer validation rejects third-person self references", async () => {
+  const promptInput = await buildPromptInputFor(
+    "turn_test_third_person",
+    "훈민정음은 왜 만들었어요?",
+  );
+  const invalidDrafts = [
+    "세종대왕님은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다.",
+    "세종대왕도 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다.",
+    "“세종대왕”은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다.",
+    "세종(世宗)은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다.",
+  ];
+
+  for (const [index, text] of invalidDrafts.entries()) {
+    const answer = validateAnswerDraft(
+      {
+        kind: "grounded",
+        text,
+        factIds: ["sejong_hunminjeongeum_purpose"],
+      },
+      promptInput,
+      { answerId: `answer_test_third_person_${index}` },
+    );
+
+    assert.equal(answer.kind, "fallback", text);
+    assert.deepEqual(answer.factIds, [], text);
+    assert.deepEqual(answer.sources, [], text);
+  }
+});
+
+test("answer validation keeps valid first-person answers and attributed quotes", async () => {
+  const promptInput = await buildPromptInputFor(
+    "turn_test_first_person",
+    "훈민정음은 왜 만들었어요?",
+  );
+  const validDrafts = [
+    {
+      kind: "conversation",
+      text: "나는 조선의 임금 세종이다. 궁금한 역사를 함께 이야기해 보자.",
+      factIds: [],
+      expectedKind: "conversation",
+      expectedFactIds: [],
+      expectedSources: 0,
+    },
+    {
+      kind: "conversation",
+      text: "나는 세종이란다.",
+      factIds: [],
+      expectedKind: "conversation",
+      expectedFactIds: [],
+      expectedSources: 0,
+    },
+    {
+      kind: "grounded",
+      text: "네가 “세종은 왜 훈민정음을 만들었나요?”라고 물었구나. 나는 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었단다.",
+      factIds: ["sejong_hunminjeongeum_purpose"],
+      expectedKind: "grounded",
+      expectedFactIds: ["sejong_hunminjeongeum_purpose"],
+      expectedSources: 1,
+    },
+    {
+      kind: "insufficient",
+      text: "그 질문은 지금 준비된 자료로 확인하기 어렵구나. 세종 때의 생활이나 훈민정음에 관한 질문으로 바꾸어 물어보면 좋겠다.",
+      factIds: [],
+      expectedKind: "insufficient",
+      expectedFactIds: [],
+      expectedSources: 0,
+    },
+  ];
+
+  for (const [index, draft] of validDrafts.entries()) {
+    const answer = validateAnswerDraft(draft, promptInput, {
+      answerId: `answer_test_first_person_${index}`,
+    });
+
+    assert.equal(answer.kind, draft.expectedKind, draft.text);
+    assert.equal(answer.text, draft.text, draft.text);
+    assert.deepEqual(answer.factIds, draft.expectedFactIds, draft.text);
+    assert.equal(answer.sources.length, draft.expectedSources, draft.text);
+  }
+});
+
+test("answer validation keeps sources when cited material contains attributed third-person text", async () => {
+  const promptInput = await buildPromptInputFor(
+    "turn_test_attributed_quote",
+    "훈민정음은 왜 만들었어요?",
+  );
+
+  const answer = validateAnswerDraft(
+    {
+      kind: "grounded",
+      text: "자료에는 “세종은 백성을 위하여 훈민정음을 만들었다”라고 적혀 있구나. 나는 백성이 쉽게 글을 쓰도록 훈민정음을 만들었단다.",
+      factIds: ["sejong_hunminjeongeum_purpose"],
+    },
+    promptInput,
+    { answerId: "answer_test_attributed_quote" },
+  );
+
+  assert.equal(answer.kind, "grounded");
+  assert.deepEqual(answer.factIds, ["sejong_hunminjeongeum_purpose"]);
+  assert.equal(answer.sources.length, 1);
 });
 
 test("invalid grounded draft becomes fallback instead of exposing unverified text", async () => {
