@@ -2,26 +2,66 @@
 
 세종과 글과 음성으로 대화하는 교육용 웹 서비스입니다. 첫 MVP는 세종에 집중하고, 장영실·이순신은 후속 인물로 확장합니다.
 
-현재 저장소는 공통 개발 환경과 협업 설정을 준비한 단계입니다. AI 대화·음성 인식·음성 합성은 아직 구현하지 않았습니다.
+이 브랜치에는 공통 개발 환경·규격, 대화 세션 API와 Ollama·Qwen을 호출하는 글 대화 화면이 있습니다. 개발용 음성 입력·STT 비교 기능과 TTS 기반 코드도 포함되어 있으며, 실제 대화 화면의 음성 입력·재생 연결은 후속입니다. [글 대화 실행 방법과 통합 시험](docs/CHAT_INTEGRATION.md), [STT 실행 방법과 검증 결과](docs/STT_IMPLEMENTATION.md)를 참고하세요.
 
 ## 시작하기
 
-Node.js 24 LTS와 npm을 사용합니다.
+Node.js **24.x**와 npm을 사용합니다. `node --version`이 `v24.`로 시작하는지 확인하세요. 다른 버전이면 먼저 Node 24로 전환합니다. nvm을 이미 사용하는 경우 `nvm install` 후 `nvm use`를 실행하면 `.nvmrc`의 버전이 적용됩니다.
+
+### 처음 실행하기
 
 ```bash
+git clone https://github.com/knu-history-ai/sejong-talk.git
+cd sejong-talk
+git switch dev
+node --version
+npm --version
 npm ci
 npm run dev
 ```
 
-브라우저에서 http://localhost:3000 을 엽니다.
+브라우저에서 http://localhost:3000 을 열어 세종톡 시작 화면을 확인합니다. 종료는 터미널에서 `Ctrl+C`입니다.
+
+시작 화면은 **API 키와 `.env.local` 없이 표시**됩니다. 실제 글 대화에는 로컬 Ollama·Qwen 모델과 `.env.local`의 호출 허용 설정이 필요합니다. [글 대화 실행 방법](docs/CHAT_INTEGRATION.md#실제-호출-설정)에 따라 설정한 뒤 서버를 다시 시작하세요. STT 시험에는 `.env.example`의 음성 공급자 설정이 필요합니다. 실제 키는 Git에서 제외된 `.env.local`에 저장하며 이슈에 붙이지 않습니다.
+
+### 작업 전후 검사
+
+프로젝트 폴더의 별도 터미널에서 실행합니다. CI도 같은 순서로 검사합니다.
 
 ```bash
 npm run lint
 npm run typecheck
+npm test
 npm run build
+npm run test:http
 ```
 
-실제 공급자 API는 선정 후 연결합니다. 필요한 환경 변수 이름은 `.env.example`에 기록하고 실제 키는 `.env.local`에 저장합니다.
+빌드 결과를 직접 실행하려면 개발 서버를 종료하고 `npm run start` 후 같은 주소를 엽니다. `npm run dev`와 `npm run build`는 동시에 실행하지 않습니다.
+
+### 실행이 안 될 때
+
+- `EBADENGINE`: `node --version`을 확인하고 Node 24로 전환한 뒤 `npm ci`를 다시 실행합니다.
+- `package.json`을 찾지 못함: 터미널이 `sejong-talk` 폴더에 있는지 확인합니다.
+- 3000 포트 사용 중: 기존 서버를 종료하거나 `npm run dev -- --port 3001`로 실행하고 http://localhost:3001 을 엽니다.
+- 설치·검사 실패: 운영체제, Node/npm 버전, 실행한 명령과 오류를 [W01-01 이슈](https://github.com/knu-history-ai/sejong-talk/issues/9)에 남깁니다. 잠금 파일을 삭제하거나 임의로 패키지를 업그레이드하지 않습니다.
+
+### 전원 실행 확인
+
+각자 자신의 컴퓨터에서 확인한 뒤 [W01-01 이슈](https://github.com/knu-history-ai/sejong-talk/issues/9)에 아래 형식으로 댓글을 남깁니다. 아직 실행하지 않은 항목은 미확인으로 씁니다.
+
+```text
+이름 / 운영체제:
+브랜치 / 커밋 (git branch --show-current / git rev-parse --short HEAD):
+Node / npm 버전:
+npm ci:
+기본 화면 표시:
+lint / typecheck / build:
+막힌 점: 없음 또는 오류 내용
+```
+
+세션 API는 유료 API 키 없이 동작합니다. `test:http`는 빌드한 앱과 개발 서버를 임시 로컬 포트에서 실행하고 종료하며, 쿠키·초기화·서버 재시작·localhost/127.0.0.1 접속을 확인합니다. 배포 시 `APP_ORIGIN`을 실제 HTTPS 주소로 설정해야 합니다. 현재 세션은 단일 Node 프로세스 메모리에만 있으므로 여러 인스턴스나 서버리스 배포에 그대로 사용하지 않습니다.
+
+프론트·AI·음성 담당자의 연결 방법과 만료 기준: [세션 API 사용법](docs/API_CONTRACT.md#w02-01-세션-api-사용법).
 
 ## 협업
 
@@ -31,7 +71,7 @@ npm run build
 - 리뷰 1명과 CI 통과 후 병합합니다.
 - 이슈 종료는 dev 반영 완료를 뜻하며 실제 배포는 별도로 기록합니다.
 
-[협업 규칙](CONTRIBUTING.md) · [폴더 구조와 담당 경계](docs/ARCHITECTURE.md)
+[기획·요구사항 문서](proposal/README.md) · [협업 규칙](CONTRIBUTING.md) · [폴더 구조와 담당 경계](docs/ARCHITECTURE.md) · [개발 보드](https://github.com/orgs/knu-history-ai/projects/1)
 
 ## 담당
 
