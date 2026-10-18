@@ -7,6 +7,8 @@
     "build": "next build",
     "start": "next start",
     "eval:ai": "node --conditions=react-server evals/sejong/run-fixed-questions.mjs",
+    "eval:date": "node evals/sejong/date-eval/cli.mjs",
+    "test:date": "node --test tests/date-*.test.mjs",
     "lint": "eslint .",
     "typecheck": "next typegen && tsc --noEmit",
     "tts:evaluate": "node --env-file-if-exists=.env.local scripts/tts-w01-05.mjs",
