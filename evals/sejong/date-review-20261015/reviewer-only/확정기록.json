@@ -1,0 +1,37 @@
+{
+  "version": "date-review-20261015-20articles-final-v4",
+  "firstPassReviewPr": 77,
+  "reviewer": "김시연",
+  "fourQuestionRecheck": {
+    "confirmedAt": "2026-10-15T22:07:00+09:00",
+    "timestampPrecision": "minute",
+    "caseIds": ["T15-Q01", "T16-Q01", "T17-Q01", "T18-Q01"],
+    "result": "수정한 네 질문이 올바르다는 재확인을 받음. 개인 대화 원문은 게시하지 않음."
+  },
+  "finalization": {
+    "authorizedBy": "박민준",
+    "basis": "PR77 1차 검수와 네 문항 재확인 후 자료·표본 고정 및 실행 ZIP 생성 요청",
+    "answersAndCriteriaUnchanged": true,
+    "originalImagesFullyReviewed": false,
+    "postRunIndependentReviewIsSeparate": true
+  },
+  "datasetHash": "ad83159eeebe386fc9ebc2fc82b3b40365333e2f38fb024656681145dd9f4249",
+  "goldHash": "3143dfed05dda1e5588998fc714cbc2e2fd9839379be2688a0e4f23597caa1f5",
+  "criteriaHash": "c617525af719168e2b2acbff2cfa8f124dbfa6d5d294d760e3912d6dceaa820c",
+  "executionCodeCommit": "6e8da738fd2985aeee9336373ccf1305eefed886",
+  "planId": "c648b50c119f051119e696789e0706a213509fd1fb5f22d72d1aeeeb040eea8e",
+  "sample": {
+    "seed": 62,
+    "version": "type-balanced-twelve-v2",
+    "questions": 12,
+    "plannedOutputs": 60,
+    "outputsPerMethod": 12,
+    "typeQuestionCounts": {"false-date-premise": 2, "header-control": 3, "known-day": 3, "mixed-events": 2, "unknown-day": 2},
+    "manifestHash": "0102c9ec9e70907e9507f2da99707ca04ea765eb228e43e07274e7cc5223b6b7",
+    "frozenBeforeExecution": true,
+    "selectedQuestionIdsPublished": false
+  },
+  "realModelCalls": 0,
+  "operatorDelivery": "prepared-not-yet-sent",
+  "pr70LatestApproval": "pending-at-packaging"
+}
