@@ -1,0 +1,3425 @@
+{
+  "version": "date-review-20261015-20articles-draft-v3-gold",
+  "criteriaVersion": "issue62-date-v1",
+  "datasetHash": "2010d83be295caf8e769781eda89b3c3a701c36a0c6114d0e44d9a8fcfced747",
+  "reviewStatus": "draft",
+  "reviewedBy": [],
+  "rubric": {
+    "date": "모든 대상의 확인 가능한 연·월·일이 맞아야 1점. 이번 질문은 공통 지시에서 연도를 요구하므로 연도도 필수다. 본문에 없는 일자를 만들거나 특정 일을 근거 없이 부정하면 0점. 일자가 없으면 연·월과 일자 확인 불가를 함께 답한다. 표제 날짜 언급 자체는 오류가 아니다. 월 초·말 추정과 양력 환산은 허용하지 않는다. 당일 행위를 적은 기록과 과거 사건을 회고한 본문을 구분한다.",
+    "evidence": "모든 대상 사건에 대해 자료 안의 인용 또는 허용된 바꿔 쓰기가 실제 답변을 뒷받침해야 1점. 인용 존재 여부만으로 의미상 지지를 판정하지 않음. 날짜 1점이라도 근거가 틀리거나 없으면 근거 0점.",
+    "aliases": {
+      "calendar": [
+        "음력",
+        "실록 음력",
+        "lunar"
+      ],
+      "regnalYear": {
+        "1": 1419,
+        "2": 1420,
+        "3": 1421,
+        "4": 1422,
+        "5": 1423,
+        "8": 1426,
+        "14": 1432,
+        "16": 1434,
+        "17": 1435,
+        "18": 1436,
+        "19": 1437,
+        "20": 1438,
+        "23": 1441,
+        "24": 1442,
+        "26": 1444,
+        "29": 1447,
+        "31": 1449
+      }
+    },
+    "unknownDay": "일자 확인 불가는 day에만 적용한다. 이번 자료에서 확인 가능한 연·월까지 모른다고 답하면 날짜 0점이다."
+  },
+  "cases": [
+    {
+      "id": "T01-Q01",
+      "category": "unknown-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "completion",
+          "expected": {
+            "year": 1447,
+            "month": 9,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1447년 음력 9월, 정확한 일자 확인 불가",
+            "세종 29년 9월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 29년(1447년) 9월 29일",
+              "start": 30,
+              "end": 60
+            },
+            {
+              "quote": "이달에 《동국정운(東國正韻)》이 완성되니",
+              "start": 142,
+              "end": 164
+            }
+          ],
+          "allowedParaphrases": [
+            "이달은 표제의 1447년 음력 9월이다. 본문의 是月도 월 단위다. 완성 일자는 적혀 있지 않으므로 29일로 확정하거나 29일이 아니었다고 단정하지 않는다."
+          ],
+          "rationale": "이달은 표제의 1447년 음력 9월이다. 본문의 是月도 월 단위다. 완성 일자는 적혀 있지 않으므로 29일로 확정하거나 29일이 아니었다고 단정하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T01-Q02",
+      "category": "false-date-premise",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "completion",
+          "expected": {
+            "year": 1447,
+            "month": 9,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1447년 음력 9월, 정확한 일자 확인 불가",
+            "세종 29년 9월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 29년(1447년) 9월 29일",
+              "start": 30,
+              "end": 60
+            },
+            {
+              "quote": "이달에 《동국정운(東國正韻)》이 완성되니",
+              "start": 142,
+              "end": 164
+            }
+          ],
+          "allowedParaphrases": [
+            "이달은 표제의 1447년 음력 9월이다. 본문의 是月도 월 단위다. 완성 일자는 적혀 있지 않으므로 29일로 확정하거나 29일이 아니었다고 단정하지 않는다."
+          ],
+          "rationale": "이달은 표제의 1447년 음력 9월이다. 본문의 是月도 월 단위다. 완성 일자는 적혀 있지 않으므로 29일로 확정하거나 29일이 아니었다고 단정하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T01-Q03",
+      "category": "header-control",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "header",
+          "expected": {
+            "year": 1447,
+            "month": 9,
+            "day": 29,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1447년 음력 9월 29일",
+            "세종 29년 9월 29일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": false,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 29년(1447년) 9월 29일",
+              "start": 30,
+              "end": 60
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+          ],
+          "rationale": "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+        }
+      ]
+    },
+    {
+      "id": "T02-Q01",
+      "category": "unknown-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "death",
+          "expected": {
+            "year": 1435,
+            "month": 8,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1435년 음력 8월, 정확한 일자 확인 불가",
+            "세종 17년 8월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 18년(1436년) 3월 21일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "전년 8월에 어머니가 세상을 떠나매",
+              "start": 177,
+              "end": 196
+            }
+          ],
+          "allowedParaphrases": [
+            "상서가 실린 표제 연도는 1436년이고 전년은 그 전 해인 1435년이다. 음력 8월까지 확인되지만 일자는 없다. 표제의 3월 21일은 어머니 사망일이 아니다."
+          ],
+          "rationale": "상서가 실린 표제 연도는 1436년이고 전년은 그 전 해인 1435년이다. 음력 8월까지 확인되지만 일자는 없다. 표제의 3월 21일은 어머니 사망일이 아니다."
+        }
+      ]
+    },
+    {
+      "id": "T02-Q02",
+      "category": "false-date-premise",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "death",
+          "expected": {
+            "year": 1435,
+            "month": 8,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1435년 음력 8월, 정확한 일자 확인 불가",
+            "세종 17년 8월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 18년(1436년) 3월 21일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "전년 8월에 어머니가 세상을 떠나매",
+              "start": 177,
+              "end": 196
+            }
+          ],
+          "allowedParaphrases": [
+            "상서가 실린 표제 연도는 1436년이고 전년은 그 전 해인 1435년이다. 음력 8월까지 확인되지만 일자는 없다. 표제의 3월 21일은 어머니 사망일이 아니다."
+          ],
+          "rationale": "상서가 실린 표제 연도는 1436년이고 전년은 그 전 해인 1435년이다. 음력 8월까지 확인되지만 일자는 없다. 표제의 3월 21일은 어머니 사망일이 아니다."
+        }
+      ]
+    },
+    {
+      "id": "T02-Q03",
+      "category": "mixed-events",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "death",
+          "expected": {
+            "year": 1435,
+            "month": 8,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1435년 음력 8월, 정확한 일자 확인 불가",
+            "세종 17년 8월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 18년(1436년) 3월 21일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "전년 8월에 어머니가 세상을 떠나매",
+              "start": 177,
+              "end": 196
+            }
+          ],
+          "allowedParaphrases": [
+            "상서가 실린 표제 연도는 1436년이고 전년은 그 전 해인 1435년이다. 음력 8월까지 확인되지만 일자는 없다. 표제의 3월 21일은 어머니 사망일이 아니다."
+          ],
+          "rationale": "상서가 실린 표제 연도는 1436년이고 전년은 그 전 해인 1435년이다. 음력 8월까지 확인되지만 일자는 없다. 표제의 3월 21일은 어머니 사망일이 아니다."
+        },
+        {
+          "id": "petition",
+          "expected": {
+            "year": 1436,
+            "month": 3,
+            "day": 21,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1436년 음력 3월 21일",
+            "세종 18년 3월 21일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 18년(1436년) 3월 21일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "이변(李邊)이 상서하기를,",
+              "start": 155,
+              "end": 169
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상은 이전 사건인 사망이 아니라 이변이 상서한 것으로 실린 당일 기록이다. 표제의 1436년 음력 3월 21일을 답한다. 사망 시점과 섞지 않는다."
+          ],
+          "rationale": "질문 대상은 이전 사건인 사망이 아니라 이변이 상서한 것으로 실린 당일 기록이다. 표제의 1436년 음력 3월 21일을 답한다. 사망 시점과 섞지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T02-Q04",
+      "category": "header-control",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "header",
+          "expected": {
+            "year": 1436,
+            "month": 3,
+            "day": 21,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1436년 음력 3월 21일",
+            "세종 18년 3월 21일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": false,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 18년(1436년) 3월 21일",
+              "start": 29,
+              "end": 59
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+          ],
+          "rationale": "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+        }
+      ]
+    },
+    {
+      "id": "T03-Q01",
+      "category": "unknown-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "earlier-return",
+          "expected": {
+            "year": 1422,
+            "month": 10,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1422년 음력 10월, 정확한 일자 확인 불가",
+            "세종 4년 10월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 5년(1423년) 6월 24일",
+              "start": 29,
+              "end": 58
+            },
+            {
+              "quote": "지난해 10월에 대명(大明)을 위하여 조전(助戰)하다가 돌아올 때에,",
+              "start": 167,
+              "end": 205
+            }
+          ],
+          "allowedParaphrases": [
+            "1423년 기사에서 지난해 10월이라고 보고한다. 국역 기준 1422년 음력 10월이며 일자는 확인되지 않는다. 원문의 前年을 국역·전체 문맥과 함께 검수한다."
+          ],
+          "rationale": "1423년 기사에서 지난해 10월이라고 보고한다. 국역 기준 1422년 음력 10월이며 일자는 확인되지 않는다. 원문의 前年을 국역·전체 문맥과 함께 검수한다."
+        }
+      ]
+    },
+    {
+      "id": "T03-Q02",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "amokha-return",
+          "expected": {
+            "year": 1423,
+            "month": 6,
+            "day": 2,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1423년 음력 6월 2일",
+            "세종 5년 6월 2일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 5년(1423년) 6월 24일",
+              "start": 29,
+              "end": 58
+            },
+            {
+              "quote": "이제 6월 초2일 관하(管下) 백성 5백 23호를 거느리고 아목하(阿木河)로 돌아왔으니,",
+              "start": 210,
+              "end": 259
+            }
+          ],
+          "allowedParaphrases": [
+            "이제 6월 초2일은 보고가 실린 1423년의 음력 6월 2일이다. 초2일은 초순 전체가 아니라 특정 일자다. 표제의 6월 24일로 바꾸지 않는다."
+          ],
+          "rationale": "이제 6월 초2일은 보고가 실린 1423년의 음력 6월 2일이다. 초2일은 초순 전체가 아니라 특정 일자다. 표제의 6월 24일로 바꾸지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T03-Q03",
+      "category": "mixed-events",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "earlier-return",
+          "expected": {
+            "year": 1422,
+            "month": 10,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1422년 음력 10월, 정확한 일자 확인 불가",
+            "세종 4년 10월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 5년(1423년) 6월 24일",
+              "start": 29,
+              "end": 58
+            },
+            {
+              "quote": "지난해 10월에 대명(大明)을 위하여 조전(助戰)하다가 돌아올 때에,",
+              "start": 167,
+              "end": 205
+            }
+          ],
+          "allowedParaphrases": [
+            "1423년 기사에서 지난해 10월이라고 보고한다. 국역 기준 1422년 음력 10월이며 일자는 확인되지 않는다. 원문의 前年을 국역·전체 문맥과 함께 검수한다."
+          ],
+          "rationale": "1423년 기사에서 지난해 10월이라고 보고한다. 국역 기준 1422년 음력 10월이며 일자는 확인되지 않는다. 원문의 前年을 국역·전체 문맥과 함께 검수한다."
+        },
+        {
+          "id": "amokha-return",
+          "expected": {
+            "year": 1423,
+            "month": 6,
+            "day": 2,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1423년 음력 6월 2일",
+            "세종 5년 6월 2일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 5년(1423년) 6월 24일",
+              "start": 29,
+              "end": 58
+            },
+            {
+              "quote": "이제 6월 초2일 관하(管下) 백성 5백 23호를 거느리고 아목하(阿木河)로 돌아왔으니,",
+              "start": 210,
+              "end": 259
+            }
+          ],
+          "allowedParaphrases": [
+            "이제 6월 초2일은 보고가 실린 1423년의 음력 6월 2일이다. 초2일은 초순 전체가 아니라 특정 일자다. 표제의 6월 24일로 바꾸지 않는다."
+          ],
+          "rationale": "이제 6월 초2일은 보고가 실린 1423년의 음력 6월 2일이다. 초2일은 초순 전체가 아니라 특정 일자다. 표제의 6월 24일로 바꾸지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T03-Q04",
+      "category": "false-date-premise",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "amokha-return",
+          "expected": {
+            "year": 1423,
+            "month": 6,
+            "day": 2,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1423년 음력 6월 2일",
+            "세종 5년 6월 2일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 5년(1423년) 6월 24일",
+              "start": 29,
+              "end": 58
+            },
+            {
+              "quote": "이제 6월 초2일 관하(管下) 백성 5백 23호를 거느리고 아목하(阿木河)로 돌아왔으니,",
+              "start": 210,
+              "end": 259
+            }
+          ],
+          "allowedParaphrases": [
+            "이제 6월 초2일은 보고가 실린 1423년의 음력 6월 2일이다. 초2일은 초순 전체가 아니라 특정 일자다. 표제의 6월 24일로 바꾸지 않는다."
+          ],
+          "rationale": "이제 6월 초2일은 보고가 실린 1423년의 음력 6월 2일이다. 초2일은 초순 전체가 아니라 특정 일자다. 표제의 6월 24일로 바꾸지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T03-Q05",
+      "category": "header-control",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "header",
+          "expected": {
+            "year": 1423,
+            "month": 6,
+            "day": 24,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1423년 음력 6월 24일",
+            "세종 5년 6월 24일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": false,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 5년(1423년) 6월 24일",
+              "start": 29,
+              "end": 58
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+          ],
+          "rationale": "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+        }
+      ]
+    },
+    {
+      "id": "T04-Q01",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "province-rain",
+          "expected": {
+            "year": 1444,
+            "month": 4,
+            "day": 22,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1444년 음력 4월 22일",
+            "세종 26년 4월 22일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 26년(1444년) 5월 4일",
+              "start": 30,
+              "end": 59
+            },
+            {
+              "quote": "전달 20일 사이는 조금 가물었사오나, 22일에는 온 도(道)에 모두 비가 와서,",
+              "start": 141,
+              "end": 186
+            }
+          ],
+          "allowedParaphrases": [
+            "표제는 1444년 음력 5월이다. 전달은 4월이고 그 문맥에 이어진 22일도 4월 22일이다. 한문 前月 […] 二十二日도 이를 뒷받침한다."
+          ],
+          "rationale": "표제는 1444년 음력 5월이다. 전달은 4월이고 그 문맥에 이어진 22일도 4월 22일이다. 한문 前月 […] 二十二日도 이를 뒷받침한다."
+        }
+      ]
+    },
+    {
+      "id": "T04-Q02",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "local-rain",
+          "expected": {
+            "year": 1444,
+            "month": 5,
+            "day": 2,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1444년 음력 5월 2일",
+            "세종 26년 5월 2일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 26년(1444년) 5월 4일",
+              "start": 30,
+              "end": 59
+            },
+            {
+              "quote": "이달 초2일에는 양지(陽智)와 죽산(竹山) 같은 곳에도 비가 와서",
+              "start": 191,
+              "end": 227
+            }
+          ],
+          "allowedParaphrases": [
+            "이달은 표제의 5월이고 초2일은 2일이다. 음력 5월 2일을 5월 4일이나 4월 22일로 바꾸지 않는다."
+          ],
+          "rationale": "이달은 표제의 5월이고 초2일은 2일이다. 음력 5월 2일을 5월 4일이나 4월 22일로 바꾸지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T04-Q03",
+      "category": "mixed-events",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "province-rain",
+          "expected": {
+            "year": 1444,
+            "month": 4,
+            "day": 22,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1444년 음력 4월 22일",
+            "세종 26년 4월 22일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 26년(1444년) 5월 4일",
+              "start": 30,
+              "end": 59
+            },
+            {
+              "quote": "전달 20일 사이는 조금 가물었사오나, 22일에는 온 도(道)에 모두 비가 와서,",
+              "start": 141,
+              "end": 186
+            }
+          ],
+          "allowedParaphrases": [
+            "표제는 1444년 음력 5월이다. 전달은 4월이고 그 문맥에 이어진 22일도 4월 22일이다. 한문 前月 […] 二十二日도 이를 뒷받침한다."
+          ],
+          "rationale": "표제는 1444년 음력 5월이다. 전달은 4월이고 그 문맥에 이어진 22일도 4월 22일이다. 한문 前月 […] 二十二日도 이를 뒷받침한다."
+        },
+        {
+          "id": "local-rain",
+          "expected": {
+            "year": 1444,
+            "month": 5,
+            "day": 2,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1444년 음력 5월 2일",
+            "세종 26년 5월 2일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 26년(1444년) 5월 4일",
+              "start": 30,
+              "end": 59
+            },
+            {
+              "quote": "이달 초2일에는 양지(陽智)와 죽산(竹山) 같은 곳에도 비가 와서",
+              "start": 191,
+              "end": 227
+            }
+          ],
+          "allowedParaphrases": [
+            "이달은 표제의 5월이고 초2일은 2일이다. 음력 5월 2일을 5월 4일이나 4월 22일로 바꾸지 않는다."
+          ],
+          "rationale": "이달은 표제의 5월이고 초2일은 2일이다. 음력 5월 2일을 5월 4일이나 4월 22일로 바꾸지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T04-Q04",
+      "category": "header-control",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "header",
+          "expected": {
+            "year": 1444,
+            "month": 5,
+            "day": 4,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1444년 음력 5월 4일",
+            "세종 26년 5월 4일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": false,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 26년(1444년) 5월 4일",
+              "start": 30,
+              "end": 59
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+          ],
+          "rationale": "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+        }
+      ]
+    },
+    {
+      "id": "T05-Q01",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "first-use",
+          "expected": {
+            "year": 1434,
+            "month": 7,
+            "day": 1,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1434년 음력 7월 1일",
+            "세종 16년 7월 1일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 16년(1434년) 7월 1일",
+              "start": 29,
+              "end": 58
+            },
+            {
+              "quote": "이날부터 비로소 새 누기(漏器)를 썼다.",
+              "start": 140,
+              "end": 162
+            }
+          ],
+          "allowedParaphrases": [
+            "본문이 이날부터라고 명시하므로 표제의 1434년 음력 7월 1일에 사용을 시작한 것으로 읽는다. 월만 알려진 문항과 달리 일자를 유지해야 한다."
+          ],
+          "rationale": "본문이 이날부터라고 명시하므로 표제의 1434년 음력 7월 1일에 사용을 시작한 것으로 읽는다. 월만 알려진 문항과 달리 일자를 유지해야 한다."
+        }
+      ]
+    },
+    {
+      "id": "T06-Q01",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "presentation",
+          "expected": {
+            "year": 1432,
+            "month": 6,
+            "day": 9,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1432년 음력 6월 9일",
+            "세종 14년 6월 9일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 14년(1432년) 6월 9일",
+              "start": 29,
+              "end": 58
+            },
+            {
+              "quote": "집현전(集賢殿)에서 새로 《삼강행실(三綱行實)》을 편찬하여 올리었다.",
+              "start": 140,
+              "end": 178
+            }
+          ],
+          "allowedParaphrases": [
+            "이 기사의 당일 행위는 책을 올린 것이다. 이를 표제의 1432년 음력 6월 9일 기록으로 판정한다. 과거에 진행된 편찬 작업의 실제 완료일은 이 발췌로 확정하지 않는다."
+          ],
+          "rationale": "이 기사의 당일 행위는 책을 올린 것이다. 이를 표제의 1432년 음력 6월 9일 기록으로 판정한다. 과거에 진행된 편찬 작업의 실제 완료일은 이 발췌로 확정하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T07-Q01",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "proposal",
+          "expected": {
+            "year": 1442,
+            "month": 5,
+            "day": 8,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1442년 음력 5월 8일",
+            "세종 24년 5월 8일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 24년(1442년) 5월 8일",
+              "start": 29,
+              "end": 58
+            },
+            {
+              "quote": "호조에서 아뢰기를,",
+              "start": 140,
+              "end": 150
+            },
+            {
+              "quote": "우량(雨量)을 측정(測定)하는 일에 대하여는 일찍이 벌써 명령을 받았사오나,",
+              "start": 152,
+              "end": 194
+            },
+            {
+              "quote": "하니, 그대로 따랐다.",
+              "start": 204,
+              "end": 216
+            }
+          ],
+          "allowedParaphrases": [
+            "당일의 아룀과 그대로 따랐다는 기록은 1442년 음력 5월 8일에 실렸다. 일찍이 벌써 받은 명령은 별도 과거 사건이므로 이번 정답의 대상이 아니다."
+          ],
+          "rationale": "당일의 아룀과 그대로 따랐다는 기록은 1442년 음력 5월 8일에 실렸다. 일찍이 벌써 받은 명령은 별도 과거 사건이므로 이번 정답의 대상이 아니다."
+        }
+      ]
+    },
+    {
+      "id": "T08-Q01",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "installation",
+          "expected": {
+            "year": 1434,
+            "month": 10,
+            "day": 2,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1434년 음력 10월 2일",
+            "세종 16년 10월 2일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 16년(1434년) 10월 2일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "처음으로 앙부일구(仰釜日晷)를 혜정교(惠政橋)와 종묘(宗廟) 앞에 설치하여 일영(日影)을 관측하였다.",
+              "start": 141,
+              "end": 197
+            }
+          ],
+          "allowedParaphrases": [
+            "설치·관측을 당일 행위로 적은 기록이다. 표제의 1434년 음력 10월 2일을 답한다. 최초 제작일이나 두 장소의 설치를 다른 날짜로 쪼개어 추정하지 않는다."
+          ],
+          "rationale": "설치·관측을 당일 행위로 적은 기록이다. 표제의 1434년 음력 10월 2일을 답한다. 최초 제작일이나 두 장소의 설치를 다른 날짜로 쪼개어 추정하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T09-Q01",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "sealed-wine",
+          "expected": {
+            "year": 1421,
+            "month": 2,
+            "day": 29,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1421년 음력 2월 29일",
+            "세종 3년 2월 29일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 3년(1421년) 3월 2일",
+              "start": 29,
+              "end": 57
+            },
+            {
+              "quote": "지난달 29일에 술을 봉하여 신에게 주었기 때문에,",
+              "start": 177,
+              "end": 205
+            }
+          ],
+          "allowedParaphrases": [
+            "표제의 1421년 음력 3월에서 지난달은 2월이다. 본문과 한문 前月二十九日이 29일을 명시하므로 1421년 음력 2월 29일이다. 문안 기록의 3월 2일로 바꾸지 않는다."
+          ],
+          "rationale": "표제의 1421년 음력 3월에서 지난달은 2월이다. 본문과 한문 前月二十九日이 29일을 명시하므로 1421년 음력 2월 29일이다. 문안 기록의 3월 2일로 바꾸지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T09-Q02",
+      "category": "false-date-premise",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "sealed-wine",
+          "expected": {
+            "year": 1421,
+            "month": 2,
+            "day": 29,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1421년 음력 2월 29일",
+            "세종 3년 2월 29일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 3년(1421년) 3월 2일",
+              "start": 29,
+              "end": 57
+            },
+            {
+              "quote": "지난달 29일에 술을 봉하여 신에게 주었기 때문에,",
+              "start": 177,
+              "end": 205
+            }
+          ],
+          "allowedParaphrases": [
+            "표제의 1421년 음력 3월에서 지난달은 2월이다. 본문과 한문 前月二十九日이 29일을 명시하므로 1421년 음력 2월 29일이다. 문안 기록의 3월 2일로 바꾸지 않는다."
+          ],
+          "rationale": "표제의 1421년 음력 3월에서 지난달은 2월이다. 본문과 한문 前月二十九日이 29일을 명시하므로 1421년 음력 2월 29일이다. 문안 기록의 3월 2일로 바꾸지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T09-Q03",
+      "category": "header-control",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "header",
+          "expected": {
+            "year": 1421,
+            "month": 3,
+            "day": 2,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1421년 음력 3월 2일",
+            "세종 3년 3월 2일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": false,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 3년(1421년) 3월 2일",
+              "start": 29,
+              "end": 57
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+          ],
+          "rationale": "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+        }
+      ]
+    },
+    {
+      "id": "T10-Q01",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "heavy-rain",
+          "expected": {
+            "year": 1421,
+            "month": 6,
+            "day": 12,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1421년 음력 6월 12일",
+            "세종 3년 6월 12일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 3년(1421년) 7월 3일",
+              "start": 29,
+              "end": 57
+            },
+            {
+              "quote": "지난달 12일에 밤에 큰 비가 와서,",
+              "start": 168,
+              "end": 188
+            }
+          ],
+          "allowedParaphrases": [
+            "1421년 음력 7월 상소의 지난달은 6월이고 12일을 직접 명시한다. 따라서 큰비는 1421년 음력 6월 12일이며 표제의 7월 3일은 상소 기록의 날짜다."
+          ],
+          "rationale": "1421년 음력 7월 상소의 지난달은 6월이고 12일을 직접 명시한다. 따라서 큰비는 1421년 음력 6월 12일이며 표제의 7월 3일은 상소 기록의 날짜다."
+        }
+      ]
+    },
+    {
+      "id": "T10-Q02",
+      "category": "false-date-premise",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "heavy-rain",
+          "expected": {
+            "year": 1421,
+            "month": 6,
+            "day": 12,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1421년 음력 6월 12일",
+            "세종 3년 6월 12일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 3년(1421년) 7월 3일",
+              "start": 29,
+              "end": 57
+            },
+            {
+              "quote": "지난달 12일에 밤에 큰 비가 와서,",
+              "start": 168,
+              "end": 188
+            }
+          ],
+          "allowedParaphrases": [
+            "1421년 음력 7월 상소의 지난달은 6월이고 12일을 직접 명시한다. 따라서 큰비는 1421년 음력 6월 12일이며 표제의 7월 3일은 상소 기록의 날짜다."
+          ],
+          "rationale": "1421년 음력 7월 상소의 지난달은 6월이고 12일을 직접 명시한다. 따라서 큰비는 1421년 음력 6월 12일이며 표제의 7월 3일은 상소 기록의 날짜다."
+        }
+      ]
+    },
+    {
+      "id": "T11-Q01",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "socheong-arrival",
+          "expected": {
+            "year": 1419,
+            "month": 7,
+            "day": 3,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1419년 음력 7월 3일",
+            "세종 1년 7월 3일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 1년(1419년) 7월 7일",
+              "start": 28,
+              "end": 56
+            },
+            {
+              "quote": "이달 초3일에는 황해도 소청도에 이르고,",
+              "start": 159,
+              "end": 181
+            }
+          ],
+          "allowedParaphrases": [
+            "이달은 표제의 1419년 음력 7월이고 초3일은 3일이다. 소청도 도착은 7월 3일이며 안흥량 도착의 초4일이나 표제의 7일과 다르다."
+          ],
+          "rationale": "이달은 표제의 1419년 음력 7월이고 초3일은 3일이다. 소청도 도착은 7월 3일이며 안흥량 도착의 초4일이나 표제의 7일과 다르다."
+        }
+      ]
+    },
+    {
+      "id": "T11-Q02",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "anheung-arrival",
+          "expected": {
+            "year": 1419,
+            "month": 7,
+            "day": 4,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1419년 음력 7월 4일",
+            "세종 1년 7월 4일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 1년(1419년) 7월 7일",
+              "start": 28,
+              "end": 56
+            },
+            {
+              "quote": "초4일에는 안흥량(安興梁)에 와서",
+              "start": 182,
+              "end": 200
+            }
+          ],
+          "allowedParaphrases": [
+            "이달 초3일에 이어진 초4일은 같은 1419년 음력 7월의 4일이다. 이는 안흥량 도착이고 소청도 도착의 3일이나 표제의 7일로 바꾸지 않는다."
+          ],
+          "rationale": "이달 초3일에 이어진 초4일은 같은 1419년 음력 7월의 4일이다. 이는 안흥량 도착이고 소청도 도착의 3일이나 표제의 7일로 바꾸지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T11-Q03",
+      "category": "mixed-events",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "socheong-arrival",
+          "expected": {
+            "year": 1419,
+            "month": 7,
+            "day": 3,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1419년 음력 7월 3일",
+            "세종 1년 7월 3일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 1년(1419년) 7월 7일",
+              "start": 28,
+              "end": 56
+            },
+            {
+              "quote": "이달 초3일에는 황해도 소청도에 이르고,",
+              "start": 159,
+              "end": 181
+            }
+          ],
+          "allowedParaphrases": [
+            "이달은 표제의 1419년 음력 7월이고 초3일은 3일이다. 소청도 도착은 7월 3일이며 안흥량 도착의 초4일이나 표제의 7일과 다르다."
+          ],
+          "rationale": "이달은 표제의 1419년 음력 7월이고 초3일은 3일이다. 소청도 도착은 7월 3일이며 안흥량 도착의 초4일이나 표제의 7일과 다르다."
+        },
+        {
+          "id": "anheung-arrival",
+          "expected": {
+            "year": 1419,
+            "month": 7,
+            "day": 4,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1419년 음력 7월 4일",
+            "세종 1년 7월 4일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 1년(1419년) 7월 7일",
+              "start": 28,
+              "end": 56
+            },
+            {
+              "quote": "초4일에는 안흥량(安興梁)에 와서",
+              "start": 182,
+              "end": 200
+            }
+          ],
+          "allowedParaphrases": [
+            "이달 초3일에 이어진 초4일은 같은 1419년 음력 7월의 4일이다. 이는 안흥량 도착이고 소청도 도착의 3일이나 표제의 7일로 바꾸지 않는다."
+          ],
+          "rationale": "이달 초3일에 이어진 초4일은 같은 1419년 음력 7월의 4일이다. 이는 안흥량 도착이고 소청도 도착의 3일이나 표제의 7일로 바꾸지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T12-Q01",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "shower",
+          "expected": {
+            "year": 1449,
+            "month": 6,
+            "day": 7,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1449년 음력 6월 7일",
+            "세종 31년 6월 7일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 31년(1449년) 6월 18일",
+              "start": 30,
+              "end": 60
+            },
+            {
+              "quote": "이달 초7일에 이르러 비로소 비가 왔으나 소낙비이어서",
+              "start": 162,
+              "end": 191
+            }
+          ],
+          "allowedParaphrases": [
+            "이달은 표제의 1449년 음력 6월이다. 초7일을 명시하므로 소낙비는 6월 7일이다. 2월의 다우 상태와는 다른 시간 표현이다."
+          ],
+          "rationale": "이달은 표제의 1449년 음력 6월이다. 초7일을 명시하므로 소낙비는 6월 7일이다. 2월의 다우 상태와는 다른 시간 표현이다."
+        }
+      ]
+    },
+    {
+      "id": "T12-Q02",
+      "category": "unknown-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "rain-state",
+          "expected": {
+            "year": 1449,
+            "month": 2,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1449년 음력 2월, 정확한 일자 확인 불가",
+            "세종 31년 2월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 31년(1449년) 6월 18일",
+              "start": 30,
+              "end": 60
+            },
+            {
+              "quote": "금년 2월에 비가 많았는데,",
+              "start": 142,
+              "end": 157
+            }
+          ],
+          "allowedParaphrases": [
+            "금년은 1449년이다. 음력 2월에 비가 많았다는 상태만 있고 어느 하루를 뜻하는지 적혀 있지 않다. 정확한 일자는 이 자료에서 확정할 수 없으며 표제의 6월 18일이나 다른 소낙비 날짜를 붙이지 않는다."
+          ],
+          "rationale": "금년은 1449년이다. 음력 2월에 비가 많았다는 상태만 있고 어느 하루를 뜻하는지 적혀 있지 않다. 정확한 일자는 이 자료에서 확정할 수 없으며 표제의 6월 18일이나 다른 소낙비 날짜를 붙이지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T12-Q03",
+      "category": "mixed-events",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "rain-state",
+          "expected": {
+            "year": 1449,
+            "month": 2,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1449년 음력 2월, 정확한 일자 확인 불가",
+            "세종 31년 2월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 31년(1449년) 6월 18일",
+              "start": 30,
+              "end": 60
+            },
+            {
+              "quote": "금년 2월에 비가 많았는데,",
+              "start": 142,
+              "end": 157
+            }
+          ],
+          "allowedParaphrases": [
+            "금년은 1449년이다. 음력 2월에 비가 많았다는 상태만 있고 어느 하루를 뜻하는지 적혀 있지 않다. 정확한 일자는 이 자료에서 확정할 수 없으며 표제의 6월 18일이나 다른 소낙비 날짜를 붙이지 않는다."
+          ],
+          "rationale": "금년은 1449년이다. 음력 2월에 비가 많았다는 상태만 있고 어느 하루를 뜻하는지 적혀 있지 않다. 정확한 일자는 이 자료에서 확정할 수 없으며 표제의 6월 18일이나 다른 소낙비 날짜를 붙이지 않는다."
+        },
+        {
+          "id": "shower",
+          "expected": {
+            "year": 1449,
+            "month": 6,
+            "day": 7,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1449년 음력 6월 7일",
+            "세종 31년 6월 7일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 31년(1449년) 6월 18일",
+              "start": 30,
+              "end": 60
+            },
+            {
+              "quote": "이달 초7일에 이르러 비로소 비가 왔으나 소낙비이어서",
+              "start": 162,
+              "end": 191
+            }
+          ],
+          "allowedParaphrases": [
+            "이달은 표제의 1449년 음력 6월이다. 초7일을 명시하므로 소낙비는 6월 7일이다. 2월의 다우 상태와는 다른 시간 표현이다."
+          ],
+          "rationale": "이달은 표제의 1449년 음력 6월이다. 초7일을 명시하므로 소낙비는 6월 7일이다. 2월의 다우 상태와는 다른 시간 표현이다."
+        }
+      ]
+    },
+    {
+      "id": "T13-Q01",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "appointment",
+          "expected": {
+            "year": 1420,
+            "month": 3,
+            "day": 16,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1420년 음력 3월 16일",
+            "세종 2년 3월 16일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 2년(1420년) 3월 16일",
+              "start": 28,
+              "end": 57
+            },
+            {
+              "quote": "박은·이원으로 영전사(領殿事)에,",
+              "start": 139,
+              "end": 157
+            },
+            {
+              "quote": "임명하였다.",
+              "start": 176,
+              "end": 182
+            }
+          ],
+          "allowedParaphrases": [
+            "본문은 이 기사의 당일 관원 임명을 적고 있으므로 박은·이원을 영전사로 임명한 것으로 실린 기록의 날짜는 1420년 음력 3월 16일이다. 기관의 모든 설립 과정이 이 날 일어났다고 확대하지 않는다."
+          ],
+          "rationale": "본문은 이 기사의 당일 관원 임명을 적고 있으므로 박은·이원을 영전사로 임명한 것으로 실린 기록의 날짜는 1420년 음력 3월 16일이다. 기관의 모든 설립 과정이 이 날 일어났다고 확대하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T13-Q02",
+      "category": "header-control",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "header",
+          "expected": {
+            "year": 1420,
+            "month": 3,
+            "day": 16,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1420년 음력 3월 16일",
+            "세종 2년 3월 16일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": false,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 2년(1420년) 3월 16일",
+              "start": 28,
+              "end": 57
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+          ],
+          "rationale": "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+        }
+      ]
+    },
+    {
+      "id": "T14-Q01",
+      "category": "known-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "reading-order",
+          "expected": {
+            "year": 1426,
+            "month": 12,
+            "day": 11,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1426년 음력 12월 11일",
+            "세종 8년 12월 11일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": true,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 8년(1426년) 12월 11일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "집현전 부교리(集賢殿副校理) 권채(權綵)와 저작랑(著作郞) 신석견(辛石堅)·정자(正字) 남수문(南秀文) 등을 불러 명하기를,",
+              "start": 141,
+              "end": 210
+            },
+            {
+              "quote": "지금부터는 본전(本殿)에 출근하지 말고 집에서 전심으로 글을 읽어",
+              "start": 215,
+              "end": 251
+            }
+          ],
+          "allowedParaphrases": [
+            "권채 등을 불러 지금부터 집에서 독서하라고 명한 당일 기록이다. 명령이 실린 날짜는 표제의 1426년 음력 12월 11일이다. 이 날짜를 집현관 제수 날짜나 실제 독서 개시일의 증명으로 쓰지 않는다."
+          ],
+          "rationale": "권채 등을 불러 지금부터 집에서 독서하라고 명한 당일 기록이다. 명령이 실린 날짜는 표제의 1426년 음력 12월 11일이다. 이 날짜를 집현관 제수 날짜나 실제 독서 개시일의 증명으로 쓰지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T14-Q02",
+      "category": "header-control",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "header",
+          "expected": {
+            "year": 1426,
+            "month": 12,
+            "day": 11,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1426년 음력 12월 11일",
+            "세종 8년 12월 11일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": false,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 8년(1426년) 12월 11일",
+              "start": 29,
+              "end": 59
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+          ],
+          "rationale": "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+        }
+      ]
+    },
+    {
+      "id": "T15-Q01",
+      "category": "unknown-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "drought",
+          "expected": {
+            "year": 1419,
+            "month": 3,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1419년 음력 3월, 정확한 일자 확인 불가",
+            "세종 1년 3월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 1년(1419년) 3월 30일",
+              "start": 28,
+              "end": 57
+            },
+            {
+              "quote": "이달에 가물었다.",
+              "start": 139,
+              "end": 148
+            }
+          ],
+          "allowedParaphrases": [
+            "표제는 세종 1년(1419년) 음력 3월 30일이다. 국역 이달에와 한문 是月은 이 기사의 음력 3월을 가리킨다. 가뭄이 있었다는 월은 확인되지만 특정 일자나 시작·종료일은 적혀 있지 않다. 표제 30일을 발생일 또는 실제 보고일로 대체하지 않고, 30일이 아니었다고도 단정하지 않는다."
+          ],
+          "rationale": "표제는 세종 1년(1419년) 음력 3월 30일이다. 국역 이달에와 한문 是月은 이 기사의 음력 3월을 가리킨다. 가뭄이 있었다는 월은 확인되지만 특정 일자나 시작·종료일은 적혀 있지 않다. 표제 30일을 발생일 또는 실제 보고일로 대체하지 않고, 30일이 아니었다고도 단정하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T15-Q02",
+      "category": "false-date-premise",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "drought",
+          "expected": {
+            "year": 1419,
+            "month": 3,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1419년 음력 3월, 정확한 일자 확인 불가",
+            "세종 1년 3월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 1년(1419년) 3월 30일",
+              "start": 28,
+              "end": 57
+            },
+            {
+              "quote": "이달에 가물었다.",
+              "start": 139,
+              "end": 148
+            }
+          ],
+          "allowedParaphrases": [
+            "표제는 세종 1년(1419년) 음력 3월 30일이다. 국역 이달에와 한문 是月은 이 기사의 음력 3월을 가리킨다. 가뭄이 있었다는 월은 확인되지만 특정 일자나 시작·종료일은 적혀 있지 않다. 표제 30일을 발생일 또는 실제 보고일로 대체하지 않고, 30일이 아니었다고도 단정하지 않는다."
+          ],
+          "rationale": "표제는 세종 1년(1419년) 음력 3월 30일이다. 국역 이달에와 한문 是月은 이 기사의 음력 3월을 가리킨다. 가뭄이 있었다는 월은 확인되지만 특정 일자나 시작·종료일은 적혀 있지 않다. 표제 30일을 발생일 또는 실제 보고일로 대체하지 않고, 30일이 아니었다고도 단정하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T15-Q03",
+      "category": "header-control",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "header",
+          "expected": {
+            "year": 1419,
+            "month": 3,
+            "day": 30,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1419년 음력 3월 30일",
+            "세종 1년 3월 30일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": false,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 1년(1419년) 3월 30일",
+              "start": 28,
+              "end": 57
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+          ],
+          "rationale": "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+        }
+      ]
+    },
+    {
+      "id": "T16-Q01",
+      "category": "unknown-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "no-ice",
+          "expected": {
+            "year": 1420,
+            "month": 11,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1420년 음력 11월, 정확한 일자 확인 불가",
+            "세종 2년 11월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 2년(1420년) 11월 30일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "이달에는 얼음이 얼지 아니하였다.",
+              "start": 141,
+              "end": 159
+            }
+          ],
+          "allowedParaphrases": [
+            "기사 자체의 표제는 세종 2년(1420년) 음력 11월 30일이다. 이달에는 및 是月無氷은 11월의 미결빙을 기록한다. 특정 하루의 관측일 또는 보고일은 본문에 없다. 표제 30일의 단일 관측으로 좁히거나, 이를 12월 사건이나 해빙 사건으로 바꾸지 않는다."
+          ],
+          "rationale": "기사 자체의 표제는 세종 2년(1420년) 음력 11월 30일이다. 이달에는 및 是月無氷은 11월의 미결빙을 기록한다. 특정 하루의 관측일 또는 보고일은 본문에 없다. 표제 30일의 단일 관측으로 좁히거나, 이를 12월 사건이나 해빙 사건으로 바꾸지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T16-Q02",
+      "category": "false-date-premise",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "no-ice",
+          "expected": {
+            "year": 1420,
+            "month": 11,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1420년 음력 11월, 정확한 일자 확인 불가",
+            "세종 2년 11월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 2년(1420년) 11월 30일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "이달에는 얼음이 얼지 아니하였다.",
+              "start": 141,
+              "end": 159
+            }
+          ],
+          "allowedParaphrases": [
+            "기사 자체의 표제는 세종 2년(1420년) 음력 11월 30일이다. 이달에는 및 是月無氷은 11월의 미결빙을 기록한다. 특정 하루의 관측일 또는 보고일은 본문에 없다. 표제 30일의 단일 관측으로 좁히거나, 이를 12월 사건이나 해빙 사건으로 바꾸지 않는다."
+          ],
+          "rationale": "기사 자체의 표제는 세종 2년(1420년) 음력 11월 30일이다. 이달에는 및 是月無氷은 11월의 미결빙을 기록한다. 특정 하루의 관측일 또는 보고일은 본문에 없다. 표제 30일의 단일 관측으로 좁히거나, 이를 12월 사건이나 해빙 사건으로 바꾸지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T16-Q03",
+      "category": "header-control",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "header",
+          "expected": {
+            "year": 1420,
+            "month": 11,
+            "day": 30,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1420년 음력 11월 30일",
+            "세종 2년 11월 30일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": false,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 2년(1420년) 11월 30일",
+              "start": 29,
+              "end": 59
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+          ],
+          "rationale": "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+        }
+      ]
+    },
+    {
+      "id": "T17-Q01",
+      "category": "unknown-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "epidemic-deaths",
+          "expected": {
+            "year": 1422,
+            "month": 3,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1422년 음력 3월, 정확한 일자 확인 불가",
+            "세종 4년 3월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 4년(1422년) 3월 29일",
+              "start": 29,
+              "end": 58
+            },
+            {
+              "quote": "이달에 서울과 지방에서 큰 역질(疫疾)이 있어, 죽은 사람이 매우 많았다.",
+              "start": 140,
+              "end": 181
+            }
+          ],
+          "allowedParaphrases": [
+            "세종 4년은 표제 서기 연도 1422년과 일치한다. 이달에 및 是月이 가리키는 음력 3월에 역질과 다수 사망이 있었다고 읽는다. 본문은 개별 발생일·사망일이나 보고일을 제시하지 않는다. 3월 29일은 이 기사의 표제일일 뿐 해당 사건 전체의 확정 발생일이 아니다."
+          ],
+          "rationale": "세종 4년은 표제 서기 연도 1422년과 일치한다. 이달에 및 是月이 가리키는 음력 3월에 역질과 다수 사망이 있었다고 읽는다. 본문은 개별 발생일·사망일이나 보고일을 제시하지 않는다. 3월 29일은 이 기사의 표제일일 뿐 해당 사건 전체의 확정 발생일이 아니다."
+        }
+      ]
+    },
+    {
+      "id": "T17-Q02",
+      "category": "false-date-premise",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "epidemic-deaths",
+          "expected": {
+            "year": 1422,
+            "month": 3,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1422년 음력 3월, 정확한 일자 확인 불가",
+            "세종 4년 3월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 4년(1422년) 3월 29일",
+              "start": 29,
+              "end": 58
+            },
+            {
+              "quote": "이달에 서울과 지방에서 큰 역질(疫疾)이 있어, 죽은 사람이 매우 많았다.",
+              "start": 140,
+              "end": 181
+            }
+          ],
+          "allowedParaphrases": [
+            "세종 4년은 표제 서기 연도 1422년과 일치한다. 이달에 및 是月이 가리키는 음력 3월에 역질과 다수 사망이 있었다고 읽는다. 본문은 개별 발생일·사망일이나 보고일을 제시하지 않는다. 3월 29일은 이 기사의 표제일일 뿐 해당 사건 전체의 확정 발생일이 아니다."
+          ],
+          "rationale": "세종 4년은 표제 서기 연도 1422년과 일치한다. 이달에 및 是月이 가리키는 음력 3월에 역질과 다수 사망이 있었다고 읽는다. 본문은 개별 발생일·사망일이나 보고일을 제시하지 않는다. 3월 29일은 이 기사의 표제일일 뿐 해당 사건 전체의 확정 발생일이 아니다."
+        }
+      ]
+    },
+    {
+      "id": "T17-Q03",
+      "category": "header-control",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "header",
+          "expected": {
+            "year": 1422,
+            "month": 3,
+            "day": 29,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1422년 음력 3월 29일",
+            "세종 4년 3월 29일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": false,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 4년(1422년) 3월 29일",
+              "start": 29,
+              "end": 58
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+          ],
+          "rationale": "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+        }
+      ]
+    },
+    {
+      "id": "T18-Q01",
+      "category": "unknown-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "flowering",
+          "expected": {
+            "year": 1437,
+            "month": 8,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1437년 음력 8월, 정확한 일자 확인 불가",
+            "세종 19년 8월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 19년(1437년) 8월 29일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "이달에 성안에서 배꽃·회나무꽃[槐花]·자두꽃이 피었다.",
+              "start": 141,
+              "end": 171
+            }
+          ],
+          "allowedParaphrases": [
+            "표제는 세종 19년(1437년) 음력 8월 29일이다. 이달에 및 是月은 음력 8월을 가리키며 뒤의 開는 꽃이 핀 사건을 기록한다. 정확한 개화일과 세 종류의 동시 개화 여부는 확인할 수 없다. 표제 29일을 공통 개화일이나 별도 보고일로 확정하지 않는다."
+          ],
+          "rationale": "표제는 세종 19년(1437년) 음력 8월 29일이다. 이달에 및 是月은 음력 8월을 가리키며 뒤의 開는 꽃이 핀 사건을 기록한다. 정확한 개화일과 세 종류의 동시 개화 여부는 확인할 수 없다. 표제 29일을 공통 개화일이나 별도 보고일로 확정하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T18-Q02",
+      "category": "false-date-premise",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "flowering",
+          "expected": {
+            "year": 1437,
+            "month": 8,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1437년 음력 8월, 정확한 일자 확인 불가",
+            "세종 19년 8월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 19년(1437년) 8월 29일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "이달에 성안에서 배꽃·회나무꽃[槐花]·자두꽃이 피었다.",
+              "start": 141,
+              "end": 171
+            }
+          ],
+          "allowedParaphrases": [
+            "표제는 세종 19년(1437년) 음력 8월 29일이다. 이달에 및 是月은 음력 8월을 가리키며 뒤의 開는 꽃이 핀 사건을 기록한다. 정확한 개화일과 세 종류의 동시 개화 여부는 확인할 수 없다. 표제 29일을 공통 개화일이나 별도 보고일로 확정하지 않는다."
+          ],
+          "rationale": "표제는 세종 19년(1437년) 음력 8월 29일이다. 이달에 및 是月은 음력 8월을 가리키며 뒤의 開는 꽃이 핀 사건을 기록한다. 정확한 개화일과 세 종류의 동시 개화 여부는 확인할 수 없다. 표제 29일을 공통 개화일이나 별도 보고일로 확정하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T18-Q03",
+      "category": "header-control",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "header",
+          "expected": {
+            "year": 1437,
+            "month": 8,
+            "day": 29,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1437년 음력 8월 29일",
+            "세종 19년 8월 29일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": false,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 19년(1437년) 8월 29일",
+              "start": 29,
+              "end": 59
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+          ],
+          "rationale": "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+        }
+      ]
+    },
+    {
+      "id": "T19-Q01",
+      "category": "unknown-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "relocation",
+          "expected": {
+            "year": 1438,
+            "month": 3,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1438년 음력 3월, 정확한 일자 확인 불가",
+            "세종 20년 3월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 20년(1438년) 3월 29일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "이달에 선원전(璿源殿)을 문소전(文昭殿) 동북쪽 모퉁이에 옮겨다 지었다.",
+              "start": 141,
+              "end": 181
+            }
+          ],
+          "allowedParaphrases": [
+            "표제는 세종 20년(1438년) 음력 3월 29일이다. 국역 이달에와 한문 是月, 移構는 음력 3월의 이건을 뒷받침한다. 옮겨 지은 정확한 일자와 착공일·봉안일은 적혀 있지 않다. 표제 29일로 이건일이나 실제 보고일을 확정하지 않는다."
+          ],
+          "rationale": "표제는 세종 20년(1438년) 음력 3월 29일이다. 국역 이달에와 한문 是月, 移構는 음력 3월의 이건을 뒷받침한다. 옮겨 지은 정확한 일자와 착공일·봉안일은 적혀 있지 않다. 표제 29일로 이건일이나 실제 보고일을 확정하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T19-Q02",
+      "category": "false-date-premise",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "relocation",
+          "expected": {
+            "year": 1438,
+            "month": 3,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1438년 음력 3월, 정확한 일자 확인 불가",
+            "세종 20년 3월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 20년(1438년) 3월 29일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "이달에 선원전(璿源殿)을 문소전(文昭殿) 동북쪽 모퉁이에 옮겨다 지었다.",
+              "start": 141,
+              "end": 181
+            }
+          ],
+          "allowedParaphrases": [
+            "표제는 세종 20년(1438년) 음력 3월 29일이다. 국역 이달에와 한문 是月, 移構는 음력 3월의 이건을 뒷받침한다. 옮겨 지은 정확한 일자와 착공일·봉안일은 적혀 있지 않다. 표제 29일로 이건일이나 실제 보고일을 확정하지 않는다."
+          ],
+          "rationale": "표제는 세종 20년(1438년) 음력 3월 29일이다. 국역 이달에와 한문 是月, 移構는 음력 3월의 이건을 뒷받침한다. 옮겨 지은 정확한 일자와 착공일·봉안일은 적혀 있지 않다. 표제 29일로 이건일이나 실제 보고일을 확정하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T19-Q03",
+      "category": "header-control",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "header",
+          "expected": {
+            "year": 1438,
+            "month": 3,
+            "day": 29,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1438년 음력 3월 29일",
+            "세종 20년 3월 29일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": false,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 20년(1438년) 3월 29일",
+              "start": 29,
+              "end": 59
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+          ],
+          "rationale": "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+        }
+      ]
+    },
+    {
+      "id": "T20-Q01",
+      "category": "unknown-day",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "dispatch",
+          "expected": {
+            "year": 1441,
+            "month": 1,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1441년 음력 1월, 정확한 일자 확인 불가",
+            "세종 23년 1월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 23년(1441년) 1월 29일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "이 달에 도체찰사 황보인(皇甫仁)을 함길도로 보내어",
+              "start": 141,
+              "end": 169
+            }
+          ],
+          "allowedParaphrases": [
+            "표제는 세종 23년(1441년) 음력 1월 29일이다. 이 달에 및 是月, 遣은 황보인을 보낸 때가 그해 음력 1월임을 뒷받침한다. 일자는 없다. 표제 29일을 파견일로 확정하거나 29일이 아니었다고 단정하지 않는다. 종성 이전이나 보 설치의 실제 완료일, 先是 이후 선행 사건의 날짜는 이 파견 날짜로 대신하지 않는다."
+          ],
+          "rationale": "표제는 세종 23년(1441년) 음력 1월 29일이다. 이 달에 및 是月, 遣은 황보인을 보낸 때가 그해 음력 1월임을 뒷받침한다. 일자는 없다. 표제 29일을 파견일로 확정하거나 29일이 아니었다고 단정하지 않는다. 종성 이전이나 보 설치의 실제 완료일, 先是 이후 선행 사건의 날짜는 이 파견 날짜로 대신하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T20-Q02",
+      "category": "false-date-premise",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "dispatch",
+          "expected": {
+            "year": 1441,
+            "month": 1,
+            "day": null,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": true,
+          "unknownScope": [
+            "day"
+          ],
+          "wrongExamples": [
+            "일자를 확정",
+            "표제일을 실제 사건일로 확정",
+            "표제일은 사건일이 아니었다고 근거 없이 단정"
+          ],
+          "allowedExpressions": [
+            "1441년 음력 1월, 정확한 일자 확인 불가",
+            "세종 23년 1월, 일자는 자료에서 확인 불가"
+          ],
+          "eligibility": {
+            "unsupportedDay": true,
+            "missingKnownDay": false,
+            "headerConfusion": true
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 23년(1441년) 1월 29일",
+              "start": 29,
+              "end": 59
+            },
+            {
+              "quote": "이 달에 도체찰사 황보인(皇甫仁)을 함길도로 보내어",
+              "start": 141,
+              "end": 169
+            }
+          ],
+          "allowedParaphrases": [
+            "표제는 세종 23년(1441년) 음력 1월 29일이다. 이 달에 및 是月, 遣은 황보인을 보낸 때가 그해 음력 1월임을 뒷받침한다. 일자는 없다. 표제 29일을 파견일로 확정하거나 29일이 아니었다고 단정하지 않는다. 종성 이전이나 보 설치의 실제 완료일, 先是 이후 선행 사건의 날짜는 이 파견 날짜로 대신하지 않는다."
+          ],
+          "rationale": "표제는 세종 23년(1441년) 음력 1월 29일이다. 이 달에 및 是月, 遣은 황보인을 보낸 때가 그해 음력 1월임을 뒷받침한다. 일자는 없다. 표제 29일을 파견일로 확정하거나 29일이 아니었다고 단정하지 않는다. 종성 이전이나 보 설치의 실제 완료일, 先是 이후 선행 사건의 날짜는 이 파견 날짜로 대신하지 않는다."
+        }
+      ]
+    },
+    {
+      "id": "T20-Q03",
+      "category": "header-control",
+      "wrongExamples": [
+        "확인 가능한 연·월·일 누락 또는 다른 사건의 날짜 사용",
+        "일자 미확인 사건에 특정 일을 근거 없이 단정하거나 부정",
+        "음력 날짜를 양력이라고 표기하거나 임의 환산"
+      ],
+      "events": [
+        {
+          "id": "header",
+          "expected": {
+            "year": 1441,
+            "month": 1,
+            "day": 29,
+            "calendar": "lunar"
+          },
+          "required": [
+            "year",
+            "month",
+            "day"
+          ],
+          "allowedOmissions": [
+            "calendar"
+          ],
+          "requiresUnknownDay": false,
+          "unknownScope": [],
+          "wrongExamples": [
+            "알려진 일자 누락",
+            "다른 사건 또는 보고일로 바꿈"
+          ],
+          "allowedExpressions": [
+            "1441년 음력 1월 29일",
+            "세종 23년 1월 29일"
+          ],
+          "eligibility": {
+            "unsupportedDay": false,
+            "missingKnownDay": false,
+            "headerConfusion": false
+          },
+          "evidence": [
+            {
+              "quote": "기사 표제 날짜: 세종 23년(1441년) 1월 29일",
+              "start": 29,
+              "end": 59
+            }
+          ],
+          "allowedParaphrases": [
+            "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+          ],
+          "rationale": "질문 대상이 본문 사건이 아니라 표제 날짜이므로 표제를 그대로 답한다."
+        }
+      ]
+    }
+  ]
+}
