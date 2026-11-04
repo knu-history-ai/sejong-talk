@@ -4,6 +4,12 @@ Refs [#71](https://github.com/knu-history-ai/sejong-talk/issues/71) · 실험 �
 
 작성·사전 대조: **Codex(AI), 2026-10-15**. **시연 1차 검수는 2026-10-15 완료했다(20기사·53문항). T16-Q01의 질문 해석 의견은 미해결이며, 민준의 수정 반영·재확인·기준 고정은 남아 있다.** 이 문서 묶음은 검수자 전용이며 답변 생성 모델에 넣지 않는다.
 
+## PR77 리뷰 반영과 최종 자료 안내
+
+- [11월 4일 리뷰](https://github.com/knu-history-ai/sejong-talk/pull/77#pullrequestreview-5761484775)에 따라 `questions.md`의 T01-Q01·T02-Q01 유형과 T10-Q02 AI 설명 오류를 정정 주석으로 바로잡았다. 기존 사람 판정·의견과 검수 당시 기록은 보존했다.
+- 위 서두와 아래 검수 결과·해시는 **2026-10-15 v3 검수 당시 기록**이다. 이후 T15·T16·T17·T18-Q01 수정, 시연의 재확인과 final-v4 확정은 [PR72](https://github.com/knu-history-ai/sejong-talk/pull/72)의 [확정 기록](https://github.com/knu-history-ai/sejong-talk/blob/1a088f106a1fe5bafbc359d770206e8758907d30/evals/sejong/date-review-20261015/reviewer-only/확정기록.json)을 따른다. `checks.json`의 v3 해시는 당시 자료의 값이며 final-v4 해시가 아니다.
+- PR77은 `docs/issue-71-source-review/`의 검수 문서 5개만 공유한다. 중복된 v3 자료 8개는 Git 추적에서 제외하고 로컬 원본은 보존한다. 최종 모델 입력·정답표·승인 상태·해시는 PR72에서 관리하며, PR77에는 이를 덮어쓸 자료를 포함하지 않는다.
+
 ## 검수 대상과 보존 범위
 
 - 작업 브랜치: `feat/71-source-review`
@@ -11,7 +17,7 @@ Refs [#71](https://github.com/knu-history-ai/sejong-talk/issues/71) · 실험 �
 - 기준 커밋: `79644286624a49fd4f45275ff95efe10dd097d2a`
 - 자료 버전: `date-review-20261015-20articles-draft-v3`
 - 원본 위치: `evals/sejong/date-review-20261015/`
-- 직접 열기: [원본 발췌·질문](../../evals/sejong/date-review-20261015/model-input/모델입력_사료와질문.md) · [원본 정답·날짜 근거](../../evals/sejong/date-review-20261015/reviewer-only/정답표_날짜판단근거.md) · [원본 검수 기록](../../evals/sejong/date-review-20261015/reviewer-only/검수기록.md).
+- 당시 원본 열기(v3 고정 커밋): [원본 발췌·질문](https://github.com/knu-history-ai/sejong-talk/blob/79644286624a49fd4f45275ff95efe10dd097d2a/evals/sejong/date-review-20261015/model-input/모델입력_사료와질문.md) · [원본 정답·날짜 근거](https://github.com/knu-history-ai/sejong-talk/blob/79644286624a49fd4f45275ff95efe10dd097d2a/evals/sejong/date-review-20261015/reviewer-only/정답표_날짜판단근거.md) · [원본 검수 기록](https://github.com/knu-history-ai/sejong-talk/blob/79644286624a49fd4f45275ff95efe10dd097d2a/evals/sejong/date-review-20261015/reviewer-only/검수기록.md).
 - 원본 모델 입력·정답·manifest·검수기록은 수정하지 않았다. 이번 결과는 공유 가능한 `docs/`에 별도로 작성했다.
 - 원본 자료의 `split: final`은 후보 분류값이며 사람 검수 완료나 최종 평가 자료 확정을 뜻하지 않는다.
 
@@ -57,7 +63,7 @@ Refs [#71](https://github.com/knu-history-ai/sejong-talk/issues/71) · 실험 �
 
 자동 점검은 로컬 일회성 Python 스크립트로 수행했고, 해시는 평가 브랜치 `core.mjs`의 JavaScript 정규화 방식으로 별도 재계산해 확인했다. 키를 재귀 정렬한 뒤 `JSON.stringify`의 정수 키 열거 순서를 유지한다. 파일 바이트를 그대로 SHA-256한 값과 구분한다. 공식 페이지 사본 해시는 수집한 HTML 바이트의 SHA-256이다. 사이트의 동적 HTML이 바뀌면 같은 URL에서도 사본 해시가 달라질 수 있다.
 
-해시는 저장소 루트에서 아래 명령으로 다시 확인할 수 있다. 기존 평가 도구를 수정하거나 실제 모델을 호출하지 않는다.
+아래 명령은 위 기준 커밋의 **v3 자료가 로컬에 있을 때만** 당시 해시를 다시 확인하는 방법이다. PR72 final-v4 자료의 해시 확인이나 원문 재검수로 대신 사용하지 않는다. 기존 평가 도구를 수정하거나 실제 모델을 호출하지 않는다.
 
 ```powershell
 @'
