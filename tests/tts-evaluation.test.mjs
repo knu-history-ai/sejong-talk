@@ -4,7 +4,7 @@ import { mkdtemp, readFile, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import path from "node:path";
 import { promisify } from "node:util";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 import test from "node:test";
 
 const execute = promisify(execFile);
@@ -22,7 +22,7 @@ for (const provider of ["azure", "elevenlabs", "typecast"]) {
     const { stdout } = await execute(
       process.execPath,
       [
-        "--import", fetchMock,
+        "--import", pathToFileURL(fetchMock).href,
         cli,
         `--provider=${provider}`,
         "--case=historical-terms",

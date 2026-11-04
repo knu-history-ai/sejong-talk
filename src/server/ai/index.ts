@@ -3,7 +3,7 @@ import "server-only";
 import type { ApprovedTurn, FailedRequest, TurnRequest } from "../../contracts";
 import { loadSejongKnowledgeBase, selectReviewedFactsForQuestion } from "../content/sejong";
 import { parseAnswerDraftFromText, validateAnswerDraft } from "./answer";
-import { requestGeminiCandidate, readGeminiConfig } from "./gemini-request";
+import { requestOllamaCandidate, readOllamaConfig } from "./ollama-request";
 import {
   buildSejongAnswerPrompt,
   buildSejongPromptInput,
@@ -63,14 +63,13 @@ export async function generateSejongTurn({
       recentConversation,
     });
     const prompt = buildSejongAnswerPrompt(promptInput);
-    const config = readGeminiConfig({
-      GEMINI_API_KEY: process.env.GEMINI_API_KEY,
-      GEMINI_MODEL: process.env.GEMINI_MODEL,
-      GEMINI_TIMEOUT_MS: process.env.GEMINI_TIMEOUT_MS,
-      GEMINI_MAX_ATTEMPTS: process.env.GEMINI_MAX_ATTEMPTS,
-      GEMINI_API_BASE_URL: process.env.GEMINI_API_BASE_URL,
+    const config = readOllamaConfig({
+      OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
+      OLLAMA_MODEL: process.env.OLLAMA_MODEL,
+      OLLAMA_TIMEOUT_MS: process.env.OLLAMA_TIMEOUT_MS,
+      OLLAMA_MAX_ATTEMPTS: process.env.OLLAMA_MAX_ATTEMPTS,
     });
-    const candidate = await requestGeminiCandidate(prompt, config, fetch, signal);
+    const candidate = await requestOllamaCandidate(prompt, config, fetch, signal);
     const answer = validateAnswerDraft(
       parseAnswerDraftFromText(candidate.text),
       promptInput,

@@ -131,7 +131,7 @@ test('a reviewer who already reviewed is not requested again on synchronization'
 });
 
 // Exercise the actual CI script, including its asynchronous metadata hand-off.
-const yaml = readFileSync(new URL('../.github/workflows/pr-title.yml', import.meta.url), 'utf8');
+const yaml = readFileSync(new URL('../.github/workflows/pr-title.yml', import.meta.url), 'utf8').replaceAll('\r\n', '\n');
 const source = yaml.split('          script: |\n').at(-1).split('\n').map(line => line.replace(/^ {12}/, '')).join('\n');
 const AsyncFunction = Object.getPrototypeOf(async function () {}).constructor;
 async function runCheck(h, get) {

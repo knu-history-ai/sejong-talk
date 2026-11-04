@@ -141,6 +141,57 @@ test("Sejong prompt input separates character, recent turns, and approved facts"
   assert.match(prompt, /\[사용자 질문\]/);
 });
 
+test("date source drafts stay out of prompts until they are approved", async () => {
+  const knowledgeBase = await loadSejongKnowledgeBase();
+
+  const hunminFacts = selectReviewedFactsForQuestion(
+    knowledgeBase,
+    "그러면 훈민정음을 정확히 12월 30일에 만든 것이 맞나요?",
+  );
+  assert.ok(hunminFacts.every((fact) => !fact.id.startsWith("sejong_date_")));
+  assert.deepEqual(
+    selectReviewedFactsForQuestion(knowledgeBase, "치평요람은 정확히 몇 월 며칠에 완성되었나요?"),
+    [],
+  );
+  assert.deepEqual(
+    selectReviewedFactsForQuestion(knowledgeBase, "정이한 파견과 공사 시작이 모두 1월 28일에 일어났나요? 각각 알려주세요."),
+    [],
+  );
+
+  const approvedKnowledgeBase = {
+    ...knowledgeBase,
+    facts: knowledgeBase.facts.map((fact) =>
+      fact.id.startsWith("sejong_date_")
+        ? { ...fact, reviewStatus: "approved" }
+        : fact,
+    ),
+  };
+
+  const uijuFacts = selectReviewedFactsForQuestion(
+    approvedKnowledgeBase,
+    "정이한 파견과 공사 시작이 모두 1월 28일에 일어났나요? 각각 알려주세요.",
+  ).map((fact) => fact.id);
+
+  assert.ok(uijuFacts.includes("sejong_date_uiju_dispatch_month"));
+  assert.ok(uijuFacts.includes("sejong_date_uiju_construction_start"));
+
+  const promptInput = buildSejongPromptInput({
+    knowledgeBase,
+    request: {
+      requestId: "turn_date_pending",
+      text: "그러면 훈민정음을 정확히 12월 30일에 만든 것이 맞나요?",
+    },
+    reviewedFacts: selectReviewedFactsForQuestion(
+      knowledgeBase,
+      "그러면 훈민정음을 정확히 12월 30일에 만든 것이 맞나요?",
+    ),
+  });
+  const prompt = buildSejongAnswerPrompt(promptInput);
+
+  assert.doesNotMatch(prompt, /sejong_date_hunminjeongeum_creation_month/);
+  assert.doesNotMatch(prompt, /source_sillok_hunminjeongeum_creation_month/);
+});
+
 test("answer validation only exposes server-approved fact IDs and sources", async () => {
   const knowledgeBase = await loadSejongKnowledgeBase();
   const request = {
@@ -393,4 +444,39 @@ test("Sejong turn fingerprint is stable for nested recent conversation keys", ()
   });
 
   assert.equal(first, second);
+});
+
+
+test("material merge keeps pending drafts out of prompts and returns updated Jiphyeonjeon source", async () => {
+  const knowledgeBase = await loadSejongKnowledgeBase();
+  const pendingIds = [
+    "sejong_hunminjeongeum_creation_year", "sejong_hunminjeongeum_promulgation_year",
+    "sejong_cheugugi_purpose", "sejong_angbuilgu_principle", "sejong_nongsajikseol_purpose",
+    "sejong_date_hunminjeongeum_creation_month", "sejong_date_chipyeongyoram_completion_month",
+    "sejong_date_uiju_dispatch_month", "sejong_date_uiju_construction_start", "sejong_date_uiju_construction_end",
+  ];
+  assert.equal(new Set(knowledgeBase.facts.map(f => f.id)).size, knowledgeBase.facts.length);
+  assert.equal(new Set(knowledgeBase.sources.map(s => s.id)).size, knowledgeBase.sources.length);
+  for (const fact of knowledgeBase.facts) {
+    assert.ok(fact.sourceIds.every(id => knowledgeBase.sources.some(s => s.id === id)));
+  }
+  for (const id of pendingIds) {
+    const fact = knowledgeBase.facts.find(f => f.id === id);
+    assert.equal(fact?.reviewStatus, "pending", id);
+    const selected = selectReviewedFactsForQuestion(knowledgeBase, fact.topic);
+    const input = buildSejongPromptInput({knowledgeBase, request: {requestId: "pending_merge", text: fact.topic}, reviewedFacts: selected});
+    assert.ok(!input.reviewedFacts.some(f => pendingIds.includes(f.id)));
+    for (const pendingId of pendingIds) assert.ok(!buildSejongAnswerPrompt(input).includes(pendingId));
+  }
+  const request = {requestId: "jiphyeonjeon_merge", text: "집현전은 뭐 하는 곳이에요?"};
+  const input = buildSejongPromptInput({knowledgeBase, request, reviewedFacts: selectReviewedFactsForQuestion(knowledgeBase, request.text)});
+  assert.ok(input.reviewedFacts.some(f => f.id === "sejong_jiphyeonjeon_learning"));
+  assert.ok(buildSejongAnswerPrompt(input).includes("source_urihistory_jiphyeonjeon"));
+  const source = knowledgeBase.sources.find(s => s.id === "source_urihistory_jiphyeonjeon");
+  assert.equal(source.title, "집현전(集賢殿) — 역주조선왕조실록");
+  assert.equal(source.institution, "한국학중앙연구원 한국학진흥사업성과포털");
+  assert.ok(source.url.startsWith("https://waks.aks.ac.kr/rsh/dir/rview.aspx?"));
+  const answer = validateAnswerDraft({kind: "grounded", text: "집현전은 학문 연구와 인재 양성을 도왔단다.", factIds: ["sejong_jiphyeonjeon_learning", ...pendingIds]}, input);
+  assert.deepEqual(answer.factIds, ["sejong_jiphyeonjeon_learning"]);
+  assert.deepEqual(answer.sources, [{id: source.id, title: source.title, institution: source.institution, url: source.url}]);
 });

@@ -4,9 +4,9 @@ import { randomUUID } from "node:crypto";
 import cases from "./fixed-questions.json" with { type: "json" };
 import { parseAnswerDraftFromText, validateAnswerDraft } from "../../src/server/ai/answer.ts";
 import {
-  requestGeminiCandidate,
-  readGeminiConfig,
-} from "../../src/server/ai/gemini-request.ts";
+  requestOllamaCandidate,
+  readOllamaConfig,
+} from "../../src/server/ai/ollama-request.ts";
 import {
   buildSejongAnswerPrompt,
   buildSejongPromptInput,
@@ -46,19 +46,13 @@ function estimateCostUsd(usage) {
     return null;
   }
 
-  const inputCost = (usage.inputTokens / 1_000_000) * 0.3;
-  const outputCost = (usage.outputTokens / 1_000_000) * 2.5;
-  return Number((inputCost + outputCost).toFixed(6));
+  return 0;
 }
 
 const knowledgeBase = await loadSejongKnowledgeBase();
 let config = null;
 if (!useMock) {
-  try {
-    config = readGeminiConfig(process.env);
-  } catch {
-    config = null;
-  }
+  config = readOllamaConfig(process.env);
 }
 
 const records = [];
@@ -87,9 +81,9 @@ for (const testCase of cases) {
       attempts = 0;
     } else if (!config) {
       rawText = "";
-      error = { code: "UNAVAILABLE", message: "GEMINI_API_KEY is not configured." };
+      error = { code: "UNAVAILABLE", message: "Ollama is not configured or unavailable." };
     } else {
-      const result = await requestGeminiCandidate(prompt, config);
+      const result = await requestOllamaCandidate(prompt, config);
       rawText = result.text;
       usage = result.usage;
       attempts = result.attempts;
@@ -109,7 +103,7 @@ for (const testCase of cases) {
       runId,
       caseId: testCase.id,
       category: testCase.category,
-      provider: config ? "gemini" : useMock ? "mock" : "gemini-unconfigured",
+      provider: config ? "ollama" : useMock ? "mock" : "ollama-unconfigured",
       model: config?.model ?? "not-run",
       status,
       startedAt: startedAt.toISOString(),
@@ -130,7 +124,7 @@ for (const testCase of cases) {
       runId,
       caseId: testCase.id,
       category: testCase.category,
-      provider: config ? "gemini" : "mock",
+      provider: config ? "ollama" : "mock",
       model: config?.model ?? "not-run",
       status: "failed",
       startedAt: startedAt.toISOString(),

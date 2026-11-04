@@ -50,24 +50,31 @@
 npm run eval:ai -- --mock
 ```
 
-PowerShell에서 실제 Gemini 호출:
+PowerShell에서 실제 Ollama/Qwen 호출:
 
 ```powershell
-$env:GEMINI_API_KEY="..."
+$env:OLLAMA_BASE_URL="http://127.0.0.1:11434"
+$env:OLLAMA_MODEL="qwen3.5:4b-q4_K_M"
+$env:USAGE_PROVIDER_PLANS='{"ollama:llm_generation":{"mode":"free","maxCostMicros":0}}'
 npm run eval:ai
 ```
 
-macOS/Linux에서 실제 Gemini 호출:
+macOS/Linux에서 실제 Ollama/Qwen 호출:
 
 ```bash
-GEMINI_API_KEY=... npm run eval:ai
+OLLAMA_BASE_URL=http://127.0.0.1:11434 \
+OLLAMA_MODEL=qwen3.5:4b-q4_K_M \
+USAGE_PROVIDER_PLANS='{"ollama:llm_generation":{"mode":"free","maxCostMicros":0}}' \
+npm run eval:ai
 ```
+
+실제 실행 전에는 Ollama 서버를 켜고 `ollama pull qwen3.5:4b-q4_K_M`으로 모델을 받아 둔다.
 
 결과는 `evals/sejong/results/`에 JSON으로 저장하며 Git에는 올리지 않는다.
 
 ## API 후보와 사용 조건
 
-- Gemini Developer API의 기존 호출 실험을 이어갈 수 있도록 adapter와 고정 질문 runner를 준비했다. 실제 사용 모델은 무료 이용 가능 여부와 비교 결과를 확인하고 결정한다.
+- 현재 서버 기본 답변 생성은 로컬 Ollama의 `qwen3.5:4b-q4_K_M` 모델을 호출한다. Gemini adapter는 기존 후보 시험 코드로 남겨 두지만, `/server/ai` 공개 진입점은 Ollama adapter를 사용한다.
 - 카드 등록 없는 무료 플랜·트라이얼과 로컬 모델을 비교한다. 학생 개인 카드 등록, 유료 전환, 선불 충전은 진행하지 않는다.
 - 무료 한도 또는 품질 때문에 유료 후보가 필요하면 그 이유와 비교 결과를 멘토님께 공유하고 사용 방식을 먼저 협의한다.
 - PR의 자동 검증은 mock 공급자로 실행하며 실제 API 호출·요금·품질을 입증하지 않는다.
@@ -79,6 +86,6 @@ GEMINI_API_KEY=... npm run eval:ai
 
 배포 업체는 아직 정하지 않았다. 로컬 통합을 먼저 확인하고 학교 지원 방식과 서비스 운영 조건을 멘토님과 협의한 뒤 결정한다. 현재 세션·요청 상태는 메모리에 있으므로 여러 서버 인스턴스나 재시작에서도 상태가 보존된다고 가정하면 안 된다.
 
-`.env.example`의 Gemini 변수는 공급자·모델·timeout·재시도 설정이다. 애플리케이션이 금액을 자동으로 집계하거나 결제를 차단하는 기능은 아직 없다. 사용되지 않던 `AI_DAILY_TEST_BUDGET_USD`와 `AI_MONTHLY_TEST_BUDGET_USD`는 제거했다. API 비용 추적은 W03-02 후속 작업이다.
+`.env.example`의 Ollama 변수는 로컬 서버 주소·모델·timeout·재시도 설정이다. 키가 없어도 usage guard의 `USAGE_PROVIDER_PLANS`에 `ollama:llm_generation`을 무료 공급자로 허용해야 실제 호출된다. 사용되지 않던 `AI_DAILY_TEST_BUDGET_USD`와 `AI_MONTHLY_TEST_BUDGET_USD`는 제거했다. API 비용 추적은 W03-02 후속 작업이다.
 
 Q01/Q03/Q05 3개를 한 번씩 실행하는 smoke run과 같은 세트 3회 반복 비교를 분리해 기록한다. 실패·취소·재시도도 공급자 호출이 시작됐다면 사용량이 생길 수 있다. 평가 JSON은 `evals/sejong/results/`에 로컬로 저장하며 공개 저장소에는 커밋하지 않는다.
