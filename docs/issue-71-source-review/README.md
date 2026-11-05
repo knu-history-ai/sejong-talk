@@ -2,13 +2,15 @@
 
 Refs [#71](https://github.com/knu-history-ai/sejong-talk/issues/71) · 실험 상위 이슈 [#62](https://github.com/knu-history-ai/sejong-talk/issues/62)
 
+> 아래 검수 내용과 미해결·미실행 표시는 **2026-10-15 v3 작성 당시 기록**이다. 이후 수정·재확인과 자료 확정 상태는 아래 PR72 final-v4 안내를 따른다.
+
 작성·사전 대조: **Codex(AI), 2026-10-15**. **시연 1차 검수는 2026-10-15 완료했다(20기사·53문항). T16-Q01의 질문 해석 의견은 미해결이며, 민준의 수정 반영·재확인·기준 고정은 남아 있다.** 이 문서 묶음은 검수자 전용이며 답변 생성 모델에 넣지 않는다.
 
 ## PR77 리뷰 반영과 최종 자료 안내
 
 - [11월 4일 리뷰](https://github.com/knu-history-ai/sejong-talk/pull/77#pullrequestreview-5761484775)에 따라 `questions.md`의 T01-Q01·T02-Q01 유형과 T10-Q02 AI 설명 오류를 정정 주석으로 바로잡았다. 기존 사람 판정·의견과 검수 당시 기록은 보존했다.
 - 위 서두와 아래 검수 결과·해시는 **2026-10-15 v3 검수 당시 기록**이다. 이후 T15·T16·T17·T18-Q01 수정, 시연의 재확인과 final-v4 확정은 [PR72](https://github.com/knu-history-ai/sejong-talk/pull/72)의 [확정 기록](https://github.com/knu-history-ai/sejong-talk/blob/1a088f106a1fe5bafbc359d770206e8758907d30/evals/sejong/date-review-20261015/reviewer-only/확정기록.json)을 따른다. `checks.json`의 v3 해시는 당시 자료의 값이며 final-v4 해시가 아니다.
-- PR77은 `docs/issue-71-source-review/`의 검수 문서 5개만 공유한다. 중복된 v3 자료 8개는 Git 추적에서 제외하고 로컬 원본은 보존한다. 최종 모델 입력·정답표·승인 상태·해시는 PR72에서 관리하며, PR77에는 이를 덮어쓸 자료를 포함하지 않는다.
+- PR77에는 `docs/issue-71-source-review/`의 검수 문서 5개와 `output/mentor-meeting/`의 회의자료 8개(PNG 5개·PDF 1개·PPTX 2개)가 포함돼 있다. 회의자료는 함께 보관한 별첨이며 모델 입력이나 정답표가 아니다. 중복된 v3 자료 8개는 Git 추적에서 제외했고, 과거 원본은 고정 커밋 링크로 확인할 수 있다. 기존 안내에 적힌 로컬 원본 보존 여부는 이번 검토에서 따로 확인하지 않았다. 최종 모델 입력·정답표·승인 상태·해시는 PR72에서 관리하며, PR77에는 이를 덮어쓸 자료를 포함하지 않는다.
 
 ## 검수 대상과 보존 범위
 
@@ -136,3 +138,4 @@ for (const [key, value] of Object.entries(actual)) {
 - 수정본 확인이 끝나면 버전·해시·채점 기준을 고정하고 #62에 결과를 공유한다. 이번 문서만으로 #71을 닫지 않는다.
 
 이번 작업은 영인 이미지 전수 판독, 새 사료 수집·한문 번역 완성, 앱 연결, 평가도구 변경, 실제 모델 실행·답변 채점을 포함하지 않는다. 개인 대화·비공개 모델 실행·공유되지 않은 개발 이력의 중복은 저장소만으로 확인할 수 없어 담당자의 사실 확인이 필요하다. GitHub 게시·PR 생성·이슈 댓글은 수행하지 않았다.
+
