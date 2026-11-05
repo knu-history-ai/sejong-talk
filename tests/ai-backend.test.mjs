@@ -25,6 +25,61 @@ import {
   selectReviewedFactsForQuestion,
 } from "../src/server/content/sejong.ts";
 import { RequestCoordinator } from "../src/server/requests/index.ts";
+import personaCases from "./fixtures/sejong-persona-review.json" with { type: "json" };
+
+test("persona review: allowed and blocked candidates preserve the answer contract", async (t) => {
+  const input = await buildPromptInputFor("persona_review", "훈민정음은 왜 만들었어요?");
+  const quoteVariants = [['“', '”'], ['‘', '’'], ['"', '"'], ["'", "'"]].flatMap(([open, close]) => [
+    { expected: "allow", kind: "grounded", text: `네가 ${open}세종은 왜\n훈민정음을 만들었나요?${close}라고 물었구나. 나는 백성을 위해 만들었단다.` },
+    { expected: "block", kind: "grounded", text: `${open}반갑구나.${close} 세종대왕은 훈민정음을 만들었습니다. 네가 ${open}왜?${close}라고 물었구나.` },
+  ]);
+  const boundaries = [
+    { expected: "allow", kind: "conversation", text: "반갑구나. 나, 세종은 네 이야기를 듣고 있단다." },
+    { expected: "block", kind: "grounded", text: "세종 대왕 님 은 훈민정음을 만들었습니다." },
+    { expected: "block", kind: "grounded", text: "세종 ( 世宗 ) 은 훈민정음을 만들었습니다." },
+    { expected: "block", kind: "grounded", text: "나, 세종은 반갑구나. 세종대왕은 훈민정음을 만들었습니다." },
+    { expected: "allow", kind: "grounded", text: "네 질문은 “자료에서 ‘세종은 훈민정음을 만들었다’라고 읽었나요?”였구나. 나는 백성을 위해 만들었단다." },
+    { expected: "block", kind: "grounded", text: "네 질문은 “자료에서 ‘세종은 훈민정음을 만들었다’라고 읽었나요?”였구나. 세종대왕은 훈민정음을 만들었습니다." },
+  ];
+  for (const [index, candidate] of [...personaCases, ...quoteVariants, ...boundaries].entries()) {
+    await t.test(`${index + 1}: ${candidate.expected} ${candidate.text}`, () => {
+      const draft = {
+        kind: candidate.kind, text: candidate.text,
+        factIds: candidate.kind === "grounded" ? ["sejong_hunminjeongeum_purpose"] : [],
+      };
+      assert.ok(draft.text.length <= 400);
+      const answer = validateAnswerDraft(draft, input);
+      if (candidate.expected === "allow") {
+        assert.equal(answer.kind, draft.kind);
+        assert.equal(answer.text, draft.text);
+        assert.deepEqual(answer.factIds, draft.factIds);
+        assert.deepEqual(answer.sources.map((source) => source.id),
+          draft.kind === "grounded" ? ["source_urihistory_hunminjeongeum"] : []);
+      } else {
+        assert.equal(answer.kind, "fallback");
+        assert.notEqual(answer.text, draft.text);
+        assert.deepEqual(answer.factIds, []);
+        assert.deepEqual(answer.sources, []);
+      }
+    });
+  }
+});
+
+test("persona exceptions never bypass grounded fact and source requirements", async () => {
+  const input = await buildPromptInputFor("persona_sources", "훈민정음은 왜 만들었어요?");
+  const text = "네 질문은 “세종은 왜 훈민정음을 만들었나요?”였구나. 나는 백성을 위해 만들었단다.";
+  for (const [factIds, context] of [
+    [[], input],
+    [["sejong_private_feeling_pending"], input],
+    [["sejong_hunminjeongeum_purpose"], { ...input, sources: [] }],
+  ]) {
+    const answer = validateAnswerDraft({ kind: "grounded", text, factIds }, context);
+    assert.equal(answer.kind, "fallback");
+    assert.notEqual(answer.text, text);
+    assert.deepEqual(answer.factIds, []);
+    assert.deepEqual(answer.sources, []);
+  }
+});
 
 function approvedTurn(requestId) {
   return {
