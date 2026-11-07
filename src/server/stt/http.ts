@@ -41,8 +41,8 @@ export async function readAudio(request: Request) {
 }
 
 export async function handleStt(request: Request, comparison = false): Promise<Response> {
-  // This comparison endpoint has not yet been connected to authenticated sessions.
-  // Keep it development-only until the voice integration task adds ownership checks.
+  // Development comparison/e2e handler without sessions. The service route
+  // /api/transcriptions uses TranscriptionHttp (session-http.ts) instead.
   if (process.env.NODE_ENV !== "development") return json({ message: "개발 환경에서만 사용할 수 있어요." }, 404);
   const origin = request.headers.get("origin");
   let sameOrigin = false;
