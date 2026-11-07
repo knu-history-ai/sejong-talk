@@ -4,7 +4,9 @@
     "characterId": "sejong",
     "topic": "훈민정음 한글 창제 목적",
     "text": "세종은 백성들이 자기 뜻을 쉽게 글로 적을 수 있도록 훈민정음을 만들었다.",
-    "sourceIds": ["source_urihistory_hunminjeongeum"],
+    "sourceIds": [
+      "source_urihistory_hunminjeongeum"
+    ],
     "reviewStatus": "approved"
   },
   {
@@ -12,7 +14,9 @@
     "characterId": "sejong",
     "topic": "훈민정음 처음 글자 수",
     "text": "훈민정음은 처음에 초성 17자와 중성 11자를 합해 28자로 만들어졌다.",
-    "sourceIds": ["source_urihistory_hunminjeongeum"],
+    "sourceIds": [
+      "source_urihistory_hunminjeongeum"
+    ],
     "reviewStatus": "approved"
   },
   {
@@ -20,15 +24,69 @@
     "characterId": "sejong",
     "topic": "세종 학문 집현전",
     "text": "세종 때 집현전은 학문 연구와 인재 양성에 중요한 역할을 했다.",
-    "sourceIds": ["source_urihistory_jiphyeonjeon"],
+    "sourceIds": [
+      "source_urihistory_jiphyeonjeon"
+    ],
     "reviewStatus": "approved"
+  },
+  {
+    "id": "sejong_hunminjeongeum_creation_year",
+    "characterId": "sejong",
+    "topic": "훈민정음 한글 창제 만든 연도",
+    "text": "세종은 1443년에 훈민정음을 창제했다.",
+    "sourceIds": [
+      "source_korean_hunminjeongeum_dates"
+    ],
+    "reviewStatus": "pending"
+  },
+  {
+    "id": "sejong_hunminjeongeum_promulgation_year",
+    "characterId": "sejong",
+    "topic": "훈민정음 한글 반포 알린 연도",
+    "text": "훈민정음은 1446년에 반포되었다. 창제한 해인 1443년과 구분한다.",
+    "sourceIds": [
+      "source_urihistory_hunminjeongeum_promulgation"
+    ],
+    "reviewStatus": "pending"
+  },
+  {
+    "id": "sejong_cheugugi_purpose",
+    "characterId": "sejong",
+    "topic": "측우기 강우량 비 농업 농사 용도",
+    "text": "세종 때 측우기는 비가 내린 양인 강우량을 측정하는 데 쓰였으며, 농업에 도움을 주기 위해 각지에 설치되었다.",
+    "sourceIds": [
+      "source_urihistory_cheugugi_agriculture"
+    ],
+    "reviewStatus": "pending"
+  },
+  {
+    "id": "sejong_angbuilgu_principle",
+    "characterId": "sejong",
+    "topic": "앙부일구 해시계 그림자 시간 원리",
+    "text": "세종 때 제작된 앙부일구는 해시계로, 해에 의해 생기는 그림자를 보고 시간을 알 수 있는 도구이다.",
+    "sourceIds": [
+      "source_urihistory_angbuilgu"
+    ],
+    "reviewStatus": "pending"
+  },
+  {
+    "id": "sejong_nongsajikseol_purpose",
+    "characterId": "sejong",
+    "topic": "농사직설 농업 농사 책 목적 농법",
+    "text": "농사직설은 세종 때인 1429년에 우리나라의 풍토에 알맞은 농사 방법을 모아 편찬한 책이다.",
+    "sourceIds": [
+      "source_urihistory_nongsajikseol"
+    ],
+    "reviewStatus": "pending"
   },
   {
     "id": "sejong_date_hunminjeongeum_creation_month",
     "characterId": "sejong",
     "topic": "훈민정음 창제 날짜 이달 세종 25년 12월 30일",
     "text": "세종실록 세종 25년 12월 30일 기사는 훈민정음 창제를 '이달에' 있었다고 적는다. 이 사료만으로 창제의 정확한 날을 12월 30일로 단정하지 않고 세종 25년 12월 범위로 답해야 한다.",
-    "sourceIds": ["source_sillok_hunminjeongeum_creation_month"],
+    "sourceIds": [
+      "source_sillok_hunminjeongeum_creation_month"
+    ],
     "reviewStatus": "pending"
   },
   {
@@ -36,7 +94,9 @@
     "characterId": "sejong",
     "topic": "치평요람 완성 날짜 이달 세종 27년 3월 30일",
     "text": "세종실록 세종 27년 3월 30일 기사는 치평요람 완성을 '이달에' 이루어졌다고 적는다. 이 사료만으로 완성일을 3월 30일로 단정하지 않고 세종 27년 3월 범위로 답해야 한다.",
-    "sourceIds": ["source_sillok_chipyeongyoram_completion_month"],
+    "sourceIds": [
+      "source_sillok_chipyeongyoram_completion_month"
+    ],
     "reviewStatus": "pending"
   },
   {
@@ -44,7 +104,9 @@
     "characterId": "sejong",
     "topic": "정이한 파견 의주 읍성터 확장 이달 세종 30년 1월 28일",
     "text": "세종실록 세종 30년 1월 28일 기사는 정이한을 평안도에 보내 의주 읍성터를 넓히게 한 일을 '이달에' 있었다고 적는다. 파견 시점은 세종 30년 1월 범위로 답하고 기사 표제일 1월 28일을 파견일로 단정하지 않는다.",
-    "sourceIds": ["source_sillok_uiju_fortress_expansion"],
+    "sourceIds": [
+      "source_sillok_uiju_fortress_expansion"
+    ],
     "reviewStatus": "pending"
   },
   {
@@ -52,7 +114,9 @@
     "characterId": "sejong",
     "topic": "의주 읍성터 확장 공사 시작 2월 15일",
     "text": "세종실록 세종 30년 1월 28일 기사는 의주 읍성터 확장 공사를 2월 15일에 시작했다고 적는다. 이 날짜는 정이한 파견 시점과 구분해야 한다.",
-    "sourceIds": ["source_sillok_uiju_fortress_expansion"],
+    "sourceIds": [
+      "source_sillok_uiju_fortress_expansion"
+    ],
     "reviewStatus": "pending"
   },
   {
@@ -60,7 +124,9 @@
     "characterId": "sejong",
     "topic": "의주 읍성터 확장 공사 종료 3월 15일",
     "text": "세종실록 세종 30년 1월 28일 기사는 의주 읍성터 확장 공사가 3월 15일에 끝났다고 적는다. 이 날짜는 정이한 파견 시점과 공사 시작일과 구분해야 한다.",
-    "sourceIds": ["source_sillok_uiju_fortress_expansion"],
+    "sourceIds": [
+      "source_sillok_uiju_fortress_expansion"
+    ],
     "reviewStatus": "pending"
   },
   {
@@ -68,7 +134,9 @@
     "characterId": "sejong",
     "topic": "세종의 속마음",
     "text": "세종이 훈민정음 반대 의견을 들었을 때 느낀 개인 감정은 검토 전 자료만 있다.",
-    "sourceIds": ["source_pending_story"],
+    "sourceIds": [
+      "source_pending_story"
+    ],
     "reviewStatus": "pending"
   },
   {
@@ -76,7 +144,9 @@
     "characterId": "sejong",
     "topic": "현대 물건 직접 경험",
     "text": "세종이 스마트폰을 사용했다는 주장은 역사 자료와 맞지 않는다.",
-    "sourceIds": ["source_pending_story"],
+    "sourceIds": [
+      "source_pending_story"
+    ],
     "reviewStatus": "rejected"
   }
 ]
