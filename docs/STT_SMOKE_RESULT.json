@@ -1,0 +1,44 @@
+{
+  "at": "2026-09-30T02:08:26.701Z",
+  "provider": "azure",
+  "api": "Short Audio REST; language=ko-KR; format=detailed",
+  "source": "Existing 22.05kHz Korean synthetic WAV normalized through production browser code",
+  "resourceTier": "Not queried; endpoint supports F0",
+  "reference": "세종대왕은 왜 훈민정음을 만들었나요?",
+  "status": "PASS",
+  "httpSuccess": true,
+  "recognitionStatus": "Success",
+  "displayText": "세종대왕은 외훈민 정음을 만들었나요?",
+  "latencyMs": 1321,
+  "evaluation": {
+    "exactMatch": false,
+    "cer": 0.15,
+    "cerWithoutSpaces": 0.058823529411764705,
+    "terms": [
+      {
+        "term": "세종",
+        "recognized": true
+      },
+      {
+        "term": "세종대왕",
+        "recognized": true
+      },
+      {
+        "term": "훈민정음",
+        "recognized": true
+      }
+    ],
+    "termAccuracy": 1
+  },
+  "audio": {
+    "mime": "audio/wav",
+    "bytes": 117766,
+    "sampleRate": 16000,
+    "channels": 1,
+    "bitsPerSample": 16,
+    "durationMs": 3678.8125,
+    "dataOffset": 44,
+    "dataBytes": 117722
+  },
+  "httpStatus": 200
+}
