@@ -58,8 +58,10 @@ export function selectFactsForTurn(
     // A common named topic must occur in both the question and every cited card.
     // Multi-topic questions without such an anchor are deliberately clarified.
     const anchors = topicAnchors(facts[0]);
-    const sameTopic = anchors.some((word) => turn.question.includes(word) &&
-      facts.every((fact) => fact.topic.split(/\s+/u).includes(word)));
+    const topicQuestion = turn.question.replace(/한글/gu, "훈민정음");
+    const sameTopic = anchors.some((word) => topicQuestion.includes(word) &&
+      // A reply citing just one of several topics does not disambiguate "there".
+      selected.every((fact) => fact.topic.split(/\s+/u).includes(word)));
     return sameTopic ? { facts, needsClarification: false } : unclear;
   }
   return unclear;

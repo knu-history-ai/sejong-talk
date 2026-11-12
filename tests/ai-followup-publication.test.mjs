@@ -44,6 +44,7 @@ test("#74 short follow-up selects current approved evidence, not prior model tex
 test("#74 missing, ambiguous and interrupted context asks for clarification", async () => {
   const kb = await loadSejongKnowledgeBase();
   for (const history of [[], [previous("집현전과 훈민정음에 대해 알려줘", [jiphyeon, purpose])],
+    [previous("집현전과 훈민정음에 대해 알려줘", [jiphyeon])],
     [previous(), { question: "안녕", answer: { kind: "conversation", text: "안녕", factIds: [] } }],
     [previous("스마트폰은 뭐야?", [jiphyeon])], [previous("거기서는 뭘 했어?")]]) {
     assert.deepEqual(selectFactsForTurn(kb, "거기서는 뭘 했어?", history), { facts: [], needsClarification: true });
@@ -57,6 +58,7 @@ test("#74 explicit topic switches and repeated follow-ups stay bounded", async (
   const changed = selectFactsForTurn(kb, "훈민정음은 왜 만들었어요?", [previous()]);
   assert.ok(changed.facts.some((fact) => fact.id === purpose));
   assert.ok(changed.facts.every((fact) => fact.id !== jiphyeon));
+  assert.equal(selectFactsForTurn(kb, "그것은 왜 만들었어?", [previous("한글은 왜 만들었어?", [purpose])]).needsClarification, false);
   const history = [previous(), previous("거기서는 뭘 했어?")];
   assert.deepEqual(selectFactsForTurn(kb, "그곳에서는 뭘 했나요?", history).facts.map((fact) => fact.id), [jiphyeon]);
   assert.equal(selectFactsForTurn(kb, "거기서는 뭘 했어?", [previous(), ...Array.from({ length: 10 }, () => previous("거기서는 뭘 했어?"))]).needsClarification, true);
