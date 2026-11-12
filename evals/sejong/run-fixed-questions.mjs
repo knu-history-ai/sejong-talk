@@ -30,13 +30,13 @@ function mockCandidate(testCase) {
   if (testCase.id === "Q03") {
     return JSON.stringify({
       kind: "conversation",
-      text: "나는 세종과의 대화를 이어가도록 마련된 AI란다. 이순신 장군 이야기가 궁금하다면 다음 인물 확장에서 다루어 보자.",
+      text: "나는 세종이란다. 여기서는 나와 함께 이야기를 이어가 보자. 내게 궁금한 것을 물어보렴.",
       factIds: [],
     });
   }
   return JSON.stringify({
     kind: "insufficient",
-    text: "그 질문은 지금 준비된 자료로 확인하기 어렵구나. 세종 때의 생활이나 훈민정음에 관한 질문으로 바꾸어 물어보면 좋겠다.",
+    text: "그 질문은 지금 준비된 자료로 확인하기 어렵구나. 내가 확인할 수 있는 훈민정음 이야기부터 함께 나누어 보자.",
     factIds: [],
   });
 }
@@ -90,9 +90,10 @@ for (const testCase of cases) {
       status = "completed";
     }
 
-    const answer = rawText
+    const candidate = rawText ? parseAnswerDraftFromText(rawText) : null;
+    const answer = candidate
       ? validateAnswerDraft(
-          parseAnswerDraftFromText(rawText),
+          candidate,
           promptInput,
           { answerId: `answer_${testCase.id}_${runId}` },
         )
@@ -113,6 +114,18 @@ for (const testCase of cases) {
       selectedFactIds: reviewedFacts.map((fact) => fact.id),
       expectedKind: testCase.expectedKind,
       expectedFacts: testCase.expectedFacts,
+      evaluationMode: useMock ? "mock" : "model",
+      candidate,
+      personaChecks: testCase.personaChecks,
+      validation: answer && candidate ? {
+        kindChanged: answer.kind !== candidate.kind,
+        textPreserved: answer.text === candidate.text,
+      } : null,
+      personaReview: {
+        firstPersonMaintained: null,
+        falsePositiveBlocked: null,
+        note: "Compare the candidate with the public answer manually. Null means not assessed; fallback alone does not prove a persona error.",
+      },
       answer,
       usage,
       estimatedCostUsd: estimateCostUsd(usage),
@@ -134,6 +147,15 @@ for (const testCase of cases) {
       selectedFactIds: reviewedFacts.map((fact) => fact.id),
       expectedKind: testCase.expectedKind,
       expectedFacts: testCase.expectedFacts,
+      evaluationMode: useMock ? "mock" : "model",
+      candidate: null,
+      personaChecks: testCase.personaChecks,
+      validation: null,
+      personaReview: {
+        firstPersonMaintained: null,
+        falsePositiveBlocked: null,
+        note: "No assessable candidate. Exclude this failure from model persona and false-positive rates.",
+      },
       answer: null,
       usage: { inputTokens: null, outputTokens: null, totalTokens: null },
       estimatedCostUsd: null,
