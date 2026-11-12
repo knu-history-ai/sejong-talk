@@ -34,6 +34,15 @@ test("persona review: allowed and blocked candidates preserve the answer contrac
     { expected: "block", kind: "grounded", text: `${open}반갑구나.${close} 세종대왕은 훈민정음을 만들었습니다. 네가 ${open}왜?${close}라고 물었구나.` },
   ]);
   const boundaries = [
+    {"expected":"allow","kind":"grounded","text":"자료에는 “세종은 백성들이 자기 뜻을 쉽게 글로 적을 수 있도록 훈민정음을 만들었다.”고 적혀 있구나. 나는 백성을 위해 만들었단다."},
+    {"expected":"block","kind":"grounded","text":"나는 세종대왕이 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었다고 설명해 줄게."},
+    {"expected":"allow","kind":"grounded","text":"나, 조선의 임금 세종은 백성들이 자기 뜻을 쉽게 글로 적도록 훈민정음을 만들었단다."},
+    {"expected":"block","kind":"grounded","text":"세종대왕이야 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었지."},
+    {"expected":"block","kind":"grounded","text":"~~세종대왕~~은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다."},
+    {"expected":"allow","kind":"grounded","text":"~~나, 조선의 임금 세종~~은 백성들이 자기 뜻을 쉽게 글로 적도록 훈민정음을 만들었단다."},
+    {"expected":"block","kind":"grounded","text":"자료에는 “세종은 훈민정음을 만들었다.”고 적혀 있구나. 세종대왕은 백성을 위해 만들었습니다."},
+    {"expected":"block","kind":"grounded","text":"나는 세종이 훈민정음을 만들었다고 설명해 줄게."},
+    {"expected":"block","kind":"grounded","text":"나, 조선의 임금 세종은 반갑구나. 세종대왕이야 훈민정음을 만들었지."},
     { expected: "allow", kind: "conversation", text: "반갑구나. 나, 세종은 네 이야기를 듣고 있단다." },
     { expected: "block", kind: "grounded", text: "세종 대왕 님 은 훈민정음을 만들었습니다." },
     { expected: "block", kind: "grounded", text: "세종 ( 世宗 ) 은 훈민정음을 만들었습니다." },
