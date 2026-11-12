@@ -74,7 +74,7 @@ export function RealtimeVoiceTest() {
       <dl className="grid grid-cols-2 gap-1 text-sm text-neutral-700">
         <dt>연결까지</dt>
         <dd>{t.startedAt !== null && t.connectedAt !== null ? `${Math.round(t.connectedAt - t.startedAt)}ms` : "-"}</dd>
-        <dt>말 끝 → 첫 답변 음성</dt>
+        <dt>사용자 메시지 이벤트 → 답변 상태 이벤트</dt>
         <dd>{t.lastResponseLatencyMs !== null ? `${t.lastResponseLatencyMs}ms` : "-"}</dd>
         <dt>끼어들기 횟수</dt>
         <dd>{state.interruptions}</dd>

@@ -28,20 +28,56 @@ Bedrock 답변 생성은 정민님, 화면은 선영님(#93/PR #94), 한국어 �
 | `scripts/realtime-poc/answer-relay.mjs` | 답변 생성기 연결부(기본은 mock). 끼어들면 생성기를 멈춤 |
 | `scripts/realtime-poc/create-engine.mjs` | 한국어(`ko`) Speech Engine 생성·갱신. 기본은 미리보기만 함 |
 
-## 실행 순서 (로컬 시험)
+## 환경 변수 (이름만. 값과 키는 `.env.local`에만 두고 커밋하지 않습니다)
 
-1. `.env.local`에 `ELEVENLABS_API_KEY`, `REALTIME_POC_ENABLED=1`을 넣습니다. 키는 커밋하지 않습니다.
-2. WS 서버를 실행합니다: `npm run realtime-poc:server`
-   - 처음에는 `ELEVENLABS_SPEECH_ENGINE_ID`가 없어서 멈춥니다. 3번에서 ID를 만든 뒤 다시 실행합니다.
-3. 외부 주소를 엽니다: `cloudflared tunnel --url http://localhost:3001` → 출력된 `https://xxx.trycloudflare.com`을 기록합니다.
-4. 엔진을 만듭니다(유료 계정이라 실행 여부는 민준님과 확인):
+| 이름 | 필수 | 용도 |
+| --- | --- | --- |
+| `REALTIME_POC_ENABLED` | 필수 | `1`일 때만 시험 화면과 토큰 발급이 열림 |
+| `ELEVENLABS_API_KEY` | 필수 | 토큰 발급, 엔진 생성, WS 서버의 JWT 검증 |
+| `ELEVENLABS_SPEECH_ENGINE_ID` | 필수 | 엔진 생성 뒤에 얻는 `seng_...`. 없으면 WS 서버가 시작하지 않음 |
+| `ELEVENLABS_VOICE_ID` | 선택 | 엔진 생성 때 `tts.voiceId`로 명시 전달. 없으면 ElevenLabs 기본값. 기존 Bill 음성을 쓰려면 Bill의 Voice ID를 넣음 |
+| `REALTIME_POC_TTS_MODEL` | 선택 | 기본 `eleven_flash_v2_5` |
+| `REALTIME_POC_ANSWER_MODULE` | 선택 | 비우면 mock 답변. 정민님 모듈 경로를 넣으면 실제 생성기 |
+| `REALTIME_POC_WS_PORT` / `REALTIME_POC_WS_PATH` / `REALTIME_POC_DEBUG` | 선택 | 기본 `3001` / `/ws` / 꺼짐 |
+| `REALTIME_POC_TOKENS_PER_MINUTE`, `ELEVENLABS_API_BASE_URL` | 선택 | 토큰 발급 제한(기본 분당 6회), API 주소 변경 |
+
+## 실행 순서
+
+WS 서버는 `ELEVENLABS_SPEECH_ENGINE_ID`가 있어야 시작하므로, 엔진을 먼저 만들고 서버를 실행합니다.
+
+### A. 키 없이 하는 확인 (mock, 비용 없음)
+
+실제 ElevenLabs에는 연결하지 않습니다. 상태 전이, 토큰 오류, WS 서버의 끼어들기 취소 동작만 확인합니다.
+
+```
+npm ci
+npm test                  # 단위 테스트
+npm run build
+npm run test:http         # WS 서버 통합 테스트 포함. ElevenLabs 역할을 흉내 냄
+```
+
+### B. 실제 엔진으로 하는 시험 (유료 계정, 실행 전 담당과 확인)
+
+1. `.env.local`에 `REALTIME_POC_ENABLED=1`, `ELEVENLABS_API_KEY`를 넣습니다.
+2. 외부 주소를 엽니다: `cloudflared tunnel --url http://localhost:3001` → 출력된 `https://xxx.trycloudflare.com`을 기록합니다. 민준님이 공개 `wss://` 주소를 주면 터널 대신 그 주소를 씁니다.
+3. 엔진을 만듭니다(엔진 생성·갱신은 담당과 확인한 뒤에만 `--apply`).
    - 설정 미리보기: `npm run realtime-poc:engine -- --ws-url=wss://xxx.trycloudflare.com/ws`
    - 실제 생성: 위 명령 끝에 `--apply`를 붙입니다. 출력된 `seng_...`를 `.env.local`의 `ELEVENLABS_SPEECH_ENGINE_ID`에 넣습니다.
    - 터널 주소가 바뀌면 `--update=seng_... --apply`로 `ws_url`만 갱신합니다.
-5. WS 서버를 다시 실행하고 `npm run dev`를 실행한 뒤 `http://localhost:3000/realtime-voice-test`에 접속합니다.
+   - 미확인: 엔진 생성 시 ElevenLabs가 `ws_url`에 먼저 접속해 보는지는 확인하지 못했습니다. 생성이 서버 미실행으로 거절되면 서버를 임시 ID(`ELEVENLABS_SPEECH_ENGINE_ID=seng_placeholder`)로 먼저 띄운 뒤 다시 시도합니다.
+4. WS 서버를 실행합니다: `npm run realtime-poc:server` (`REALTIME_POC_ANSWER_MODULE`이 비어 있으면 mock 답변)
+   - 의존성 불러오기가 느린 PC에서는 "준비" 로그가 나오기까지 20초 넘게 걸릴 수 있습니다(Windows 11, Node 24.12.0에서 약 25초).
+5. 다른 터미널에서 `npm run dev`를 실행하고 `http://localhost:3000/realtime-voice-test`에 접속합니다.
 6. **대화 시작**을 누르고 마이크를 허용한 뒤 말합니다 → 답변을 듣습니다 → **답변 도중 다시 말합니다** → 재생이 멈추고 '듣는 중'으로 바뀌는지 확인합니다.
    - mock 답변은 끼어들기 시험을 하기 쉽도록 일부러 길게 만들었습니다.
    - 휴대폰에서 시험하려면 https가 필요합니다. 기존 안내처럼 Next에도 터널을 붙이고 `APP_ORIGIN=<터널 주소>`를 설정합니다.
+
+## 측정값의 정의와 한계
+
+- **`state.timing.lastResponseLatencyMs`:** 사용자 메시지(`user_transcript`) 이벤트가 온 시각부터 상태가 `speaking`으로 바뀐 이벤트까지입니다. 실제 말이 끝난 시각이나 첫 소리가 재생된 시각이 아닙니다. 말 끝 감지와 STT 지연, 오디오 재생 시작 지연은 포함되지 않았습니다.
+- **끼어들기:** 기록하는 것은 `interruption` 이벤트가 도착한 시각입니다. 실제로 소리가 멈춘 시각은 측정하지 않았습니다. 이 둘은 같은 값이 아닙니다.
+- **서버 기록:** WS 서버의 `event: "answer"` 기록은 서버 기준 첫 조각과 전체 시간입니다. 브라우저는 `state.conversationId`를 화면에 표시하지만, 서버 기록에 같은 값을 남기는 연결은 아직 없습니다.
+- **`x-region`:** 이 Speech Engine 실시간 경로에서는 응답 헤더를 관측하거나 기록하지 않습니다. PR #101의 `x-region` 기록은 직접 HTTP TTS 요청에만 해당합니다. 엔진 연결에서 어느 요청의 헤더를 볼 수 있는지(토큰 발급 요청 응답, 엔진 생성 응답 등)와 대화 식별자(`conversation_id`) 연결은 아직 정하지 않았습니다.
 
 ## 다른 담당과 연결하는 지점
 
@@ -55,7 +91,7 @@ Bedrock 답변 생성은 정민님, 화면은 선영님(#93/PR #94), 한국어 �
   ```
   - 기존 답변 검증(출처·말투)은 이 함수 안에서 처리할지, 문장 단위로 처리할지 함께 정해야 합니다. 스트리밍 중 검증은 아직 정하지 않았습니다.
 - **선영님(화면):** `useSpeechEngineVoice()`의 `state.phase`를 PR #94 상태에 그대로 연결합니다. `listening`→듣는 중, `thinking`→답변 준비 중, `speaking`→답변 중이고, `state.error`는 `VOICE_ERROR_MESSAGES`의 제목·안내에 맞춥니다. 대화 내용은 `state.lines`에 들어 있습니다.
-- **시연님(#95):** 화면 기준 `말 끝 → 첫 답변 음성(ms)`과 끼어들기 횟수는 `state.timing`에, 서버 기준 첫 조각·전체 시간은 WS 서버의 JSON 기록(`event: "answer"`)에 남습니다. 두 기록 모두 원문과 키는 남기지 않습니다. 한국어 TTS 모델은 `REALTIME_POC_TTS_MODEL`로 바꿉니다.
+- **시연님(#95):** 화면 기준 `사용자 메시지 이벤트 → 답변 상태 이벤트(ms)`(위 정의 참고, 실제 말 끝·첫 소리가 아님)와 끼어들기 횟수는 `state.timing`에, 서버 기준 첫 조각·전체 시간은 WS 서버의 JSON 기록(`event: "answer"`)에 남습니다. 두 기록 모두 원문과 키는 남기지 않습니다. 한국어 TTS 모델은 `REALTIME_POC_TTS_MODEL`로 바꿉니다.
 - **민준님(AWS):** WS 서버는 Next와 별개인 Node 프로세스입니다. Next 라우트는 WebSocket 업그레이드를 받을 수 없습니다. 공개 `wss://` 주소와 `/ws` 경로를 열어 주고, 그 주소로 엔진의 `ws_url`을 갱신해야 합니다. 키는 서버 비밀 설정에만 둡니다.
 
 ## 안전 장치와 남은 일

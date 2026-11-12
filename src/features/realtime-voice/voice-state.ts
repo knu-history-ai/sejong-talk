@@ -69,7 +69,7 @@ export type VoiceState = {
     lastUserFinalAt: number | null;
     lastAgentAudioAt: number | null;
     lastInterruptionAt: number | null;
-    /** 사용자 말 끝 → 첫 답변 음성까지(ms). 측정 못 하면 null */
+    /** user_transcript 이벤트 → speaking 모드 이벤트까지(ms). 실제 말 끝·첫 소리 재생 시각이 아님. 측정 못 하면 null */
     lastResponseLatencyMs: number | null;
   };
 };

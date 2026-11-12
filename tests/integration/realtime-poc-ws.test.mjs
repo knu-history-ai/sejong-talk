@@ -29,7 +29,8 @@ async function startServer(t) {
   child.stdout.setEncoding("utf8").on("data", (d) => logs.push(...d.split("\n").filter(Boolean)));
   child.stderr.setEncoding("utf8").on("data", (d) => logs.push(d));
   t.after(() => child.kill());
-  for (let i = 0; i < 400 && !logs.some((l) => l.includes("준비")); i += 1) await new Promise((r) => setTimeout(r, 50));
+  // SDK 불러오기가 느린 PC(Windows)에서는 시작에 25초가량 걸려, 넉넉히 60초까지 기다린다.
+  for (let i = 0; i < 1200 && !logs.some((l) => l.includes("준비")); i += 1) await new Promise((r) => setTimeout(r, 50));
   assert.ok(logs.some((l) => l.includes("준비")), logs.join("\n"));
   return logs;
 }
