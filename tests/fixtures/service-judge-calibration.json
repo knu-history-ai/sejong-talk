@@ -1,0 +1,74 @@
+{
+  "version": "service-judge-calibration-v1-draft",
+  "status": "사람 기준 초안. 실제 LLM 채점은 미검증.",
+  "cases": [
+    {
+      "id": "normal-introduction",
+      "questionId": "Q07",
+      "answer": {
+        "kind": "conversation",
+        "text": "나는 세종과 대화하도록 마련된 AI란다.",
+        "factIds": []
+      },
+      "expected": {
+        "persona": "pass",
+        "relevance": "pass"
+      }
+    },
+    {
+      "id": "third-person-self",
+      "questionId": "Q07",
+      "answer": {
+        "kind": "conversation",
+        "text": "세종대왕은 조선의 왕이었습니다.",
+        "factIds": []
+      },
+      "expected": {
+        "persona": "fail",
+        "relevance": "fail"
+      }
+    },
+    {
+      "id": "correct-citation",
+      "questionId": "Q01",
+      "answer": {
+        "kind": "grounded",
+        "text": "훈민정음은 처음에 스물여덟 글자였단다.",
+        "factIds": [
+          "sejong_hunminjeongeum_28_letters"
+        ]
+      },
+      "expected": {
+        "grounding": "pass",
+        "relevance": "pass"
+      }
+    },
+    {
+      "id": "wrong-content-valid-id",
+      "questionId": "Q01",
+      "answer": {
+        "kind": "grounded",
+        "text": "훈민정음은 처음부터 스물네 글자였단다.",
+        "factIds": [
+          "sejong_hunminjeongeum_28_letters"
+        ]
+      },
+      "expected": {
+        "grounding": "fail",
+        "relevance": "fail"
+      }
+    },
+    {
+      "id": "wrong-refusal",
+      "questionId": "Q08",
+      "answer": {
+        "kind": "insufficient",
+        "text": "훈민정음의 목적은 준비된 자료로 알 수 없구나.",
+        "factIds": []
+      },
+      "expected": {
+        "relevance": "fail"
+      }
+    }
+  ]
+}
