@@ -11,9 +11,13 @@
     "typecheck": "next typegen && tsc --noEmit",
     "tts:evaluate": "node --env-file-if-exists=.env.local scripts/tts-w01-05.mjs",
     "test": "node --conditions=react-server --test tests/*.test.mjs",
-    "test:http": "node --test tests/integration/*.test.mjs"
+    "test:http": "node --test tests/integration/*.test.mjs",
+    "realtime-poc:server": "node --env-file-if-exists=.env.local scripts/realtime-poc/speech-engine-server.mjs",
+    "realtime-poc:engine": "node --env-file-if-exists=.env.local scripts/realtime-poc/create-engine.mjs"
   },
   "dependencies": {
+    "@elevenlabs/client": "1.32.1",
+    "@elevenlabs/elevenlabs-js": "2.75.0",
     "next": "16.4.5",
     "react": "19.3.1",
     "react-dom": "19.3.1",
