@@ -118,12 +118,39 @@ export function compareRuns(before, after) {
 export function markdownReport(run) {
   const summary = summarize(run.records);
   const rate = (value) => value === null ? "계산 불가(0건)" : `${(value * 100).toFixed(1)}%`;
+  const cell = (value) => String(value ?? "미확인").replaceAll("|", "\\|").replace(/\r?\n/g, " ");
+  const number = (value, suffix) => typeof value === "number" && Number.isFinite(value) && value >= 0 ? `${value}${suffix}` : "미확인";
   const rows = ["| 검사 | 항목 | 통과/판정 가능 | 통과율 | 평가 가능/적용 | 평가 가능 비율 | 판정불가 | 미채점 |", "|---|---|---:|---:|---:|---:|---:|---:|"];
   for (const group of ["code", "ai"]) for (const [key, value] of Object.entries(summary[group])) {
     rows.push(`| ${group} | ${key} | ${value.pass}/${value.denominator} | ${rate(value.passRate)} | ${value.denominator}/${value.applicable} | ${rate(value.coverage)} | ${value.indeterminate} | ${value.ungraded} |`);
   }
+  const details = ["## 문항별 상태", "", "| 문항 | 생성 | 서버 검증 | 채점 | 실패·판정불가·미채점 사유 |", "|---|---|---|---|---|"];
+  const measurements = ["## 문항별 시간·비용", "", "| 문항 | 생성·검증 구간 | 채점 구간 | 생성 비용(USD) | 채점 비용(USD) |", "|---|---:|---:|---:|---:|"];
+  const calibration = ["## 고정 예시의 예정 판정 대조", "", "| 예시 | 항목 | 예정 | 실제 | 일치 여부 |", "|---|---|---|---|---|"];
+  for (const record of run.records) {
+    const reasons = [];
+    if (record.error) reasons.push(`generation: ${record.error.code}`);
+    if (record.validationStatus === "failed") reasons.push(`validation: ${record.blockReason}`);
+    else if (record.serverStatus === "blocked") reasons.push(`blockReason: ${record.blockReason}`);
+    if (record.judgeError) reasons.push(`judge: ${record.judgeError.code}`);
+    for (const group of ["code", "ai"]) for (const [key, item] of Object.entries(record[group] ?? {})) {
+      if (item.verdict !== "pass") reasons.push(`${group}.${key}=${item.verdict}: ${item.reason}`);
+    }
+    details.push(`| ${cell(record.caseId)} | ${cell(record.status)} | ${cell(record.validationStatus)} / ${cell(record.serverStatus)} | ${cell(record.judgeStatus)} | ${reasons.length ? cell(reasons.join("; ")) : "없음"} |`);
+    measurements.push(`| ${cell(record.caseId)} | ${number(record.latencyMs, " ms")} | ${number(record.judgeLatencyMs, " ms")} | ${number(record.estimatedCostUsd, "")} | ${number(record.judgeEstimatedCostUsd, "")} |`);
+    for (const [key, expected] of Object.entries(record.calibrationExpected ?? {})) {
+      const actual = record.ai?.[key]?.verdict ?? "ungraded";
+      calibration.push(`| ${cell(record.caseId)} | ${cell(key)} | ${cell(expected)} | ${cell(actual)} | ${actual === expected ? "일치" : "불일치"} |`);
+    }
+  }
   return [`# 서비스 평가 ${run.runId}`, "", `질문 ${summary.questions}, 생성 완료 ${summary.generationCompleted}, 공개 답변 ${summary.publicAnswers}, AI 전체 항목 판정 ${summary.aiFullyGraded}`,
     `생성 오류 ${summary.generationErrors}, 형식 검증 오류 ${summary.validationErrors}, AI 채점 오류/부분 실패 ${summary.judgeErrors}`,
-    `모드: ${run.conditions.mode}. 모의 채점은 실제 AI 정확도 검증이 아님. 기준·형식은 팀 검토 전 초안.`, "", ...rows, "",
-    "생성·채점 사용량은 JSON의 usage/judgeUsage로 분리 보존. 비용 null은 미확인. 전체 성공률은 산출하지 않음.", ""].join("\n");
+    `모드: ${cell(run.conditions.mode)}. 모의 채점은 실제 AI 정확도 검증이 아님.`,
+    `기준 상태: ${cell(run.conditions.criteriaStatus)}. 기준 버전: ${cell(run.conditions.criteriaVersion)}.`,
+    `확인 커밋: ${cell(run.revision)}. 미커밋 변경 해시: ${cell(run.worktreeDiffHash)}.`,
+    `생성: ${cell(run.records[0]?.provider)} / ${cell(run.records[0]?.model)}. 채점: ${cell(run.judgeConfig?.mode)} / ${cell(run.judgeModel)}.`, "", ...rows, "", ...details, "", ...measurements, "",
+    "생성·검증 구간은 평가 루프 시작→후보 생성·공개 답변 검증 종료이며 채점 시간은 제외한다. 실제 발화 끝→첫 소리, Speech Engine 이벤트 지연, HTTP TTS 지연과 합산하거나 직접 비교하지 않는다.",
+    "고정 교정 예시는 생성 모델을 호출하지 않는다. 비용 0은 모의/미호출 기록이며 유료 서비스의 무료 사용 근거가 아니다. 비용 null은 미확인.",
+    ...(calibration.length > 4 ? ["", ...calibration, "", "모의 교정은 예정 레이블을 재사용하므로 일치해도 실제 채점기 정확도를 입증하지 않는다."] : []), "",
+    "생성·채점 사용량은 JSON의 usage/judgeUsage로 분리 보존. 전체 성공률은 산출하지 않음.", ""].join("\n");
 }

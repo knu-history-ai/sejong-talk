@@ -1,6 +1,6 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { checkPublicAnswer, compareRuns, parseJudgments, summarize } from "../scripts/service-evaluation.mjs";
+import { checkPublicAnswer, compareRuns, markdownReport, parseJudgments, summarize } from "../scripts/service-evaluation.mjs";
 
 const source = { id: "source", title: "자료", institution: "기관", url: "https://example.org/source" };
 const promptInput = { reviewedFacts: [{ id: "fact", sourceIds: ["source"] }], sources: [source] };
@@ -43,4 +43,24 @@ test("comparison rejects changed questions, missing cases and changed selected e
   assert.equal(compareRuns(before, { ...after, records: [] }).comparable, false);
   assert.equal(compareRuns(before, { ...after, conditions: { ...after.conditions, questionsHash: "changed" } }).comparable, false);
   assert.equal(compareRuns(before, { ...after, records: [{ ...record, selectedFactsHash: "changed" }] }).comparable, false);
+});
+
+test("report distinguishes execution errors, partial judgments and unknown cost from zero", () => {
+  const run = { runId: "report-fixture", conditions: { mode: "mock", criteriaStatus: "초안" }, records: [
+    { caseId: "Q1", status: "failed", validationStatus: "not-run", serverStatus: "failed",
+      error: { code: "UPSTREAM_TIMEOUT" }, judgeStatus: "not-run", estimatedCostUsd: null,
+      judgeEstimatedCostUsd: 0, ai: { persona: { verdict: "ungraded", reason: "생성 오류", evidence: [] } } },
+    { ...record, caseId: "Q2", judgeStatus: "partial", ai: {
+      persona: { verdict: "pass", reason: "1인칭", evidence: [] },
+      relevance: { verdict: "ungraded", reason: "judge_item_format_error|추가\n설명", evidence: [] },
+    }, calibrationExpected: { persona: "pass", relevance: "fail" } },
+  ] };
+  const report = markdownReport(run);
+  assert.match(report, /generation: UPSTREAM_TIMEOUT/);
+  assert.match(report, /ai\.relevance=ungraded: judge_item_format_error\\\|추가 설명/);
+  assert.ok(report.includes("| Q1 | 미확인 | 미확인 | 미확인 | 0 |"));
+  assert.ok(report.includes("| Q2 | persona | pass | pass | 일치 |"));
+  assert.ok(report.includes("| Q2 | relevance | fail | ungraded | 불일치 |"));
+  assert.match(report, /생성·검증 구간/);
+  assert.match(report, /실제 발화 끝→첫 소리/);
 });
