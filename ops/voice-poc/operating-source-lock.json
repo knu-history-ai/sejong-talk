@@ -1,0 +1,58 @@
+{
+  "capturedOn": "2026-11-19",
+  "operatingSourcePath": "/opt/sejong-voice-poc/releases/20261113-connect",
+  "operatingBaseCommit": "3ebd170b2e8b8b17403bfd5490ffc49b31c4cec8",
+  "sourceBundleSha256": "4f2c89953654441650053152019fd63e9efa5e66ba3958849273c6d0c2a52da2",
+  "integrationInputs": {
+    "dev": "444d8b7013f07b6157bb19634eec285a50327725",
+    "pr97": "0e8fdc109d22d666cf4ea5c67cef7d6e05e83171",
+    "pr106": "df366795bf8c948f766c1df84cabc47c3c03a377"
+  },
+  "note": "Hashes describe captured operating source before integration, not running-image equivalence or deployment completion. Secret files were excluded.",
+  "files": [
+    {
+      "path": ".dockerignore",
+      "sha256": "b38595f1b155260d300df9913128f18f29a8788f7842d21768e811d4b676ddda"
+    },
+    {
+      "path": "docs/REALTIME_POC_SPEECH_ENGINE.md",
+      "sha256": "dae0d1ecdee14d1c1c10d14a33400f0b1615f3504ec2baac6986c3f60950857a"
+    },
+    {
+      "path": "next.config.ts",
+      "sha256": "e1a5c65d65c00f165765840d9328973b59e532167b941b9fb770dfe0f9d212e9"
+    },
+    {
+      "path": "ops/voice-poc/Dockerfile",
+      "sha256": "d1667bab17b2e6a00248ea85a76e46c9c14d04df3ff4a04a8b8e0911ccd747f6"
+    },
+    {
+      "path": "scripts/realtime-poc/create-engine.mjs",
+      "sha256": "b81600181eb2ea3e413ee233a2123d9c2f261b2d755dfa7f655c7d8567d8e86a"
+    },
+    {
+      "path": "scripts/realtime-poc/speech-engine-server.mjs",
+      "sha256": "00e3e91f1f1faf135cf725458e1aa18ec184d2510c291cf5f6fd179df3f3bbf7"
+    },
+    {
+      "path": "src/app/realtime-poc/page.tsx",
+      "sha256": "5873f598a97bd9d9b4c6c6f08bfcf73b471e8679c59c86b7e1c1ff8112633411"
+    },
+    {
+      "path": "src/features/chat/realtime-poc.tsx",
+      "sha256": "eda17c750d26f77233f5a25a3e6d2361a6f8f8f21acc909c43390e6112f9ffc4"
+    },
+    {
+      "path": "src/features/chat/sample-turn.ts",
+      "sha256": "66d80176a58a28a51839b19446c23229db839090a95687f5abf7d575604ad78e"
+    },
+    {
+      "path": "src/features/realtime-voice/use-speech-engine-voice.ts",
+      "sha256": "db0507b8991fcecae606e51980a63cf9a7d92a14be67a79baef695ebb77d7a06"
+    },
+    {
+      "path": "tests/speech-engine-hook-race.test.mjs",
+      "sha256": "d97ed952553e5ade13e698f3543d24c2465a760ae8cac4a384f677efdb0ccd17"
+    }
+  ]
+}
