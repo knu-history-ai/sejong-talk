@@ -13,6 +13,19 @@ import { pathToFileURL } from "node:url";
 /** 화면이 듣는 중/답변 중/끼어들기를 알 수 있도록 꼭 켜야 하는 이벤트 */
 export const REQUIRED_CLIENT_EVENTS = ["conversation_initiation_metadata", "audio", "interruption", "user_transcript", "agent_response", "ping"];
 
+/**
+ * 음성 인식이 잘 맞히도록 확률을 높일 역사 용어.
+ * 1차 시험(11/17)에서 답변 도중 끼어든 질문의 "훈민정음"이 "인정음"·"신정함"으로 인식됐다.
+ * 끼어들 때 앞소리가 짧게 깎이면 비슷한 말로 바뀌기 쉬우므로, 대화에 자주 나오는 고유명사를 알려 준다.
+ * REALTIME_POC_ASR_KEYWORDS(쉼표 구분)로 바꿀 수 있다.
+ */
+export const DEFAULT_ASR_KEYWORDS = ["세종대왕", "세종", "훈민정음", "한글", "집현전", "장영실", "측우기", "자격루", "앙부일구", "조선", "경복궁"];
+
+export function asrKeywords(env = process.env) {
+  const custom = (env.REALTIME_POC_ASR_KEYWORDS ?? "").split(",").map((word) => word.trim()).filter(Boolean);
+  return custom.length ? custom : DEFAULT_ASR_KEYWORDS;
+}
+
 export function buildEngineConfig({ wsUrl, env = process.env }) {
   const url = new URL(wsUrl);
   if (url.protocol !== "wss:") throw new Error("ws_url은 wss:// 주소여야 합니다(ElevenLabs가 외부에서 접속).");
@@ -20,6 +33,7 @@ export function buildEngineConfig({ wsUrl, env = process.env }) {
     name: "sejong-talk realtime PoC (ko)",
     speechEngine: { wsUrl: url.href },
     language: "ko",
+    asr: { keywords: asrKeywords(env) },
     tts: {
       // 한국어를 지원하는 저지연 모델. 시연님 #95 음질 비교 결과에 따라 바꿀 수 있다.
       modelId: env.REALTIME_POC_TTS_MODEL || "eleven_flash_v2_5",

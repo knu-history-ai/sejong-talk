@@ -6,6 +6,8 @@ import type { VoiceErrorCode, VoiceEvent } from "./voice-state";
  * - 음성: SDK(WebRTC)가 마이크 전송·답변 재생·끼어들기 감지를 한다.
  * - 끼어들기: 서버가 interruption 이벤트를 보내면 SDK가 재생을 멈춘다(output.interrupt).
  *   여기서는 그 이벤트를 화면 상태로 바꾸고, 시각만 기록한다.
+ * - 준비: WebRTC에서는 onConnect가 엔진의 conversation_initiation_metadata보다 먼저 온다.
+ *   준비 신호 전에 '듣는 중'을 띄우면 바로 말한 앞부분이 빠지므로, 두 신호가 모두 온 뒤 '듣는 중'으로 바꾼다.
  * API 키는 브라우저로 오지 않는다. 서버(/api/realtime-poc/token)가 짧게 쓰는 토큰만 준다.
  */
 
@@ -21,6 +23,8 @@ export type SdkCallbacks = {
   onMessage?: (props: { message: string; role?: string; source?: string }) => void;
   onModeChange?: (prop: { mode: "speaking" | "listening" }) => void;
   onInterruption?: (props: { event_id: number }) => void;
+  /** 엔진이 대화를 시작할 준비를 마쳤다는 신호(conversation_initiation_metadata). 엔진의 client_events에 있어야 온다. */
+  onConversationMetadata?: (props: unknown) => void;
 };
 
 export type StartSession = (options: {
@@ -34,7 +38,14 @@ export type SpeechEngineDeps = {
   fetchImpl?: typeof fetch;
   startSession?: StartSession;
   now?: () => number;
+  /** 준비 신호가 오지 않을 때 '듣는 중'으로 넘어가기까지 기다리는 시간(ms). 테스트에서 줄인다. */
+  readyFallbackMs?: number;
+  setTimer?: (fn: () => void, ms: number) => unknown;
+  clearTimer?: (handle: unknown) => void;
 };
+
+/** 엔진 설정에서 준비 신호가 빠졌거나 늦을 때 연결 중 화면에 머물지 않도록 하는 대기 시간 */
+export const READY_FALLBACK_MS = 4000;
 
 export class VoiceStartError extends Error {
   constructor(readonly code: VoiceErrorCode, message?: string) {
@@ -104,6 +115,26 @@ export function startSpeechEngineVoice(onEvent: (event: VoiceEvent) => void, dep
   let session: VoiceSessionHandle | null = null;
   let stopped = false;
   let silent = false; // dispose() 뒤에는 SDK 이벤트로 화면을 바꾸지 않는다.
+  const setTimer = deps.setTimer ?? ((fn: () => void, ms: number) => setTimeout(fn, ms));
+  const clearTimer = deps.clearTimer ?? ((handle: unknown) => clearTimeout(handle as ReturnType<typeof setTimeout>));
+  let connectedSeen = false;
+  let metadataSeen = false;
+  let readySent = false;
+  let readyTimer: unknown = null;
+
+  const cancelReadyTimer = () => {
+    if (readyTimer !== null) clearTimer(readyTimer);
+    readyTimer = null;
+  };
+  /** 연결과 준비 신호가 모두 왔을 때(또는 대기 시간이 지났을 때) 한 번만 '듣는 중'으로 바꾼다. */
+  const markReady = (fallback: boolean) => {
+    if (readySent || !connectedSeen || stopped) return;
+    readySent = true;
+    cancelReadyTimer();
+    dispatch({ type: "ready", at: now(), fallback });
+  };
+  /** 사용자 발화·답변 이벤트가 왔다면 엔진은 이미 준비된 것이다. */
+  const ensureReady = () => markReady(!metadataSeen);
 
   const dispatch = (event: VoiceEvent) => {
     if (!silent) onEvent(event);
@@ -124,7 +155,16 @@ export function startSpeechEngineVoice(onEvent: (event: VoiceEvent) => void, dep
         started = await deps.startSession({
           conversationToken: token,
           connectionType: "webrtc",
-          onConnect: ({ conversationId }) => dispatch({ type: "connected", conversationId, at: now() }),
+          onConnect: ({ conversationId }) => {
+            connectedSeen = true;
+            dispatch({ type: "connected", conversationId, at: now() });
+            if (metadataSeen) markReady(false);
+            else if (!readySent && !stopped) readyTimer = setTimer(() => markReady(true), deps.readyFallbackMs ?? READY_FALLBACK_MS);
+          },
+          onConversationMetadata: () => {
+            metadataSeen = true;
+            markReady(false);
+          },
           onDisconnect: (details) => dispatch({ type: "disconnected", byUser: stopped || details.reason === "user" }),
           onError: () => {
             if (!stopped) dispatch({ type: "fail", code: "connectFailed" });
@@ -133,10 +173,17 @@ export function startSpeechEngineVoice(onEvent: (event: VoiceEvent) => void, dep
             const text = message?.trim();
             if (!text) return;
             const fromUser = role === "user" || source === "user";
+            ensureReady();
             dispatch(fromUser ? { type: "userFinal", text, at: now() } : { type: "agentText", text });
           },
-          onModeChange: ({ mode }) => dispatch({ type: "mode", mode, at: now() }),
-          onInterruption: () => dispatch({ type: "interruption", at: now() }),
+          onModeChange: ({ mode }) => {
+            ensureReady();
+            dispatch({ type: "mode", mode, at: now() });
+          },
+          onInterruption: () => {
+            ensureReady();
+            dispatch({ type: "interruption", at: now() });
+          },
         });
       } catch (error) {
         throw error instanceof VoiceStartError ? error : new VoiceStartError("connectFailed");
@@ -151,6 +198,7 @@ export function startSpeechEngineVoice(onEvent: (event: VoiceEvent) => void, dep
   })();
 
   async function close() {
+    cancelReadyTimer();
     abort.abort();
     await ready;
     const current = session;

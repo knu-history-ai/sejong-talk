@@ -14,6 +14,20 @@ Bedrock 답변 생성은 정민님, 화면은 선영님(#93/PR #94), 한국어 �
 - **음성은 우리 서버를 지나지 않습니다.** 음성 인식·합성·재생은 ElevenLabs와 브라우저 SDK가 처리하고, 우리 서버는 글만 주고받습니다.
 - **끼어들기:** 사용자가 답변 도중 말하면 ElevenLabs가 브라우저에 `interruption` 이벤트를 보냅니다. SDK는 이 이벤트를 받으면 재생을 멈추고(`output.interrupt()`) 듣는 중으로 돌아갑니다. 동시에 서버에는 새 `user_transcript`가 오고, SDK가 이전 답변의 `AbortSignal`을 abort해서 생성을 멈춥니다. 늦게 도착한 이전 답변 조각은 ElevenLabs가 버립니다(`event_id` 기준).
 - 끼어들기 이벤트가 오려면 Speech Engine 설정의 `conversation.client_events`에 `interruption`과 `audio`가 있어야 합니다. `create-engine.mjs`가 이 값을 넣습니다.
+- **듣기 준비:** WebRTC에서는 SDK의 `onConnect`가 엔진의 `conversation_initiation_metadata`보다 먼저 옵니다(SDK 1.32.1 `VoiceConversation.startSession`; WebSocket 연결과 달리 이 신호를 기다리지 않음). 그래서 연결 뒤에도 준비 신호가 올 때까지 화면을 '연결 중'으로 두고, 신호가 오면 '듣는 중'으로 바꿉니다. 신호가 4초 안에 오지 않으면 '듣는 중'으로 넘어가고 시험 화면에 "준비 신호 없음"을 표시합니다. 사용자 발화나 답변 이벤트가 먼저 오면 엔진이 준비된 것으로 봅니다.
+
+## 끼어들 때 말 앞부분이 빠지는 문제 (1차 시험 11/17, PR #97 댓글)
+
+답변 도중 말하면 "훈민정음을…"이 "인정음을…"·"신정함을…"처럼 앞소리가 빠지거나 바뀌었고, 첫 발화도 "…은 왜 훈민정음을"로 앞부분이 빠졌습니다. 확인한 원인 후보와 조치는 아래와 같습니다.
+
+| 원인 후보 | 근거 | 조치 |
+| --- | --- | --- |
+| 엔진이 듣기 전에 '듣는 중'이 표시됨(첫 발화) | SDK 코드상 WebRTC `onConnect`가 준비 신호보다 먼저 옴 | 준비 신호까지 '연결 중' 유지(위 '듣기 준비') |
+| 앞소리가 짧게 깎이면 고유명사가 비슷한 말로 바뀜 | 끼어들기 결과가 모두 "-정음"류로 바뀜 | 엔진 `asr.keywords`에 세종대왕·훈민정음 등 역사 용어 추가(`REALTIME_POC_ASR_KEYWORDS`로 변경) |
+| 스피커로 답변이 나오는 동안 브라우저 에코 제거가 마이크 앞소리를 줄임 | 1차 시험이 노트북 스피커였음. 미확인 | 코드 변경 없음. 에코 제거를 끄면 답변 소리가 끼어들기로 잡힐 수 있어 유지. 2차 시험에서 스피커·이어폰을 나눠 비교 |
+| 엔진이 끼어들기로 판단하기 전 음성을 인식에 쓰지 않음 | 미확인. SDK에 끼어들기 감지 민감도 설정이 없음 | 이어폰 시험에서도 빠지면 ElevenLabs에 문의하거나 턴 설정 검토 |
+
+키워드는 **엔진 설정**이라 코드 배포만으로는 적용되지 않습니다. 배포 담당이 `--update=<기존 seng_ID> --apply`로 기존 엔진을 갱신해야 합니다.
 
 ## 파일
 
@@ -37,6 +51,7 @@ Bedrock 답변 생성은 정민님, 화면은 선영님(#93/PR #94), 한국어 �
 | `ELEVENLABS_SPEECH_ENGINE_ID` | 필수 | 엔진 생성 뒤에 얻는 `seng_...`. 없으면 WS 서버가 시작하지 않음 |
 | `ELEVENLABS_VOICE_ID` | 선택 | 엔진 생성 때 `tts.voiceId`로 명시 전달. 없으면 ElevenLabs 기본값. 기존 Bill 음성을 쓰려면 Bill의 Voice ID를 넣음 |
 | `REALTIME_POC_TTS_MODEL` | 선택 | 기본 `eleven_flash_v2_5` |
+| `REALTIME_POC_ASR_KEYWORDS` | 선택 | 음성 인식 키워드(쉼표 구분). 비우면 기본 역사 용어(세종대왕·훈민정음·집현전 등) |
 | `REALTIME_POC_ANSWER_MODULE` | 선택 | 비우면 mock 답변. 정민님 모듈 경로를 넣으면 실제 생성기 |
 | `REALTIME_POC_WS_PORT` / `REALTIME_POC_WS_PATH` / `REALTIME_POC_DEBUG` | 선택 | 기본 `3001` / `/ws` / 꺼짐 |
 | `REALTIME_POC_TOKENS_PER_MINUTE`, `ELEVENLABS_API_BASE_URL` | 선택 | 토큰 발급 제한(기본 분당 6회), API 주소 변경 |
@@ -68,7 +83,7 @@ npm run test:http         # WS 서버 통합 테스트 포함. ElevenLabs 역할
 4. WS 서버를 실행합니다: `npm run realtime-poc:server` (`REALTIME_POC_ANSWER_MODULE`이 비어 있으면 mock 답변)
    - 의존성 불러오기가 느린 PC에서는 "준비" 로그가 나오기까지 20초 넘게 걸릴 수 있습니다(Windows 11, Node 24.12.0에서 약 25초).
 5. 다른 터미널에서 `npm run dev`를 실행하고 `http://localhost:3000/realtime-voice-test`에 접속합니다.
-6. **대화 시작**을 누르고 마이크를 허용한 뒤 말합니다 → 답변을 듣습니다 → **답변 도중 다시 말합니다** → 재생이 멈추고 '듣는 중'으로 바뀌는지 확인합니다.
+6. **대화 시작**을 누르고 마이크를 허용한 뒤 상태가 **'듣는 중'으로 바뀌면** 말합니다 → 답변을 듣습니다 → **답변 도중 다시 말합니다** → 재생이 멈추고 '듣는 중'으로 바뀌는지 확인합니다.
    - mock 답변은 끼어들기 시험을 하기 쉽도록 일부러 길게 만들었습니다.
    - 휴대폰에서 시험하려면 https가 필요합니다. 기존 안내처럼 Next에도 터널을 붙이고 `APP_ORIGIN=<터널 주소>`를 설정합니다.
 

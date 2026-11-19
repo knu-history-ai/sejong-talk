@@ -11,12 +11,24 @@ const live = run([
   { type: "start", at: 0 },
   { type: "micGranted" },
   { type: "connected", conversationId: "conv_1", at: 100 },
+  { type: "ready", at: 250, fallback: false },
 ]);
 
-test("start → mic → connected moves to listening and records connect time", () => {
+test("start → mic → connected → ready moves to listening and records connect/ready time", () => {
   assert.equal(live.phase, "listening");
   assert.equal(live.conversationId, "conv_1");
   assert.equal(live.timing.connectedAt - live.timing.startedAt, 100);
+  assert.equal(live.timing.readyAt - live.timing.connectedAt, 150);
+  assert.equal(live.timing.readyByFallback, false);
+});
+
+test("connected alone keeps 'connecting' so the user does not speak before the engine listens", () => {
+  const connected = run([{ type: "start", at: 0 }, { type: "micGranted" }, { type: "connected", conversationId: "c", at: 100 }]);
+  assert.equal(connected.phase, "connecting");
+  assert.equal(connected.conversationId, "c");
+  assert.equal(run([{ type: "ready", at: 1, fallback: false }]).phase, "idle", "ready before connect is ignored");
+  const early = run([{ type: "start", at: 0 }, { type: "micGranted" }, { type: "ready", at: 50, fallback: false }]);
+  assert.equal(early.phase, "connecting", "ready without a connection is ignored");
 });
 
 test("user turn shows thinking, first audio shows speaking and measures latency once", () => {
@@ -126,6 +138,10 @@ test("full session: mic released after check, WebRTC token passed, SDK events dr
   assert.equal(h.callbacks.conversationToken, "tok");
   assert.equal(h.callbacks.connectionType, "webrtc");
   h.callbacks.onConnect({ conversationId: "conv_9" });
+  assert.equal(h.state().phase, "connecting", "WebRTC connect comes before the engine is ready");
+  h.callbacks.onConversationMetadata({ conversation_id: "conv_9" });
+  assert.equal(h.state().phase, "listening");
+  assert.equal(h.state().timing.readyByFallback, false);
   h.callbacks.onMessage({ role: "user", message: "세종대왕님 안녕하세요" });
   h.callbacks.onModeChange({ mode: "speaking" });
   h.callbacks.onMessage({ role: "agent", source: "ai", message: "반갑구나." });
@@ -189,4 +205,60 @@ test("dispose keeps the error screen while releasing the session", async () => {
   await c.dispose();
   assert.equal(h.ended, 1);
   assert.equal(h.state().phase, "error");
+});
+
+function timerHarness() {
+  const h = harness();
+  const timers = [];
+  h.deps.setTimer = (fn, ms) => { const t = { fn, ms, cleared: false }; timers.push(t); return t; };
+  h.deps.clearTimer = (t) => { t.cleared = true; };
+  return { h, timers };
+}
+
+test("ready signal before onConnect still waits for the connection, then listens once", async () => {
+  const { h, timers } = timerHarness();
+  startSpeechEngineVoice((e) => h.events.push(e), h.deps);
+  await tick(); await tick();
+  h.callbacks.onConversationMetadata({});
+  assert.equal(h.state().phase, "connecting");
+  h.callbacks.onConnect({ conversationId: "c" });
+  assert.equal(h.state().phase, "listening");
+  assert.equal(timers.length, 0, "no fallback timer when already ready");
+  assert.equal(h.events.filter((e) => e.type === "ready").length, 1);
+});
+
+test("missing ready signal falls back to listening after the wait and marks it", async () => {
+  const { h, timers } = timerHarness();
+  startSpeechEngineVoice((e) => h.events.push(e), h.deps);
+  await tick(); await tick();
+  h.callbacks.onConnect({ conversationId: "c" });
+  assert.equal(timers.length, 1);
+  assert.equal(timers[0].ms, 4000);
+  timers[0].fn();
+  assert.equal(h.state().phase, "listening");
+  assert.equal(h.state().timing.readyByFallback, true);
+  h.callbacks.onConversationMetadata({});
+  assert.equal(h.events.filter((e) => e.type === "ready").length, 1, "late metadata does not dispatch again");
+});
+
+test("user speech before the ready signal means the engine is listening; timer is cleared", async () => {
+  const { h, timers } = timerHarness();
+  startSpeechEngineVoice((e) => h.events.push(e), h.deps);
+  await tick(); await tick();
+  h.callbacks.onConnect({ conversationId: "c" });
+  h.callbacks.onMessage({ role: "user", message: "안녕하세요" });
+  assert.equal(h.state().phase, "thinking");
+  assert.deepEqual(h.state().lines, [{ role: "user", text: "안녕하세요" }]);
+  assert.equal(timers[0].cleared, true);
+});
+
+test("stop while waiting for ready clears the timer and does not reopen listening", async () => {
+  const { h, timers } = timerHarness();
+  const c = startSpeechEngineVoice((e) => h.events.push(e), h.deps);
+  await tick(); await tick();
+  h.callbacks.onConnect({ conversationId: "c" });
+  await c.stop();
+  assert.equal(timers[0].cleared, true);
+  timers[0].fn();
+  assert.equal(h.state().phase, "ended");
 });

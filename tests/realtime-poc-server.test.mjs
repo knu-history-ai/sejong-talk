@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { loadTs } from "./helpers/load-ts.mjs";
 import { hasUserText, mockAnswer, relayAnswer } from "../scripts/realtime-poc/answer-relay.mjs";
-import { REQUIRED_CLIENT_EVENTS, buildEngineConfig } from "../scripts/realtime-poc/create-engine.mjs";
+import { DEFAULT_ASR_KEYWORDS, REQUIRED_CLIENT_EVENTS, buildEngineConfig } from "../scripts/realtime-poc/create-engine.mjs";
 
 const { issueConversationToken, readTokenConfig, TokenRateLimit } = loadTs("src/server/realtime-poc/token.ts");
 
@@ -131,4 +131,16 @@ test("engine config is Korean, wss only, enables interruption events and no voic
   assert.deepEqual(config.conversation.clientEvents, REQUIRED_CLIENT_EVENTS);
   assert.equal(config.privacy.recordVoice, false);
   assert.throws(() => buildEngineConfig({ wsUrl: "ws://localhost:3001/ws", env: {} }), /wss/);
+});
+
+test("engine config boosts history terms for ASR and allows replacing them", () => {
+  const config = buildEngineConfig({ wsUrl: "wss://example.trycloudflare.com/ws", env: {} });
+  assert.deepEqual(config.asr.keywords, DEFAULT_ASR_KEYWORDS);
+  assert.ok(config.asr.keywords.includes("훈민정음"));
+  assert.ok(config.conversation.clientEvents.includes("conversation_initiation_metadata"), "ready signal reaches the browser");
+  const custom = buildEngineConfig({
+    wsUrl: "wss://example.trycloudflare.com/ws",
+    env: { REALTIME_POC_ASR_KEYWORDS: " 훈민정음, 집현전 ,," },
+  });
+  assert.deepEqual(custom.asr.keywords, ["훈민정음", "집현전"]);
 });

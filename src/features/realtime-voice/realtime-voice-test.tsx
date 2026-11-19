@@ -31,6 +31,9 @@ export function RealtimeVoiceTest() {
       <p className="text-sm text-neutral-600">
         대화 시작 → 말하기 → 세종 답변이 나오는 중에 다시 말해서 답변이 멈추는지 확인합니다.
       </p>
+      <p className="text-sm text-neutral-600">
+        상태가 &lsquo;듣는 중&rsquo;으로 바뀐 뒤에 말해 주세요. 스피커와 이어폰으로 각각 시험하면 끼어들 때 앞부분이 빠지는 원인을 나눠 볼 수 있어요.
+      </p>
 
       <div className="flex gap-2">
         <button
@@ -74,6 +77,11 @@ export function RealtimeVoiceTest() {
       <dl className="grid grid-cols-2 gap-1 text-sm text-neutral-700">
         <dt>연결까지</dt>
         <dd>{t.startedAt !== null && t.connectedAt !== null ? `${Math.round(t.connectedAt - t.startedAt)}ms` : "-"}</dd>
+        <dt>연결 → 듣기 준비</dt>
+        <dd>
+          {t.connectedAt !== null && t.readyAt !== null ? `${Math.round(t.readyAt - t.connectedAt)}ms` : "-"}
+          {t.readyByFallback ? " (준비 신호 없음, 대기 후 전환)" : ""}
+        </dd>
         <dt>사용자 메시지 이벤트 → 답변 상태 이벤트</dt>
         <dd>{t.lastResponseLatencyMs !== null ? `${t.lastResponseLatencyMs}ms` : "-"}</dd>
         <dt>끼어들기 횟수</dt>

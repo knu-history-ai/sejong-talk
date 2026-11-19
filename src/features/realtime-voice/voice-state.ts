@@ -5,7 +5,7 @@
 export type VoicePhase =
   | "idle" // 시작 전
   | "requestingMic" // 마이크 권한 확인 중
-  | "connecting" // 토큰 발급·연결 중
+  | "connecting" // 토큰 발급·연결 중. 연결된 뒤에도 엔진이 들을 준비를 마칠 때까지 유지한다
   | "listening" // 사용자 말을 듣는 중
   | "thinking" // 사용자 말이 끝나고 답변 음성을 기다리는 중 (PR #94의 '답변 준비 중')
   | "speaking" // 답변 음성 재생 중
@@ -66,6 +66,10 @@ export type VoiceState = {
   timing: {
     startedAt: number | null;
     connectedAt: number | null;
+    /** 엔진이 들을 준비를 마쳐 '듣는 중'으로 바꾼 시각 */
+    readyAt: number | null;
+    /** 준비 신호(conversation_initiation_metadata)가 오지 않아 대기 시간이 지나 '듣는 중'으로 바꿨으면 true */
+    readyByFallback: boolean;
     lastUserFinalAt: number | null;
     lastAgentAudioAt: number | null;
     lastInterruptionAt: number | null;
@@ -79,6 +83,7 @@ export type VoiceEvent =
   | { type: "micGranted" }
   | { type: "fail"; code: VoiceErrorCode }
   | { type: "connected"; conversationId: string; at: number }
+  | { type: "ready"; at: number; fallback: boolean }
   | { type: "userFinal"; text: string; at: number }
   | { type: "agentText"; text: string }
   | { type: "mode"; mode: "speaking" | "listening"; at: number }
@@ -95,6 +100,8 @@ export const initialVoiceState: VoiceState = {
   timing: {
     startedAt: null,
     connectedAt: null,
+    readyAt: null,
+    readyByFallback: false,
     lastUserFinalAt: null,
     lastAgentAudioAt: null,
     lastInterruptionAt: null,
@@ -128,12 +135,20 @@ export function voiceReducer(state: VoiceState, event: VoiceEvent): VoiceState {
       if (state.phase === "ending" || state.phase === "ended" || state.phase === "idle") return state;
       return { ...state, phase: "error", error: event.code };
     case "connected":
+      // WebRTC 연결(onConnect)은 엔진이 사용자 음성을 받기 전에 온다. 이때 '듣는 중'을 띄우면
+      // 사용자가 바로 말한 앞부분이 인식되지 않으므로, 준비 신호(ready)까지 '연결 중'을 유지한다.
       if (state.phase !== "connecting") return state;
       return {
         ...state,
-        phase: "listening",
         conversationId: event.conversationId,
         timing: { ...state.timing, connectedAt: event.at },
+      };
+    case "ready":
+      if (state.phase !== "connecting" || state.conversationId === null) return state;
+      return {
+        ...state,
+        phase: "listening",
+        timing: { ...state.timing, readyAt: event.at, readyByFallback: event.fallback },
       };
     case "userFinal":
       if (!isVoiceLive(state.phase)) return state;
