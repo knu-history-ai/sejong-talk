@@ -1,6 +1,9 @@
 import type { NextConfig } from "next";
 
 const nextConfig: NextConfig = {
+  output: "standalone",
+  // Keep the 2GB PoC server's build worker count bounded.
+  experimental: { cpus: 1 },
   // `next dev` only. Without an entry the dev server answers /_next/hmr with a bare
   // "Unauthorized" and the page never becomes interactive (buttons do nothing).
   // - *.trycloudflare.com: Cloudflare Quick Tunnel for phone tests. Pattern only; never hardcode the temporary URL.

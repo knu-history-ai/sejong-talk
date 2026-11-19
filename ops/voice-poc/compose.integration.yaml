@@ -1,0 +1,18 @@
+# Apply only after review, with the existing sejong-poc project and base file.
+# Does not create/replace the gateway, networks, TLS, JWT or engine settings.
+services:
+  web:
+    image: ${POC_WEB_IMAGE:?Set the reviewed web image tag}
+    environment:
+      REALTIME_POC_ANSWER_MODE: bedrock
+  voice:
+    image: ${POC_VOICE_IMAGE:?Set the reviewed voice image tag}
+    env_file:
+      - /opt/sejong-voice-poc/.env.runtime
+    environment:
+      REALTIME_POC_ANSWER_MODULE: scripts/realtime-poc/bedrock-answer.mjs
+      REALTIME_POC_DEBUG: "0"
+    command:
+      - node
+      - --conditions=react-server
+      - scripts/realtime-poc/speech-engine-server.mjs
