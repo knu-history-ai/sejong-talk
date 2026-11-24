@@ -29,6 +29,8 @@ function hookHarness(t) {
   let callbacks;
   let mounted = true;
   let sessionReady;
+  let sessionEnd;
+  const sessionOrder = [];
   const pendingEffects = [];
   const react = {
     useRef(value) {
@@ -104,7 +106,7 @@ function hookHarness(t) {
   render();
   return {
     get api() { return api; }, get state() { return state; }, get callbacks() { return callbacks; },
-    calls, events, render, unmount,
+    calls, events, render, unmount, sessionOrder,
     pagehide: () => window.dispatchEvent(new Event("pagehide")),
     pageshow: () => window.dispatchEvent(new Event("pageshow")),
     replayMountEffect() {
@@ -113,14 +115,22 @@ function hookHarness(t) {
       effect.cleanup = effect.setup();
     },
     delaySession: (promise) => { sessionReady = promise; },
+    delayEnd: (promise) => { sessionEnd = promise; },
     loadSdk({ ready = true } = {}) {
       sdk.resolve({ Conversation: { startSession: async (options) => {
         calls.session += 1;
+        sessionOrder.push("start");
         callbacks = options;
         if (sessionReady) await sessionReady;
         options.onConnect?.({ conversationId: "conv_test" });
         if (ready) options.onConversationMetadata?.({});
-        return { endSession: async () => { calls.end += 1; options.onDisconnect?.({ reason: "user" }); } };
+        return { endSession: async () => {
+          calls.end += 1;
+          sessionOrder.push("end-start");
+          if (sessionEnd) await sessionEnd;
+          sessionOrder.push("end-done");
+          options.onDisconnect?.({ reason: "user" });
+        } };
       } } });
     },
     rejectSdk: () => sdk.reject(new Error("synthetic import failure")),
@@ -243,6 +253,40 @@ test("effect cleanup/setup cannot revive an earlier pending import", async (t) =
   await tick();
   assert.equal(h.calls.session, 1);
 });
+
+for (const cancelRestart of [false, true]) {
+  test(`BFCache restart waits for a delayed SDK handle and its full termination (cancel=${cancelRestart})`, async (t) => {
+    const h = hookHarness(t);
+    const session = deferred();
+    const ending = deferred();
+    h.delaySession(session.promise);
+    h.delayEnd(ending.promise);
+    const first = h.api.start();
+    h.loadSdk();
+    await first;
+    await tick();
+    assert.equal(h.calls.session, 1);
+    h.pagehide();
+    h.pageshow();
+    const restart = h.render().start();
+    const duplicate = h.api.start();
+    await tick();
+    assert.deepEqual([h.calls.mic, h.calls.token, h.calls.session], [1, 1, 1]);
+    const stopping = cancelRestart ? h.render().stop() : Promise.resolve();
+    session.resolve();
+    await tick();
+    assert.equal(h.calls.end, 1);
+    assert.deepEqual(h.sessionOrder, ["start", "end-start"]);
+    assert.deepEqual([h.calls.mic, h.calls.token, h.calls.session], [1, 1, 1]);
+    ending.resolve();
+    await Promise.all([restart, duplicate, stopping]);
+    await tick();
+    assert.deepEqual(h.sessionOrder, cancelRestart
+      ? ["start", "end-start", "end-done"]
+      : ["start", "end-start", "end-done", "start"]);
+    assert.equal(h.state.phase, cancelRestart ? "ended" : "listening");
+  });
+}
 
 test("leave while stop awaits an SDK session closes the late handle without stale events", async (t) => {
   const h = hookHarness(t);

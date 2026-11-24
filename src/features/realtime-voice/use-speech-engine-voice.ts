@@ -17,6 +17,7 @@ const loadStartSession: () => Promise<StartSession> = async () => {
 export function useSpeechEngineVoice() {
   const [state, dispatch] = useReducer(voiceReducer, initialVoiceState);
   const controller = useRef<VoiceController | null>(null);
+  const pendingClose = useRef<Promise<void>>(Promise.resolve());
   const starting = useRef(false);
   const epoch = useRef(0);
   const disposed = useRef(false);
@@ -28,6 +29,10 @@ export function useSpeechEngineVoice() {
     const attempt = ++epoch.current;
     dispatch({ type: "start", at: performance.now() });
     try {
+      // BFCache 복귀 후에도 이전 SDK 연결과 endSession 정리가 끝나기 전에는
+      // 새 마이크·토큰·SDK 연결을 시작하지 않는다.
+      await pendingClose.current;
+      if (disposed.current || epoch.current !== attempt) return;
       const startSession = await loadStartSession().catch(() => undefined);
       if (disposed.current || epoch.current !== attempt) return;
       controller.current = startSpeechEngineVoice((event) => {
@@ -50,7 +55,8 @@ export function useSpeechEngineVoice() {
     const current = controller.current;
     controller.current = null;
     if (!disposed.current) dispatch({ type: "endRequested" });
-    await current?.stop();
+    if (current) pendingClose.current = current.stop();
+    await pendingClose.current;
     if (!disposed.current && epoch.current === stopping) {
       dispatch({ type: "disconnected", byUser: true });
     }
@@ -63,7 +69,7 @@ export function useSpeechEngineVoice() {
       starting.current = false;
       const current = controller.current;
       controller.current = null;
-      void current?.dispose();
+      if (current) pendingClose.current = current.dispose();
     }
   }, [state.phase]);
 
@@ -76,7 +82,7 @@ export function useSpeechEngineVoice() {
       starting.current = false;
       const current = controller.current;
       controller.current = null;
-      void current?.dispose();
+      if (current) pendingClose.current = current.dispose();
     };
     // 뒤로 가기로 BFCache 화면이 복원되면 자동 재연결하지 않고 새 시작을 허용한다.
     const resume = () => {
