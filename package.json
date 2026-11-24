@@ -14,6 +14,7 @@
     "test:http": "node --test tests/integration/*.test.mjs"
   },
   "dependencies": {
+    "@aws-sdk/client-bedrock-runtime": "3.1171.0",
     "next": "16.4.5",
     "react": "19.3.1",
     "react-dom": "19.3.1",
