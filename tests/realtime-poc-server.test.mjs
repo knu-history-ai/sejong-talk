@@ -94,10 +94,9 @@ test("barge-in aborts the generator: no more chunks and outcome=interrupted", as
 
 test("generator errors are reported as failed, AbortError after barge-in as interrupted", async () => {
   const logs = [];
-  await assert.rejects(async () => {
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    for await (const _piece of relayAnswer({ transcript: [], signal: new AbortController().signal, answer: async function* () { throw new Error("bedrock down"); }, log: (r) => logs.push(r) }));
-  }, /bedrock down/);
+  const pieces = [];
+  for await (const piece of relayAnswer({ transcript: [], signal: new AbortController().signal, answer: async function* () { yield "첫 조각"; throw new Error("bedrock down"); }, log: (r) => logs.push(r) })) pieces.push(piece);
+  assert.deepEqual(pieces, ["첫 조각"]);
   assert.equal(logs[0].outcome, "failed");
   const c = new AbortController();
   c.abort();

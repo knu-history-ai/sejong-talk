@@ -1,6 +1,6 @@
 # #8 통합 후보 빌드·배포 인수
 
-이 폴더는 운영 서버에서 수집한 Dockerfile을 보존하고 PR97·PR106 통합에 필요한 voice 소스/자료 복사와 Node 실행 조건을 추가한 것이다. 실제 서버 파일을 변경하거나 배포한 결과물이 아니다. 현재 단계는 #8 PR 검토이며 **승인 전 아래 배포·엔진 갱신 명령을 실행하지 않는다**.
+이 폴더는 운영 서버에서 수집한 Dockerfile을 보존하고 PR97·PR106 통합에 필요한 voice 소스/자료 복사와 Node 실행 조건을 추가한 것이다. 운영 실행 구성을 변경하거나 배포한 결과물이 아니다. 11/24에 별도 백업 파일을 생성한 결과는 아래에 구분해 기록했다. 현재 단계는 #8 PR 검토이며 **승인 전 아래 배포·엔진 갱신 명령을 실행하지 않는다**.
 
 ## 보존한 운영 변경
 
@@ -18,7 +18,22 @@
 
 현재 SDK 3.1171.0의 bearer 지원은 설치된 SDK 소스에서 정적으로 확인했다. AWS도 JavaScript SDK의 API 키 지원과 `AWS_BEARER_TOKEN_BEDROCK` 사용을 안내한다([지원 SDK](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys-supported.html), [API 키 사용](https://docs.aws.amazon.com/bedrock/latest/userguide/api-keys-use.html)). 기존 키의 유효성·권한·실제 모델 호출 성공은 확인하지 않았으며 새 키를 발급하지 않는다.
 
-## 승인 후 준비할 것
+## 11/24 백업과 복구 준비 결과
+
+브라우저 SSH에서 `/opt/sejong-poc-backups/pre-pr107-20261124T021159Z`에 관리자 전용 백업을 만들었다. 디렉터리와 파일은 root만 접근할 수 있다. 비밀 설정·인증서는 서버 안에만 보관하며 Git이나 로컬로 가져오지 않았다.
+
+- `images.tar`: 현재 web·voice·gateway의 정확한 이미지 ID 3개. 기존 이미지 태그는 변경하지 않았다.
+- `configuration.tar`: 기존 운영 Compose·라우팅·비밀 환경 파일, Bedrock 환경 파일, 인증서·ACME 경로와 gateway의 Caddy 볼륨. 로그·staging은 제외했다.
+- `operating-source.tar`: 기존 운영 릴리스 소스. node_modules·빌드 출력·Git 이력·private·로그·환경 파일은 제외했다.
+- `runtime-before.json` / `runtime-after.json`: 컨테이너 ID·이미지 ID·시작 시각·재시작 횟수·마운트. 백업 전후 컨테이너가 실행 중이며 같은 상태임을 대조했다.
+- `rollback-images.json`: web·voice를 변경 전 이미지 ID로 고정하는 Compose 추가 파일. 실제 서버 base Compose와 `config --quiet` 정적 결합 확인을 통과했다.
+- `SHA256SUMS`, `BACKUP_COMPLETE`, `ROLLBACK.md`: 아카이브 해시와 복구 안내. 세 아카이브를 읽고 SHA-256을 검증했다. 아카이브 합계는 432,740,864바이트다.
+
+이 백업은 **같은 서버에 둔 실행 중 백업**이다. Lightsail 전체 디스크 스냅샷이나 서버 소실 대비 외부 백업이 아니며, Caddy 볼륨의 일관된 전체 복구나 실제 이미지 load·복원은 시험하지 않았다. 엔진 JSON은 기존 서버에 있던 과거 사본이며 현재 공급자 설정을 새로 조회한 결과가 아니다. 엔진을 변경하기 전에는 당시 최신 설정을 별도로 보존해야 한다.
+
+복구 시에는 백업 무결성과 기존 환경 파일을 먼저 확인하고, 위 `ROLLBACK.md`의 정확한 이미지 ID 고정 파일을 사용한다. 이미지 파일만 되돌려도 변경된 환경 파일·엔진 설정까지 원복되는 것은 아니다. 이번 작업에서 배포·컨테이너 재생성·재시작·엔진 변경은 하지 않았다.
+
+## 배포 승인 후 확인할 것
 
 1. 배포할 #8 PR·커밋과 기존 미병합 PR97·PR106을 함께 검토한다. 기능 담당자의 리뷰 없이 원래 PR을 완료 처리하지 않는다.
 2. 기존 실행 이미지의 **전체 ID**를 다시 확인하고, 이전 이미지를 별도 rollback 태그 또는 안전한 아카이브로 보존한다. 새 빌드에는 고유 태그를 써서 `20261113`·`20261114` 태그를 덮어쓰지 않는다. image/volume prune은 하지 않는다.

@@ -67,7 +67,8 @@ export async function* relayAnswer({ transcript, signal, answer, log = () => {},
       return;
     }
     outcome = "failed";
-    throw error;
+    // SDK가 정상 반복 종료를 받아 현재 질문의 is_final을 보낼 수 있게 한다.
+    // 원문 오류를 다시 던지거나 새 응답을 보내면 종료 누락/다음 질문 혼입이 생긴다.
   } finally {
     log({
       event: "answer",

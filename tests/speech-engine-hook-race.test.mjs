@@ -106,6 +106,7 @@ function hookHarness(t) {
     get api() { return api; }, get state() { return state; }, get callbacks() { return callbacks; },
     calls, events, render, unmount,
     pagehide: () => window.dispatchEvent(new Event("pagehide")),
+    pageshow: () => window.dispatchEvent(new Event("pageshow")),
     replayMountEffect() {
       const effect = effects.at(-1);
       effect.cleanup();
@@ -205,6 +206,31 @@ test("stop then restart ignores the older import and opens exactly one new sessi
   assert.deepEqual([h.calls.import, h.calls.mic, h.calls.token, h.calls.session], [2, 1, 1, 1]);
   assert.equal(h.state.phase, "listening");
 });
+
+for (const pendingImport of [true, false]) {
+  test(`pagehide/pageshow permits a fresh manual start (pending import=${pendingImport})`, async (t) => {
+    const h = hookHarness(t);
+    const oldStart = h.api.start();
+    if (!pendingImport) {
+      h.loadSdk();
+      await oldStart;
+    }
+    await tick();
+    const staleCallbacks = h.callbacks;
+    h.pagehide();
+    h.pageshow();
+    assert.equal(h.state.phase, "ended");
+    const nextStart = h.render().start();
+    h.loadSdk();
+    await Promise.all([oldStart, nextStart]);
+    await tick();
+    assert.equal(h.state.phase, "listening");
+    assert.equal(h.calls.session, pendingImport ? 1 : 2);
+    const eventCount = h.events.length;
+    staleCallbacks?.onError("stale session");
+    assert.equal(h.events.length, eventCount);
+  });
+}
 
 test("effect cleanup/setup cannot revive an earlier pending import", async (t) => {
   const h = hookHarness(t);

@@ -20,15 +20,20 @@ function jwt(apiKey, claims = {}) {
   return `${head}.${body}.${sig}`;
 }
 
-async function startServer(t) {
+async function startServer(t, answerModule = "") {
   const child = spawn(process.execPath, ["scripts/realtime-poc/speech-engine-server.mjs"], {
-    env: { ...process.env, ELEVENLABS_API_KEY: API_KEY, ELEVENLABS_SPEECH_ENGINE_ID: "seng_test", REALTIME_POC_WS_PORT: String(PORT), REALTIME_POC_ANSWER_MODULE: "" },
+    env: { ...process.env, ELEVENLABS_API_KEY: API_KEY, ELEVENLABS_SPEECH_ENGINE_ID: "seng_test", REALTIME_POC_WS_PORT: String(PORT), REALTIME_POC_ANSWER_MODULE: answerModule },
     stdio: ["ignore", "pipe", "pipe"],
   });
   const logs = [];
   child.stdout.setEncoding("utf8").on("data", (d) => logs.push(...d.split("\n").filter(Boolean)));
   child.stderr.setEncoding("utf8").on("data", (d) => logs.push(d));
-  t.after(() => child.kill());
+  t.after(async () => {
+    if (child.exitCode !== null || child.signalCode !== null) return;
+    const exited = once(child, "exit");
+    child.kill();
+    await exited;
+  });
   // SDK 불러오기가 느린 PC(Windows)에서는 시작에 25초가량 걸려, 넉넉히 60초까지 기다린다.
   for (let i = 0; i < 1200 && !logs.some((l) => l.includes("준비")); i += 1) await new Promise((r) => setTimeout(r, 50));
   assert.ok(logs.some((l) => l.includes("준비")), logs.join("\n"));
@@ -86,4 +91,31 @@ test("speech engine server: auth, streamed answer, barge-in cancels the old answ
   await waitFor(() => logs.some((l) => l.includes('"outcome":"completed"')));
   assert.ok(!logs.join("\n").includes("비밀"), "transcript text is not logged");
   assert.ok(!logs.join("\n").includes(API_KEY), "API key is not logged");
+});
+
+test("empty and failed turns each finish once and the same session answers the next turn", async (t) => {
+  const logs = await startServer(t, "tests/fixtures/realtime-poc-answer.mjs");
+  const { ws, messages } = connect(jwt(API_KEY));
+  t.after(() => ws.terminate());
+  await once(ws, "open");
+  ws.send(JSON.stringify({ type: "init", conversation_id: "conv_recovery" }));
+  const cases = [
+    { text: " ", expected: "" },
+    { text: "fail-before-chunk", expected: "" },
+    { text: "fail-after-chunk", expected: "partial" },
+    { text: "next-question", expected: "next-answer" },
+  ];
+  for (const [index, { text, expected }] of cases.entries()) {
+    const eventId = index + 1;
+    ws.send(JSON.stringify({ type: "user_transcript", event_id: eventId, user_transcript: [{ role: "user", content: text }] }));
+    await waitFor(() => messages.some((m) => m.event_id === eventId && m.is_final === true));
+    const turn = messages.filter((m) => m.type === "agent_response" && m.event_id === eventId);
+    assert.equal(turn.filter((m) => m.is_final).length, 1);
+    assert.equal(turn.map((m) => m.content).join(""), expected);
+  }
+  assert.ok(!logs.join("\n").includes("PRIVATE_PROVIDER_DETAIL"));
+  assert.equal(logs.filter((line) => line.includes('"outcome":"failed"')).length, 2);
+  ws.send(JSON.stringify({ type: "close" }));
+  ws.close();
+  await once(ws, "close");
 });

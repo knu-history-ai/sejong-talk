@@ -78,9 +78,17 @@ export function useSpeechEngineVoice() {
       controller.current = null;
       void current?.dispose();
     };
+    // 뒤로 가기로 BFCache 화면이 복원되면 자동 재연결하지 않고 새 시작을 허용한다.
+    const resume = () => {
+      if (!disposed.current) return;
+      disposed.current = false;
+      dispatch({ type: "disconnected", byUser: true });
+    };
     window.addEventListener("pagehide", leave);
+    window.addEventListener("pageshow", resume);
     return () => {
       window.removeEventListener("pagehide", leave);
+      window.removeEventListener("pageshow", resume);
       leave();
     };
   }, []);

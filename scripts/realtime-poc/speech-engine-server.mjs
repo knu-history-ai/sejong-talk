@@ -49,7 +49,11 @@ await elevenlabs.speechEngine.attach(engineId, httpServer, path, {
     log({ event: "init", conversationId });
   },
   onTranscript(transcript, signal, session) {
-    if (!hasUserText(transcript)) return;
+    if (!hasUserText(transcript)) {
+      // 빈 인식도 해당 event_id의 종료를 알려 다음 질문을 받을 수 있게 한다.
+      void session.sendResponse("");
+      return;
+    }
     log({ event: "transcript", conversationId: session.conversationId, turns: transcript.length });
     signal.addEventListener(
       "abort",
