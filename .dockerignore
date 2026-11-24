@@ -1,0 +1,14 @@
+.git
+.next
+node_modules
+private
+references/private
+evals/**/results
+.env*
+!.env.example
+**/*.pem
+**/*.key
+**/*.crt
+*.log
+ops/voice-poc/private
+HANDOFF*
