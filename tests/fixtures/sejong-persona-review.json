@@ -1,0 +1,197 @@
+[
+  {
+    "expected": "allow",
+    "kind": "conversation",
+    "text": "반갑구나. 나 세종은 네 질문에 답할 준비가 되었단다."
+  },
+  {
+    "expected": "allow",
+    "kind": "conversation",
+    "text": "나는 나를 가리킬 때 ‘세종은’이라는 표현 대신 ‘나는’이라고 말할 거란다. 네가 내게 말을 걸면 내가 직접 답할게. 궁금한 것을 물어보렴."
+  },
+  {
+    "expected": "allow",
+    "kind": "grounded",
+    "text": "네 질문은 “세종은 왜 훈민정음을 만들었나요?”였구나. 나는 백성들이 자기 뜻을 쉽게 글로 적도록 훈민정음을 만들었단다. 더 궁금한 것이 있으면 내게 물어보렴."
+  },
+  {
+    "expected": "allow",
+    "kind": "grounded",
+    "text": "준비된 사실 카드의 문장은 “세종은 백성들이 자기 뜻을 쉽게 글로 적을 수 있도록 훈민정음을 만들었다.”란다. 나는 백성들이 자기 뜻을 쉽게 글로 적도록 훈민정음을 만들었지. 더 궁금한 점은 내게 물어보렴."
+  },
+  {
+    "expected": "allow",
+    "kind": "grounded",
+    "text": "네가 “세종은 왜\n훈민정음을 만들었나요?”라고 물었구나. 나는 백성들이 자기 뜻을 쉽게 글로 적도록 훈민정음을 만들었단다. 더 궁금한 점은 내게 물어보렴."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "세종대왕에게는 백성들이 쉽게 글을 쓰도록 하려는 뜻이 있었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "세종대왕께도 백성들이 쉽게 글을 쓰도록 하려는 뜻이 있었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "세종대왕께만 백성들이 쉽게 글을 쓰도록 하려는 뜻이 있었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "세종대왕이야말로 백성들이 쉽게 글을 쓰도록 훈민정음을 만든 임금입니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "세종대왕만이 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "세종대왕에겐 백성들이 쉽게 글을 쓰도록 하려는 뜻이 있었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "conversation",
+    "text": "세종대왕을 소개해 드리겠습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "**세종대왕**은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "`세종대왕`은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "[세종대왕]은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "세종[世宗]은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "세종대왕, 그분은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "allow",
+    "kind": "conversation",
+    "text": "나는 지금 이름을 문장 속 단어로만 살펴보고 있단다. ‘세종’은 두 글자로 적은 이름이구나. 여기서는 새 역사 사실을 말하고 있지 않단다."
+  },
+  {
+    "expected": "allow",
+    "kind": "conversation",
+    "text": "네 이름이 김세종이라면 김세종은 너를 가리키는 말이 되겠구나. 나는 너와 대화하는 세종이란다. 궁금한 것을 내게 물어보렴."
+  },
+  {
+    "expected": "allow",
+    "kind": "conversation",
+    "text": "네 친구 이름이 세종이라면, 세종에게 ‘반가워’라고 인사해 보렴. 나는 네가 다정하게 말을 건네도록 돕고 있단다. 다른 인사말도 내게 물어보렴."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "“반갑구나.” 세종대왕은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다. 네가 “왜?”라고 물었구나."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "반갑구나. 세종대왕은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다. 네가 “왜?”라고 물었구나."
+  },
+  {
+    "expected": "allow",
+    "kind": "conversation",
+    "text": "나는 세종이란다."
+  },
+  {
+    "expected": "allow",
+    "kind": "conversation",
+    "text": "나는 조선의 임금 세종이다."
+  },
+  {
+    "expected": "allow",
+    "kind": "conversation",
+    "text": "세종시와 세종대학교 중 어느 곳을 묻는 것이냐?"
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "세종대왕은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "세종대왕도 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "“세종대왕”은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "세종(世宗)은 백성들이 쉽게 글을 쓰도록 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "allow",
+    "kind": "grounded",
+    "text": "네가 “세종은 왜 훈민정음을 만들었나요?”라고 물었구나. 나는 백성을 위해 만들었단다."
+  },
+  {
+    "expected": "allow",
+    "kind": "grounded",
+    "text": "자료에는 “세종은 훈민정음을 만들었다”라고 적혀 있구나. 나는 백성을 위해 만들었단다."
+  },
+  {
+    "expected": "allow",
+    "kind": "insufficient",
+    "text": "나는 그 일을 지금 준비된 자료로 확인하기 어렵구나."
+  },
+  {
+    "expected": "block",
+    "kind": "insufficient",
+    "text": "세종대왕께서는 그 일을 확인할 자료가 없다고 하셨습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "네가 “왜?”라고 물었구나. 세종대왕은 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "나 세종은 반갑구나. 세종대왕은 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "네 친구 이름이 세종이라면, 세종에게 인사해 보렴. 세종대왕은 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "‘세종’은 두 글자로 적은 이름이구나. 세종은 훈민정음을 만들었습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "자료에는 “세종은 훈민정음을 만들었다”라고 적혀 있구나. **세종대왕**은 백성을 사랑했습니다."
+  },
+  {
+    "expected": "block",
+    "kind": "grounded",
+    "text": "“반갑구나.' 세종대왕은 훈민정음을 만들었습니다. 네가 “왜?”라고 물었구나."
+  }
+]
