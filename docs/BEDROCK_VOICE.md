@@ -7,7 +7,7 @@ PR97의 `answer({ transcript, signal })` 규격을 구현한다. STT는 Speech E
 - 모듈: `scripts/realtime-poc/bedrock-answer.mjs`
 - 공개 답변 생성/평가: `src/server/ai/bedrock-answer.ts`
 - SDK 요청: `src/server/ai/bedrock-request.ts`
-- 리전: `ap-northeast-1`; 모델: `jp.anthropic.claude-haiku-4-5-20251001-v1:0` (고정)
+- 리전: `ap-northeast-1`; 모델: `jp.anthropic.claude-haiku-5-5` (고정). 추론 설정은 `maxTokens: 1000`만 전달하며 `temperature`는 보내지 않는다.
 
 Node 24에서 `npm ci`. PR97과 통합한 저장소 루트의 서버 환경에 `REALTIME_POC_ANSWER_MODULE=scripts/realtime-poc/bedrock-answer.mjs`를 설정한다. 기존 ElevenLabs 환경 설정은 PR97 문서를 따른다. `server-only` 모듈을 별도 Node 프로세스에서 읽으므로 실행 명령은 다음과 같다.
 

@@ -14,8 +14,9 @@ test("Tokyo Haiku request uses SDK cancellation, bounded output and observed usa
   const metrics = [];
   const result = await requestBedrockCandidate("private-question", { send: async (command, options) => {
     assert.equal(BEDROCK_REGION, "ap-northeast-1");
-    assert.equal(command.input.modelId, BEDROCK_MODEL);
-    assert.equal(command.input.inferenceConfig.maxTokens, 1000);
+    assert.equal(command.input.modelId, "jp.anthropic.claude-haiku-5-5");
+    assert.equal(BEDROCK_MODEL, command.input.modelId);
+    assert.deepEqual(command.input.inferenceConfig, { maxTokens: 1000 });
     assert.ok(options.abortSignal instanceof AbortSignal);
     return response("private-answer");
   }, log: (event) => metrics.push(event) });

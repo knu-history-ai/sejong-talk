@@ -1,7 +1,7 @@
 import "server-only";
 import { BedrockRuntimeClient, ConverseCommand, type ConverseCommandOutput } from "@aws-sdk/client-bedrock-runtime";
 
-export const BEDROCK_MODEL = "jp.anthropic.claude-haiku-4-5-20251001-v1:0";
+export const BEDROCK_MODEL = "jp.anthropic.claude-haiku-5-5";
 export const BEDROCK_REGION = "ap-northeast-1";
 export type BedrockFailure = "CANCELLED" | "UPSTREAM_TIMEOUT" | "FORBIDDEN" | "LIMIT_EXCEEDED" | "UNAVAILABLE";
 export class BedrockError extends Error {
@@ -45,7 +45,7 @@ export async function requestBedrockCandidate(prompt: string, options: {
       (options.send ?? send)(new ConverseCommand({
         modelId: BEDROCK_MODEL,
         messages: [{ role: "user", content: [{ text: prompt }] }],
-        inferenceConfig: { maxTokens: 1000, temperature: 0.2 },
+        inferenceConfig: { maxTokens: 1000 },
       }), { abortSignal: controller.signal }), aborted,
     ]);
     if (controller.signal.aborted) throw new BedrockError(timedOut ? "UPSTREAM_TIMEOUT" : "CANCELLED");
