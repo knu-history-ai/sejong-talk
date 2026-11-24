@@ -73,6 +73,8 @@ lint / typecheck / build:
 
 [기획·요구사항 문서](proposal/README.md) · [협업 규칙](CONTRIBUTING.md) · [폴더 구조와 담당 경계](docs/ARCHITECTURE.md) · [개발 보드](https://github.com/orgs/knu-history-ai/projects/1)
 
+기존 PoC 서버 인수(#8): [운영본 확인·배포·복구 인수 문서](docs/POC_SERVER_HANDOVER.md). 접속 후 확인할 항목과 아직 확보하지 못한 운영 정보를 구분합니다.
+
 ## 담당
 
 | 담당 | 역할 |
