@@ -67,6 +67,7 @@ function fallbackAnswer(input: SejongPromptInput, answerId: string): Answer {
   };
 }
 
+/** Structural/persona checks only. Model text must also pass verifyForPublication before exposure. */
 export function validateAnswerDraft(
   draft: AnswerDraft,
   input: SejongPromptInput,

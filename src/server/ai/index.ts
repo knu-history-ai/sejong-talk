@@ -1,8 +1,10 @@
 import "server-only";
 
 import type { ApprovedTurn, FailedRequest, TurnRequest } from "../../contracts";
-import { loadSejongKnowledgeBase, selectReviewedFactsForQuestion } from "../content/sejong";
-import { parseAnswerDraftFromText, validateAnswerDraft } from "./answer";
+import { loadSejongKnowledgeBase } from "../content/sejong";
+import { parseAnswerDraftFromText } from "./answer";
+import { selectFactsForTurn } from "./followup";
+import { serverAnswer, verifyForPublication } from "./publication";
 import { requestOllamaCandidate, readOllamaConfig } from "./ollama-request";
 import {
   buildSejongAnswerPrompt,
@@ -52,16 +54,22 @@ export async function generateSejongTurn({
 }: GenerateSejongTurnOptions): Promise<ApprovedTurn | FailedRequest> {
   try {
     const knowledgeBase = await loadSejongKnowledgeBase();
-    const reviewedFacts = selectReviewedFactsForQuestion(
+    const selection = selectFactsForTurn(
       knowledgeBase,
       request.text,
+      recentConversation,
     );
     const promptInput = buildSejongPromptInput({
       knowledgeBase,
       request,
-      reviewedFacts,
+      reviewedFacts: selection.facts,
       recentConversation,
     });
+    signal?.throwIfAborted();
+    if (selection.needsClarification) {
+      console.info("sejong_answer_validation", { reason: "clarification" });
+      return { requestId: request.requestId, operation: "turn", status: "approved", answer: serverAnswer(promptInput, "insufficient", true) };
+    }
     const prompt = buildSejongAnswerPrompt(promptInput);
     const config = readOllamaConfig({
       OLLAMA_BASE_URL: process.env.OLLAMA_BASE_URL,
@@ -70,10 +78,22 @@ export async function generateSejongTurn({
       OLLAMA_MAX_ATTEMPTS: process.env.OLLAMA_MAX_ATTEMPTS,
     });
     const candidate = await requestOllamaCandidate(prompt, config, fetch, signal);
-    const answer = validateAnswerDraft(
+    const { answer, reason } = await verifyForPublication(
       parseAnswerDraftFromText(candidate.text),
       promptInput,
+      {
+        signal,
+        verify: async (verificationPrompt, verificationSignal) => {
+          const result = await requestOllamaCandidate(verificationPrompt,
+            { ...config, usageStage: "llm_verification", timeoutMs: Math.min(config.timeoutMs, 5_000), maxAttempts: 1 },
+            fetch, verificationSignal);
+          return result.text;
+        },
+      },
     );
+    // Log only a bounded reason code, never private questions or provider bodies.
+    console.info("sejong_answer_validation", { reason });
+    signal?.throwIfAborted();
 
     return { requestId: request.requestId, operation: "turn", status: "approved", answer };
   } catch (error) {
