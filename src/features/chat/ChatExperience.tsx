@@ -377,9 +377,9 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
   }
 
   async function returnHome() {
-    if (!archiveCurrentChat()) return;
     stopFixedAnswerSpeech();
     await voiceStop.current?.();
+    if (!archiveCurrentChat()) return;
     cancelAnswer();
     setHomeConfirm(false);
     setStarted(false);
