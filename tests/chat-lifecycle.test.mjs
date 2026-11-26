@@ -43,6 +43,7 @@ for (const key of ["sejong-chat-history-v1", "sejong-chat-clear"]) {
     assert.equal(app.savedChats().length, 1);
     await ask(app, "소개 화면에 남아 있던 질문");
     app.click("세종톡 소개 화면");
+    await app.click("보관하고 돌아가기");
     assert.equal(app.isChat(), false);
 
     app.storage.removeItem(app.historyKey);

@@ -318,7 +318,7 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
   async function reset() {
     if (startingRef.current) return;
     stopFixedAnswerSpeech();
-    await voiceStop.current?.();
+    if (voiceStop.current) await voiceStop.current();
     if (!archiveCurrentChat()) return;
     startingRef.current = true;
     setStarting(true);
@@ -378,7 +378,7 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
 
   async function returnHome() {
     stopFixedAnswerSpeech();
-    await voiceStop.current?.();
+    if (voiceStop.current) await voiceStop.current();
     if (!archiveCurrentChat()) return;
     cancelAnswer();
     setHomeConfirm(false);
