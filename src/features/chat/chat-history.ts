@@ -1,7 +1,7 @@
 import type { Answer, ApiError } from "@/contracts";
 
 export type ConversationStatus = "loading" | "failed" | "answered" | "cancelled";
-export type Conversation = { question: string; answer: Answer | null; error?: ApiError; status: ConversationStatus };
+export type Conversation = { question: string; answer: Answer | null; error?: ApiError; status: ConversationStatus; fixed?: boolean };
 export interface SavedChat {
   id: string;
   title: string;

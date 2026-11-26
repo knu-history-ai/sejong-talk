@@ -7,13 +7,41 @@ import { ChatVoiceButton } from "../voice-input/chat-voice-button";
 import { ChatAnswerAudio } from "../voice-output/chat-answer-audio";
 import { createChatSession, deleteChatSession, requestTurn, cancelTurn } from "./api";
 import { FormEvent, KeyboardEvent, ReactNode, useEffect, useRef, useState } from "react";
+import { useSpeechEngineVoice } from "@/features/realtime-voice/use-speech-engine-voice";
+import { canStartVoice, VOICE_ERROR_MESSAGES, type VoiceLine, type VoicePhase } from "@/features/realtime-voice/voice-state";
 
 type IconName = "arrow" | "clock" | "plus" | "close" | "mic" | "send" | "speaker" | "document" | "chevron" | "info";
 
 const suggestions = ["한글은 왜 만들었나요?", "백성을 위해 어떤 일을 했나요?", "장영실은 어떤 사람인가요?"];
 const welcome = "만나서 반갑구나. 내게 궁금한 것이 있느냐? 한글부터 조선의 일상까지, 함께 이야기해 보자꾸나.";
+const FIXED_ANSWERS: Record<string, { text: string; sources: { id: string; title: string; institution: string; url: string }[] }> = {
+  "한글은왜만들었나요?": {
+    text: "우리말이 중국말과 달라 한자로는 백성들이 자기 생각을 글로 나타내기 어려웠단다. 그래서 누구나 쉽게 익혀 날마다 쓸 수 있는 글자를 만들고자 했지. 《훈민정음》 서문에도 백성이 뜻을 펼 수 있도록 새 글자를 만들었다고 밝혔단다.",
+    sources: [{ id: "hunminjeongeum-preface", title: "훈민정음 서문과 창제 취지", institution: "국립한글박물관", url: "https://www.hangeul.go.kr/webzine/201705/sub1_2.html" }],
+  },
+  "훈민정음은왜만들었나요?": {
+    text: "우리말이 중국말과 달라 한자로는 백성들이 자기 생각을 글로 나타내기 어려웠단다. 그래서 누구나 쉽게 익혀 날마다 쓸 수 있는 글자를 만들고자 했지. 《훈민정음》 서문에도 백성이 뜻을 펼 수 있도록 새 글자를 만들었다고 밝혔단다.",
+    sources: [{ id: "hunminjeongeum-preface", title: "훈민정음 서문과 창제 취지", institution: "국립한글박물관", url: "https://www.hangeul.go.kr/webzine/201705/sub1_2.html" }],
+  },
+  "백성을위해어떤일을했나요?": {
+    text: "백성의 삶을 더 편안하게 하려고 여러 일을 했단다. 우리말을 적기 쉽게 훈민정음을 만들고, 우리 풍토에 맞는 농사법을 담은 《농사직설》을 펴내 농민들에게 보급했지. 비의 양을 재는 측우기를 만들고 전국에서 강우량을 살피게 하여 농사에 도움이 되는 정보도 모으도록 했단다.",
+    sources: [
+      { id: "sejong-agriculture", title: "농사직설", institution: "한국민족문화대백과사전", url: "https://encykorea.aks.ac.kr/Article/E0013114" },
+      { id: "sejong-rain-gauge", title: "측우기", institution: "한국민족문화대백과사전", url: "https://encykorea.aks.ac.kr/Article/E0058337" },
+    ],
+  },
+};
 
-export function ChatExperience() {
+function makeFixedTurn(question: string): Conversation | null {
+  const fixed = FIXED_ANSWERS[question.replace(/\s+/g, "")];
+  if (!fixed) return null;
+  return { question, fixed: true, status: "answered", answer: {
+    answerId: `fixed_${crypto.randomUUID()}`, kind: "grounded", text: fixed.text, factIds: [], sources: fixed.sources,
+    personaVersion: "sejong-fixed-answer-v1", contentVersion: "sejong-fixed-answer-v1",
+  } };
+}
+
+export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = false }: { voiceModeEnabled?: boolean; voiceConfigured?: boolean } = {}) {
   const [starting, setStarting] = useState(false);
   const startingRef = useRef(false);
   const [intro, setIntro] = useState(welcome);
@@ -37,6 +65,10 @@ export function ChatExperience() {
   const archiveId = useRef<string | null>(null);
   const [resetOpen, setResetOpen] = useState(false);
   const [autoListen, setAutoListen] = useState(false);
+  const [questionMode, setQuestionMode] = useState<"text" | "voice">("text");
+  const [voiceRevision, setVoiceRevision] = useState(0);
+  const [voiceLines, setVoiceLines] = useState<VoiceLine[]>([]);
+  const [homeConfirm, setHomeConfirm] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [notice, setNotice] = useState("");
   const [history, setHistory] = useState<Conversation[]>([]);
@@ -45,9 +77,14 @@ export function ChatExperience() {
   const input = useRef<HTMLTextAreaElement>(null);
   const dialogue = useRef<HTMLDivElement>(null);
   const sourceCard = useRef<HTMLDivElement>(null);
+  const voiceStop = useRef<(() => Promise<void>) | null>(null);
+  const fixedSpeech = useRef<SpeechSynthesisUtterance | null>(null);
 
   useEffect(() => {
-    return () => { activeRequest.current?.abort(); };
+    return () => {
+      activeRequest.current?.abort();
+      if (fixedSpeech.current) window.speechSynthesis?.cancel();
+    };
   }, []);
   // The composer is disabled while recording; focus it once the transcript is ready to edit.
   useEffect(() => {
@@ -106,6 +143,16 @@ export function ChatExperience() {
     const text = question.trim();
     if (!text || loading || starting || startingRef.current || sessionExpired || voiceBusy || activeRequest.current) return;
     const index = history.length;
+    const fixedTurn = makeFixedTurn(text);
+    if (fixedTurn) {
+      cancelAudio.current?.();
+      setHistory((items) => [...items, fixedTurn]);
+      setQuestion("");
+      setSourceOpen(false);
+      setNotice("");
+      setFailNextAnswer(false);
+      return;
+    }
     setHistory((items) => [...items, { question: text, answer: null, status: "loading" }]);
     setQuestion("");
     requestAnswer(text, index, failNextAnswer);
@@ -174,11 +221,24 @@ export function ChatExperience() {
   }
 
   function archiveCurrentChat() {
-    if (!history.length) return true;
+    if (!history.length && !voiceLines.length) return true;
     try {
       const id = archiveId.current ??= crypto.randomUUID();
+      const voiceTurns: Conversation[] = [];
+      let pendingQuestion: string | null = null;
+      for (const line of voiceLines) {
+        if (line.role === "user") pendingQuestion = line.text;
+        else if (pendingQuestion) {
+          voiceTurns.push({ question: pendingQuestion, status: "answered", answer: {
+            answerId: crypto.randomUUID(), kind: "conversation", text: line.text, factIds: [], sources: [], personaVersion: "voice", contentVersion: "voice",
+          } });
+          pendingQuestion = null;
+        }
+      }
+      if (pendingQuestion) voiceTurns.push({ question: pendingQuestion, status: "cancelled", answer: null });
+      const turns = [...history, ...voiceTurns];
       setSavedChats(saveChat(window.localStorage, {
-        id, title: history[0].question.slice(0, 40), savedAt: new Date().toISOString(), sample: showSamples, turns: history,
+        id, title: turns[0]?.question.slice(0, 40) ?? "음성 대화", savedAt: new Date().toISOString(), sample: showSamples, turns,
       }));
       setArchiveError("");
       return true;
@@ -206,6 +266,8 @@ export function ChatExperience() {
     setDeleting(true);
     setArchiveError("");
     try {
+      stopFixedAnswerSpeech();
+      await voiceStop.current?.();
       // Clear only chat storage; unrelated browser preferences remain intact.
       clearSavedChats(window.localStorage);
       cancelAudio.current?.();
@@ -218,6 +280,7 @@ export function ChatExperience() {
       setSavedChats([]);
       setSelectedChat(null);
       setHistory([]);
+      setVoiceLines([]);
       setQuestion("");
       setLoading(false);
       setSourceOpen(false);
@@ -254,6 +317,8 @@ export function ChatExperience() {
 
   async function reset() {
     if (startingRef.current) return;
+    stopFixedAnswerSpeech();
+    await voiceStop.current?.();
     if (!archiveCurrentChat()) return;
     startingRef.current = true;
     setStarting(true);
@@ -277,6 +342,7 @@ export function ChatExperience() {
     }
     setQuestion("");
     setHistory([]); setLoading(false); setSourceOpen(false);
+    setVoiceLines([]); setVoiceRevision((value) => value + 1); setQuestionMode("text");
     archiveId.current = null;
     setResetOpen(false); setNotice("");
     setHistoryOpen(false); setSessionExpired(false); setFailNextAnswer(false);
@@ -292,6 +358,9 @@ export function ChatExperience() {
       if (!sample) { const session = await createChatSession(); setIntro(session.intro); setRecommended(session.suggestedQuestions); }
       if (!sample) notifySessionChange();
       setHistory([]);
+      setVoiceLines([]);
+      setQuestionMode("text");
+      setVoiceRevision((value) => value + 1);
       archiveId.current = null;
       setQuestion("");
       setSessionExpired(false);
@@ -301,10 +370,66 @@ export function ChatExperience() {
     finally { startingRef.current = false; setStarting(false); }
   }
 
-  function selectQuestion(text: string) {
+  function requestHome() {
+    if (starting || startingRef.current) return;
+    if (started || history.length || voiceLines.length) setHomeConfirm(true);
+    else void returnHome();
+  }
+
+  async function returnHome() {
+    if (!archiveCurrentChat()) return;
+    stopFixedAnswerSpeech();
+    await voiceStop.current?.();
+    cancelAnswer();
+    setHomeConfirm(false);
+    setStarted(false);
+    setQuestionMode("text");
+  }
+
+  async function changeQuestionMode(next: "text" | "voice") {
+    if (!voiceModeEnabled || next === questionMode || loading || starting) return;
+    cancelAudio.current?.();
+    if (next === "text") stopFixedAnswerSpeech();
+    if (questionMode === "voice") await voiceStop.current?.();
+    setQuestionMode(next);
+  }
+
+  async function selectQuestion(text: string) {
     if (startingRef.current) return;
+    if (questionMode === "voice") {
+      const fixedTurn = makeFixedTurn(text);
+      if (fixedTurn) {
+        cancelAudio.current?.();
+        const closing = voiceStop.current?.();
+        setHistory((items) => [...items, fixedTurn]);
+        setQuestion("");
+        setSourceOpen(false);
+        setNotice("");
+        readFixedAnswerAloud(fixedTurn.answer?.text ?? "");
+        await closing;
+        return;
+      }
+      await changeQuestionMode("text");
+    }
     setQuestion(text);
     input.current?.focus();
+  }
+
+  function readFixedAnswerAloud(text: string) {
+    if (typeof window === "undefined" || !window.speechSynthesis || typeof SpeechSynthesisUtterance === "undefined") return;
+    window.speechSynthesis.cancel();
+    const utterance = new SpeechSynthesisUtterance(text);
+    utterance.lang = "ko-KR";
+    fixedSpeech.current = utterance;
+    utterance.onend = () => { if (fixedSpeech.current === utterance) fixedSpeech.current = null; };
+    utterance.onerror = () => { if (fixedSpeech.current === utterance) fixedSpeech.current = null; };
+    window.speechSynthesis.speak(utterance);
+  }
+
+  function stopFixedAnswerSpeech() {
+    if (!fixedSpeech.current || typeof window === "undefined") return;
+    window.speechSynthesis?.cancel();
+    fixedSpeech.current = null;
   }
 
   function handleQuestionKeyDown(event: KeyboardEvent<HTMLTextAreaElement>) {
@@ -314,7 +439,7 @@ export function ChatExperience() {
   }
 
   const header = <header className="site-header">
-    <button className="brand" aria-label="세종톡 소개 화면" disabled={starting} onClick={() => { cancelAnswer(); setStarted(false); }}>
+    <button className="brand" aria-label="세종톡 소개 화면" disabled={starting} onClick={requestHome}>
       <Image src="/images/logo-sejongtalk.png" alt="세종톡" width={1928} height={815} sizes="140px" preload />
     </button>
     <nav aria-label="대화 설정">
@@ -362,10 +487,15 @@ export function ChatExperience() {
                 {item.status === "failed" && <div className="answer-bubble error-bubble" role="alert"><p>{item.error?.message ?? "답변을 가져오지 못했어요. 다시 시도해 주세요."}</p><div className="recovery-actions"><button className="primary-button" disabled={loading || starting || sessionExpired || item.error?.retryable === false} onClick={() => retry(index)}>다시 시도</button><button className="outline-button" disabled={loading || starting || sessionExpired} onClick={() => selectQuestion(item.question)}>질문 수정하기</button></div></div>}
                 {item.status === "cancelled" && <div className="answer-bubble cancelled-bubble"><p>답변 준비를 멈췄어요.</p></div>}
                 {item.status === "answered" && index === history.length - 1 && !loading && !sessionExpired && <>
-                <div className="answer-actions">{!showSamples && item.answer?.answerId ? <ChatAnswerAudio key={item.answer.answerId} answerId={item.answer.answerId} speed={speed} autoPlay={autoListen} disabled={voiceBusy || starting || sessionExpired} cancelRef={cancelAudio} onSessionExpired={expireSession} icon={<Icon name="speaker" />} /> : <button className="primary-button listen-button" onClick={() => setNotice("예시 대화에서는 답변 듣기를 사용할 수 없어요.")}><Icon name="speaker" />답변 듣기</button>}<div className="speed-control"><span id="speed-label">재생 속도</span><div role="group" aria-labelledby="speed-label">{[0.8, 1, 1.2].map((value) => <button key={value} aria-pressed={speed === value} onClick={() => setSpeed(value)}>{value}배</button>)}</div></div></div>
+                {!item.fixed && <div className="answer-actions">{!showSamples && item.answer?.answerId ? <ChatAnswerAudio key={item.answer.answerId} answerId={item.answer.answerId} speed={speed} autoPlay={autoListen} disabled={voiceBusy || starting || sessionExpired} cancelRef={cancelAudio} onSessionExpired={expireSession} icon={<Icon name="speaker" />} /> : <button className="primary-button listen-button" onClick={() => setNotice("예시 대화에서는 답변 듣기를 사용할 수 없어요.")}><Icon name="speaker" />답변 듣기</button>}<div className="speed-control"><span id="speed-label">재생 속도</span><div role="group" aria-labelledby="speed-label">{[0.8, 1, 1.2].map((value) => <button key={value} aria-pressed={speed === value} onClick={() => setSpeed(value)}>{value}배</button>)}</div></div></div>}
                 <div className="source-card" ref={sourceCard}><button className="source-toggle" aria-expanded={sourceOpen} aria-controls="answer-sources" onClick={() => setSourceOpen(!sourceOpen)}><Icon name="document" /><span>이 이야기의 출처 보기</span><Icon name="chevron" /></button>{sourceOpen && <div id="answer-sources">{item.answer?.sources.length ? <ul>{item.answer.sources.map((source) => <li key={source.id}><strong>{source.title}</strong><p>{source.institution}</p>{/^https?:\/\//i.test(source.url) && <a href={source.url} target="_blank" rel="noopener noreferrer">원문 보기</a>}</li>)}</ul> : <p>이 답변에는 연결된 출처가 없어요.</p>}</div>}</div>
                 </>}
               </div></div>
+            </div>)}
+            {voiceLines.map((line, index) => <div className={`message ${line.role === "user" ? "student-message" : "sejong-message"}`} key={`voice-${index}`}>
+              {line.role === "agent" && <Avatar />}
+              <div className="min-w-0"><strong className="speaker-name">{line.role === "user" ? "나 · 음성" : "세종대왕 · 음성"}</strong><div className="answer-bubble"><p>{line.text}</p></div></div>
+              {line.role === "user" && <Avatar student />}
             </div>)}
           </div>
           {notice && <div className="service-notice" role="status"><Icon name="info" /><p>{notice}</p><button aria-label="안내 닫기" onClick={() => setNotice("")}><Icon name="close" /></button></div>}
@@ -373,10 +503,15 @@ export function ChatExperience() {
         <section className="question-area" aria-label="질문 작성">
           <h2>이런 질문은 어때요?</h2>
           <div className="suggestions">{recommended.map((item) => <button key={item} disabled={loading || starting || sessionExpired} onClick={() => selectQuestion(item)}>{item}</button>)}</div>
-          <form className="composer" onSubmit={ask}>
+          {voiceModeEnabled && <div className="question-mode" role="group" aria-label="질문 방식">
+            <button type="button" className={questionMode === "voice" ? "primary-button" : "outline-button"} aria-pressed={questionMode === "voice"} onClick={() => void changeQuestionMode("voice")}><Icon name="mic" /><span>말로 질문</span></button>
+            <button type="button" className={questionMode === "text" ? "primary-button" : "outline-button"} aria-pressed={questionMode === "text"} onClick={() => void changeQuestionMode("text")}><Icon name="document" /><span>글로 질문</span></button>
+          </div>}
+          <form className="composer" onSubmit={ask} hidden={questionMode === "voice"}>
             <div className="composer-label"><label htmlFor="question">이어서 궁금한 점을 물어보세요</label><small>{question.length} / 500</small></div>
-            <div className="composer-controls"><textarea ref={input} id="question" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={handleQuestionKeyDown} maxLength={500} rows={2} placeholder={sessionExpired ? "새 대화를 시작해 주세요." : "세종대왕에게 궁금한 것을 물어보세요."} disabled={loading || starting || sessionExpired || voiceBusy} />{showSamples ? <button type="button" className="outline-button mic-button" disabled={loading || starting || sessionExpired} onClick={() => setNotice("예시 대화에서는 음성 질문을 사용할 수 없어요. 글로 입력해 주세요.")}><Icon name="mic" /><span>말로 질문</span></button> : <ChatVoiceButton icon={<Icon name="mic" />} draft={question} disabled={loading || starting || sessionExpired} onBeforeRecording={() => cancelAudio.current?.()} onBusyChange={setVoiceBusy} onSessionExpired={expireSession} onTranscript={(text) => { setQuestion(text.slice(0, 500)); focusAfterVoice.current = true; }} />}<button className="primary-button send-button" disabled={!question.trim() || loading || starting || sessionExpired || voiceBusy}><Icon name="send" /><span>{loading ? "답변 준비 중" : "질문 보내기"}</span></button></div>
+            <div className={`composer-controls ${voiceModeEnabled ? "text-mode-controls" : ""}`}><textarea ref={input} id="question" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={handleQuestionKeyDown} maxLength={500} rows={2} placeholder={sessionExpired ? "새 대화를 시작해 주세요." : "세종대왕에게 궁금한 것을 물어보세요."} disabled={loading || starting || sessionExpired || voiceBusy} />{!voiceModeEnabled && (showSamples ? <button type="button" className="outline-button mic-button" disabled={loading || starting || sessionExpired} onClick={() => setNotice("예시 대화에서는 음성 질문을 사용할 수 없어요. 글로 입력해 주세요.")}><Icon name="mic" /><span>말로 질문</span></button> : <ChatVoiceButton icon={<Icon name="mic" />} draft={question} disabled={loading || starting || sessionExpired} onBeforeRecording={() => cancelAudio.current?.()} onBusyChange={setVoiceBusy} onSessionExpired={expireSession} onTranscript={(text) => { setQuestion(text.slice(0, 500)); focusAfterVoice.current = true; }} />)}<button className="primary-button send-button" disabled={!question.trim() || loading || starting || sessionExpired || voiceBusy}><Icon name="send" /><span>{loading ? "답변 준비 중" : "질문 보내기"}</span></button></div>
           </form>
+          {voiceModeEnabled && started && <VoiceQuestionMode key={voiceRevision} active={questionMode === "voice"} configured={voiceConfigured} stopRef={voiceStop} onLinesChange={setVoiceLines} />}
           {showSamples && <details className="sample-controls"><summary>예시 상태 확인</summary><p>실제 서비스 연결 전, 오류와 만료 상황을 확인하는 개발용 메뉴예요.</p><label><input type="checkbox" checked={failNextAnswer} disabled={loading || sessionExpired} onChange={(event) => setFailNextAnswer(event.target.checked)} /> 다음 질문에서 답변 오류 보기</label><button className="outline-button" disabled={sessionExpired} onClick={expireSession}>세션 만료 보기</button></details>}
         </section>
         <p className="chat-footer">역사 자료를 바탕으로 재구성한 AI예요. 실제 세종대왕이 남긴 말과는 다를 수 있어요.</p>
@@ -407,8 +542,32 @@ export function ChatExperience() {
         <div className="saved-chat-list">{savedChats.map((chat) => <button key={chat.id} onClick={() => setSelectedChat(chat)}><strong>{chat.title}</strong><span>{new Date(chat.savedAt).toLocaleString("ko-KR")}</span><small>{chat.turns.length}개 질문{chat.sample ? " · 예시 대화" : ""}</small></button>)}</div>}
     </Overlay>}
     {resetOpen && <Overlay titleId="reset-title" className="reset-modal" onClose={() => setResetOpen(false)}><h2 id="reset-title">지금 대화를 보관하고<br />새 대화를 시작할까요?</h2><p>지금 대화는 이전 대화에 보관돼요.<br />진행 중인 답변은 멈춰요.</p>{archiveError && <p role="alert">{archiveError}</p>}<div className="modal-actions"><button className="outline-button" onClick={() => setResetOpen(false)}>계속 대화하기</button><button className="primary-button" onClick={reset}>새로 시작하기</button></div></Overlay>}
+    {homeConfirm && <Overlay titleId="home-confirm-title" className="reset-modal" onClose={() => setHomeConfirm(false)}><h2 id="home-confirm-title">첫 화면으로 돌아갈까요?</h2><p>현재 대화는 이전 대화에 보관돼요.</p>{archiveError && <p role="alert">{archiveError}</p>}<div className="modal-actions"><button className="outline-button" onClick={() => setHomeConfirm(false)}>계속 대화하기</button><button className="primary-button" onClick={() => void returnHome()}>보관하고 돌아가기</button></div></Overlay>}
     {sessionExpired && <Overlay titleId="expired-title" className="reset-modal session-expired-modal" onClose={() => {}} dismissible={false}><Icon name="clock" /><h2 id="expired-title">대화 시간이 만료되었어요</h2><p>새 대화를 시작하면<br />세종대왕과 다시 이야기할 수 있어요.</p>{archiveError && <p role="alert">{archiveError}</p>}<div className="modal-actions single-action"><button className="primary-button" onClick={reset}>새 대화 시작하기</button></div></Overlay>}
   </main>;
+}
+
+const VOICE_STATUS: Record<VoicePhase, string> = {
+  idle: "대기 중", requestingMic: "마이크 확인 중", connecting: "연결 중", listening: "듣는 중",
+  thinking: "답변 준비 중", speaking: "답변 중", ending: "종료 중", ended: "대화 종료", error: "연결 오류",
+};
+
+function VoiceQuestionMode({ active, configured, stopRef, onLinesChange }: { active: boolean; configured: boolean; stopRef: { current: (() => Promise<void>) | null }; onLinesChange: (lines: VoiceLine[]) => void }) {
+  const { state, start, stop } = useSpeechEngineVoice();
+  const error = state.error ? VOICE_ERROR_MESSAGES[state.error] : null;
+  const canStart = canStartVoice(state.phase);
+  useEffect(() => {
+    stopRef.current = stop;
+    return () => { if (stopRef.current === stop) stopRef.current = null; };
+  }, [stop, stopRef]);
+  useEffect(() => { onLinesChange(state.lines); }, [state.lines, onLinesChange]);
+  useEffect(() => { if (!active && !["idle", "ended"].includes(state.phase)) void stop(); }, [active, state.phase, stop]);
+  return <section className="poc-control-card voice-mode-panel" aria-label="음성 대화" hidden={!active}>
+    <div className="poc-status-row"><span className={`poc-status-dot voice-phase-${state.phase}`} aria-hidden="true" /><div><span className="poc-status-label">대화 상태</span><p className="poc-status-value" role="status">{configured ? VOICE_STATUS[state.phase] : "음성 대화를 사용할 수 없어요"}</p></div></div>
+    <p className="poc-status-hint">{configured ? state.phase === "listening" ? "잘 듣고 있어요. 편하게 말씀해 주세요." : state.phase === "speaking" ? "세종대왕이 답변하고 있어요. 중간에 말씀하시면 끼어들 수 있어요." : "대화를 시작하면 세종대왕과 음성으로 이야기할 수 있어요." : "음성 서비스를 사용할 수 있도록 설정을 확인해 주세요."}</p>
+    {error && <div className="answer-bubble error-bubble mt-3" role="alert"><strong>{error.title}</strong><p>{error.message}</p></div>}
+    <div className="poc-actions"><button type="button" className="primary-button poc-start-button" disabled={!configured || !canStart} onClick={() => void start()}><Icon name="mic" />{state.phase === "error" ? "다시 연결" : "대화 시작"}</button><button type="button" className="outline-button poc-stop-button" disabled={canStart || state.phase === "ending"} onClick={() => void stop()}>대화 종료</button></div>
+  </section>;
 }
 
 function Scene({ intro = false }: { intro?: boolean }) {

@@ -235,6 +235,18 @@ dialog::backdrop { background: #1a304b80; }
   .poc-actions .poc-start-button,.poc-stop-button { min-width: 0; padding-inline: 10px; }
 }
 .realtime-intro-copy .start-button { display: inline-flex; }
+.question-mode { display: flex; gap: 8px; margin: 12px 0; }
+.question-mode button { min-width: 118px; }
+.composer[hidden], .voice-mode-panel[hidden] { display: none !important; }
+.composer-controls.text-mode-controls { grid-template-columns: minmax(0, 1fr) auto; }
+.voice-mode-panel { margin: 12px 0 0; }
+.voice-mode-panel .poc-actions { margin-top: 12px; }
+@media (max-width: 480px) {
+  .question-mode { display: grid; grid-template-columns: 1fr 1fr; }
+  .question-mode button { min-width: 0; width: 100%; }
+  .composer-controls.text-mode-controls { display: grid; grid-template-columns: 1fr; }
+  .composer-controls.text-mode-controls textarea { grid-column: auto; }
+}
 .realtime-card .conversation-heading { margin-bottom: 17px; }
 .realtime-card .dialogue { border: 1px solid #e8eef3; border-radius: 10px; background: linear-gradient(180deg,#fff,#fcfdfe); }
 .poc-control-card { box-shadow: 0 4px 15px #173a5208; }
