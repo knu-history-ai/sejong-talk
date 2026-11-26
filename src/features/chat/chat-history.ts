@@ -1,7 +1,9 @@
 import type { Answer, ApiError } from "@/contracts";
+import type { VoiceLine } from "@/features/realtime-voice/voice-state";
 
 export type ConversationStatus = "loading" | "failed" | "answered" | "cancelled";
-export type Conversation = { question: string; answer: Answer | null; error?: ApiError; status: ConversationStatus };
+export type Conversation = { question: string; answer: Answer | null; error?: ApiError; status: ConversationStatus; fixed?: boolean; order?: number };
+export type OrderedVoiceLine = VoiceLine & { order: number };
 export interface SavedChat {
   id: string;
   title: string;
@@ -12,6 +14,22 @@ export interface SavedChat {
 export const CHAT_HISTORY_KEY = "sejong-chat-history-v1";
 export const MAX_SAVED_CHATS = 30;
 type StorageLike = Pick<Storage, "getItem" | "setItem">;
+
+export function mergeConversationTurns(history: Conversation[], voiceLines: OrderedVoiceLine[]): Conversation[] {
+  const voiceTurns: Conversation[] = [];
+  let pendingQuestion: OrderedVoiceLine | null = null;
+  for (const line of voiceLines) {
+    if (line.role === "user") pendingQuestion = line;
+    else if (pendingQuestion) {
+      voiceTurns.push({ question: pendingQuestion.text, order: pendingQuestion.order, status: "answered", answer: {
+        answerId: `voice_${crypto.randomUUID()}`, kind: "conversation", text: line.text, factIds: [], sources: [], personaVersion: "voice", contentVersion: "voice",
+      } });
+      pendingQuestion = null;
+    }
+  }
+  if (pendingQuestion) voiceTurns.push({ question: pendingQuestion.text, order: pendingQuestion.order, status: "cancelled", answer: null });
+  return [...history, ...voiceTurns].sort((a, b) => (a.order ?? 0) - (b.order ?? 0));
+}
 
 export function clearSavedChats(storage: Pick<Storage, "removeItem">): void {
   storage.removeItem(CHAT_HISTORY_KEY);

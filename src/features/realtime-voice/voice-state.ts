@@ -125,6 +125,8 @@ export function voiceReducer(state: VoiceState, event: VoiceEvent): VoiceState {
       if (!canStartVoice(state.phase)) return state;
       return {
         ...initialVoiceState,
+        // A reconnect within the same chat starts a new engine session, not a new transcript.
+        lines: state.lines,
         phase: "requestingMic",
         timing: { ...initialVoiceState.timing, startedAt: event.at },
       };

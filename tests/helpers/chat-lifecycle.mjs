@@ -193,6 +193,8 @@ export function mountChat({ sourceRoot = process.env.CHAT_LIFECYCLE_SOURCE_ROOT 
       // Browser recording is covered by voice-input tests; the chat lifecycle uses a stub control.
       if (name.endsWith("/voice-output/chat-answer-audio")) return { ChatAnswerAudio: function ChatAnswerAudio() { return null; } };
       if (name.endsWith("/voice-input/chat-voice-button")) return { ChatVoiceButton: function ChatVoiceButton() { return null; } };
+      if (name === "@/features/realtime-voice/use-speech-engine-voice") return { useSpeechEngineVoice() { throw new Error("Voice mode is not mounted in chat lifecycle tests"); } };
+      if (name === "@/features/realtime-voice/voice-state") return load(resolve(sourceRoot, "src/features/realtime-voice/voice-state.ts"));
       if (name.startsWith(".")) return load(resolve(dirname(path), `${name}.ts`));
       throw new Error(`Unexpected dependency: ${name}`);
     };

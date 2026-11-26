@@ -1,7 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { loadTs } from "./helpers/load-ts.mjs";
-const { readSavedChats, saveChat, clearSavedChats, CHAT_HISTORY_KEY } = loadTs("src/features/chat/chat-history.ts");
+const { readSavedChats, saveChat, clearSavedChats, mergeConversationTurns, CHAT_HISTORY_KEY } = loadTs("src/features/chat/chat-history.ts");
 function storage() {
   const values = new Map();
   return { getItem: (key) => values.get(key) ?? null, setItem: (key, value) => values.set(key, value), removeItem: (key) => values.delete(key) };
@@ -48,4 +48,16 @@ test("delete clears all archived chats while retaining unrelated preferences and
   assert.equal(disk.getItem("other-preference"), "keep");
   clearSavedChats(disk);
   assert.deepEqual(readSavedChats(disk), []);
+});
+
+test("mixed text and voice turns are archived in their original order", () => {
+  const history = [
+    { question: "글 A", order: 0, status: "answered", answer: { answerId: "a", text: "답 A", sources: [] } },
+    { question: "글 C", order: 4, status: "answered", answer: { answerId: "c", text: "답 C", sources: [] } },
+  ];
+  const voiceLines = [
+    { role: "user", text: "음성 B", order: 1 },
+    { role: "agent", text: "답 B", order: 2 },
+  ];
+  assert.deepEqual(mergeConversationTurns(history, voiceLines).map((turn) => turn.question), ["글 A", "음성 B", "글 C"]);
 });

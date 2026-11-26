@@ -195,6 +195,8 @@ export function createChatAudioHarness({ playGate, rejectPlay = false } = {}) {
       if (name === "react") return react;
       if (name === "react/jsx-runtime") return { jsx, jsxs: jsx, Fragment: Symbol.for("chat-audio-test-fragment") };
       if (name === "next/image") return { __esModule: true, default: "img" };
+      if (name === "@/features/realtime-voice/use-speech-engine-voice") return { useSpeechEngineVoice() { throw new Error("Voice mode is not mounted in chat audio tests"); } };
+      if (name === "@/features/realtime-voice/voice-state") return load(resolve(sourceRoot, "src/features/realtime-voice/voice-state.ts"));
       if (path.endsWith("chat-voice-button.tsx") && name === "./recorder") return { VoiceRecorder, MAX_RECORDING_MS: 20_000 };
       if (path.endsWith("chat-voice-button.tsx") && name === "./transcription") return { serverTranscribe() { throw new Error("Use the controlled recorder"); } };
       if (name.startsWith(".")) return load(resolve(dirname(path), name));

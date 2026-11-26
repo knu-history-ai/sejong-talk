@@ -43,6 +43,27 @@ test("user turn shows thinking, first audio shows speaking and measures latency 
   assert.deepEqual(s.lines, [{ role: "user", text: "훈민정음은 왜 만드셨나요?" }]);
 });
 
+test("restarting the microphone within one chat retains earlier voice lines", () => {
+  const firstSession = run([
+    { type: "userFinal", text: "첫 질문", at: 100 },
+    { type: "agentText", text: "첫 답변" },
+    { type: "endRequested" },
+    { type: "disconnected", byUser: true },
+  ], live);
+  const restarted = run([
+    { type: "start", at: 200 },
+    { type: "micGranted" },
+    { type: "connected", conversationId: "conv_2", at: 250 },
+    { type: "ready", at: 275, fallback: false },
+    { type: "userFinal", text: "두 번째 질문", at: 300 },
+  ], firstSession);
+  assert.deepEqual(restarted.lines, [
+    { role: "user", text: "첫 질문" },
+    { role: "agent", text: "첫 답변" },
+    { role: "user", text: "두 번째 질문" },
+  ]);
+});
+
 test("interruption during speaking returns to listening and counts it", () => {
   const speaking = run([{ type: "userFinal", text: "질문", at: 0 }, { type: "mode", mode: "speaking", at: 500 }], live);
   const s = run([{ type: "interruption", at: 900 }], speaking);
