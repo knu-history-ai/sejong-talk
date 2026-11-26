@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { requestSampleTurn } from "./sample-turn";
-import { CHAT_HISTORY_KEY, clearSavedChats, readSavedChats, saveChat, type Conversation, type SavedChat } from "./chat-history";
+import { CHAT_HISTORY_KEY, clearSavedChats, mergeConversationTurns, readSavedChats, saveChat, type Conversation, type OrderedVoiceLine, type SavedChat } from "./chat-history";
 import { ChatVoiceButton } from "../voice-input/chat-voice-button";
 import { ChatAnswerAudio } from "../voice-output/chat-answer-audio";
 import { createChatSession, deleteChatSession, requestTurn, cancelTurn } from "./api";
@@ -14,6 +14,7 @@ type IconName = "arrow" | "clock" | "plus" | "close" | "mic" | "send" | "speaker
 
 const suggestions = ["한글은 왜 만들었나요?", "백성을 위해 어떤 일을 했나요?", "장영실은 어떤 사람인가요?"];
 const welcome = "만나서 반갑구나. 내게 궁금한 것이 있느냐? 한글부터 조선의 일상까지, 함께 이야기해 보자꾸나.";
+const CHAT_CLEAR_EVENT_KEY = "sejong-chat-clear";
 const FIXED_ANSWERS: Record<string, { text: string; sources: { id: string; title: string; institution: string; url: string }[] }> = {
   "한글은왜만들었나요?": {
     text: "우리말이 중국말과 달라 한자로는 백성들이 자기 생각을 글로 나타내기 어려웠단다. 그래서 누구나 쉽게 익혀 날마다 쓸 수 있는 글자를 만들고자 했지. 《훈민정음》 서문에도 백성이 뜻을 펼 수 있도록 새 글자를 만들었다고 밝혔단다.",
@@ -67,7 +68,7 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
   const [autoListen, setAutoListen] = useState(false);
   const [questionMode, setQuestionMode] = useState<"text" | "voice">("text");
   const [voiceRevision, setVoiceRevision] = useState(0);
-  const [voiceLines, setVoiceLines] = useState<VoiceLine[]>([]);
+  const [voiceLines, setVoiceLines] = useState<OrderedVoiceLine[]>([]);
   const [homeConfirm, setHomeConfirm] = useState(false);
   const [speed, setSpeed] = useState(1);
   const [notice, setNotice] = useState("");
@@ -79,6 +80,21 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
   const sourceCard = useRef<HTMLDivElement>(null);
   const voiceStop = useRef<(() => Promise<void>) | null>(null);
   const fixedSpeech = useRef<SpeechSynthesisUtterance | null>(null);
+  const nextOrder = useRef(0);
+  const voiceLinesRef = useRef<OrderedVoiceLine[]>([]);
+  const chatClearToken = useRef<string | null>(null);
+
+  function receiveVoiceLines(lines: VoiceLine[]) {
+    const saved = voiceLinesRef.current;
+    // The speech hook now retains lines on reconnect. Append only the newly received suffix.
+    const isPrefix = saved.length <= lines.length && saved.every((line, index) =>
+      line.role === lines[index]?.role && line.text === lines[index]?.text);
+    if (!isPrefix || lines.length === saved.length) return;
+    const appended = lines.slice(saved.length).map((line) => ({ ...line, order: nextOrder.current++ }));
+    const updated = [...saved, ...appended];
+    voiceLinesRef.current = updated;
+    setVoiceLines(updated);
+  }
 
   useEffect(() => {
     return () => {
@@ -93,22 +109,36 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
     input.current?.focus();
   }, [voiceBusy]);
   useEffect(() => {
+    try { chatClearToken.current = window.localStorage.getItem(CHAT_CLEAR_EVENT_KEY); } catch { /* Storage may be unavailable. */ }
     const changed = (event: StorageEvent) => {
-      if ((event.key === CHAT_HISTORY_KEY && event.newValue === null) || event.key === "sejong-chat-clear") {
+      if ((event.key === CHAT_HISTORY_KEY && event.newValue === null) || event.key === CHAT_CLEAR_EVENT_KEY) {
+        chatClearToken.current = event.key === CHAT_CLEAR_EVENT_KEY ? event.newValue : window.localStorage.getItem(CHAT_CLEAR_EVENT_KEY);
         cancelAudio.current?.();
+        stopFixedAnswerSpeech();
+        void voiceStop.current?.();
         setSavedChats([]);
         setSelectedChat(null);
         setHistory([]);
+        voiceLinesRef.current = [];
+        setVoiceLines([]);
+        nextOrder.current = 0;
         archiveId.current = null;
         activeRequest.current?.abort();
         activeRequest.current = null;
+        requestIdRef.current = null;
         setLoading(false);
         setQuestion("");
         setHistoryOpen(false);
-        setSelectedChat(null);
+        setDeleteConfirm(false);
+        setHomeConfirm(false);
         setSourceOpen(false);
         setResetOpen(false);
         setSessionExpired(false);
+        setFailNextAnswer(false);
+        setAutoListen(false);
+        setSpeed(1);
+        setQuestionMode("text");
+        setVoiceRevision((value) => value + 1);
         setStarted(false);
         return;
       }
@@ -129,7 +159,7 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
     const container = dialogue.current;
     if (!container) return;
     container.scrollTo({ top: container.scrollHeight, behavior: "smooth" });
-  }, [history, loading]);
+  }, [history, voiceLines, loading]);
   useEffect(() => {
     if (!sourceOpen) return;
     const frame = requestAnimationFrame(() => {
@@ -143,17 +173,18 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
     const text = question.trim();
     if (!text || loading || starting || startingRef.current || sessionExpired || voiceBusy || activeRequest.current) return;
     const index = history.length;
+    const order = nextOrder.current++;
     const fixedTurn = makeFixedTurn(text);
     if (fixedTurn) {
       cancelAudio.current?.();
-      setHistory((items) => [...items, fixedTurn]);
+      setHistory((items) => [...items, { ...fixedTurn, order }]);
       setQuestion("");
       setSourceOpen(false);
       setNotice("");
       setFailNextAnswer(false);
       return;
     }
-    setHistory((items) => [...items, { question: text, answer: null, status: "loading" }]);
+    setHistory((items) => [...items, { question: text, answer: null, status: "loading", order }]);
     setQuestion("");
     requestAnswer(text, index, failNextAnswer);
     setFailNextAnswer(false);
@@ -223,20 +254,19 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
   function archiveCurrentChat() {
     if (!history.length && !voiceLines.length) return true;
     try {
-      const id = archiveId.current ??= crypto.randomUUID();
-      const voiceTurns: Conversation[] = [];
-      let pendingQuestion: string | null = null;
-      for (const line of voiceLines) {
-        if (line.role === "user") pendingQuestion = line.text;
-        else if (pendingQuestion) {
-          voiceTurns.push({ question: pendingQuestion, status: "answered", answer: {
-            answerId: crypto.randomUUID(), kind: "conversation", text: line.text, factIds: [], sources: [], personaVersion: "voice", contentVersion: "voice",
-          } });
-          pendingQuestion = null;
-        }
+      const clearToken = window.localStorage.getItem(CHAT_CLEAR_EVENT_KEY);
+      if (clearToken !== chatClearToken.current) {
+        // A different tab cleared history after this transcript began. Do not resurrect it.
+        chatClearToken.current = clearToken;
+        archiveId.current = null;
+        setHistory([]);
+        voiceLinesRef.current = [];
+        setVoiceLines([]);
+        nextOrder.current = 0;
+        return true;
       }
-      if (pendingQuestion) voiceTurns.push({ question: pendingQuestion, status: "cancelled", answer: null });
-      const turns = [...history, ...voiceTurns];
+      const id = archiveId.current ??= crypto.randomUUID();
+      const turns = mergeConversationTurns(history, voiceLines);
       setSavedChats(saveChat(window.localStorage, {
         id, title: turns[0]?.question.slice(0, 40) ?? "음성 대화", savedAt: new Date().toISOString(), sample: showSamples, turns,
       }));
@@ -271,7 +301,8 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
       // Clear only chat storage; unrelated browser preferences remain intact.
       clearSavedChats(window.localStorage);
       cancelAudio.current?.();
-      try { window.localStorage.setItem("sejong-chat-clear", crypto.randomUUID()); } catch { /* Record deletion already succeeded. */ }
+      const clearToken = crypto.randomUUID();
+      try { window.localStorage.setItem(CHAT_CLEAR_EVENT_KEY, clearToken); chatClearToken.current = clearToken; } catch { /* Record deletion already succeeded. */ }
       const controller = activeRequest.current;
       activeRequest.current = null;
       controller?.abort();
@@ -280,7 +311,11 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
       setSavedChats([]);
       setSelectedChat(null);
       setHistory([]);
+      voiceLinesRef.current = [];
+      nextOrder.current = 0;
       setVoiceLines([]);
+      setQuestionMode("text");
+      setVoiceRevision((value) => value + 1);
       setQuestion("");
       setLoading(false);
       setSourceOpen(false);
@@ -342,6 +377,7 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
     }
     setQuestion("");
     setHistory([]); setLoading(false); setSourceOpen(false);
+    voiceLinesRef.current = []; nextOrder.current = 0;
     setVoiceLines([]); setVoiceRevision((value) => value + 1); setQuestionMode("text");
     archiveId.current = null;
     setResetOpen(false); setNotice("");
@@ -358,6 +394,7 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
       if (!sample) { const session = await createChatSession(); setIntro(session.intro); setRecommended(session.suggestedQuestions); }
       if (!sample) notifySessionChange();
       setHistory([]);
+      voiceLinesRef.current = []; nextOrder.current = 0;
       setVoiceLines([]);
       setQuestionMode("text");
       setVoiceRevision((value) => value + 1);
@@ -401,7 +438,8 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
       if (fixedTurn) {
         cancelAudio.current?.();
         const closing = voiceStop.current?.();
-        setHistory((items) => [...items, fixedTurn]);
+        const order = nextOrder.current++;
+        setHistory((items) => [...items, { ...fixedTurn, order }]);
         setQuestion("");
         setSourceOpen(false);
         setNotice("");
@@ -448,6 +486,11 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
     </nav>
   </header>;
 
+  const orderedTranscript = [
+    ...history.map((item, index) => ({ kind: "turn" as const, order: item.order ?? index, item, index })),
+    ...voiceLines.map((line, index) => ({ kind: "voice" as const, order: line.order, line, index })),
+  ].sort((a, b) => a.order - b.order);
+
   if (!started) return <main className="sejong-app intro-page">
     {header}
     <section className="intro-hero">
@@ -478,7 +521,17 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
               <strong className="speaker-name">세종대왕</strong>
               <div className="answer-bubble"><p>{intro}</p></div>
             </div></div>
-            {history.map((item, index) => <div className="conversation-turn" key={`${item.question}-${index}`}>
+            {orderedTranscript.map((entry) => {
+              if (entry.kind === "voice") {
+                const { line, index } = entry;
+                return <div className={`message ${line.role === "user" ? "student-message" : "sejong-message"}`} key={`voice-${index}`}>
+                  {line.role === "agent" && <Avatar />}
+                  <div className="min-w-0"><strong className="speaker-name">{line.role === "user" ? "나 · 음성" : "세종대왕 · 음성"}</strong><div className="answer-bubble"><p>{line.text}</p></div></div>
+                  {line.role === "user" && <Avatar student />}
+                </div>;
+              }
+              const { item, index } = entry;
+              return <div className="conversation-turn" key={`${item.question}-${index}`}>
               <div className="message student-message"><div><span className="sr-only">나의 질문</span><p>{item.question}</p></div><Avatar student /></div>
               <div className="message sejong-message"><Avatar /><div className="answer-content">
                 <strong className="speaker-name">세종대왕</strong>
@@ -491,12 +544,8 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
                 <div className="source-card" ref={sourceCard}><button className="source-toggle" aria-expanded={sourceOpen} aria-controls="answer-sources" onClick={() => setSourceOpen(!sourceOpen)}><Icon name="document" /><span>이 이야기의 출처 보기</span><Icon name="chevron" /></button>{sourceOpen && <div id="answer-sources">{item.answer?.sources.length ? <ul>{item.answer.sources.map((source) => <li key={source.id}><strong>{source.title}</strong><p>{source.institution}</p>{/^https?:\/\//i.test(source.url) && <a href={source.url} target="_blank" rel="noopener noreferrer">원문 보기</a>}</li>)}</ul> : <p>이 답변에는 연결된 출처가 없어요.</p>}</div>}</div>
                 </>}
               </div></div>
-            </div>)}
-            {voiceLines.map((line, index) => <div className={`message ${line.role === "user" ? "student-message" : "sejong-message"}`} key={`voice-${index}`}>
-              {line.role === "agent" && <Avatar />}
-              <div className="min-w-0"><strong className="speaker-name">{line.role === "user" ? "나 · 음성" : "세종대왕 · 음성"}</strong><div className="answer-bubble"><p>{line.text}</p></div></div>
-              {line.role === "user" && <Avatar student />}
-            </div>)}
+            </div>;
+            })}
           </div>
           {notice && <div className="service-notice" role="status"><Icon name="info" /><p>{notice}</p><button aria-label="안내 닫기" onClick={() => setNotice("")}><Icon name="close" /></button></div>}
         </section>
@@ -511,7 +560,7 @@ export function ChatExperience({ voiceModeEnabled = false, voiceConfigured = fal
             <div className="composer-label"><label htmlFor="question">이어서 궁금한 점을 물어보세요</label><small>{question.length} / 500</small></div>
             <div className={`composer-controls ${voiceModeEnabled ? "text-mode-controls" : ""}`}><textarea ref={input} id="question" value={question} onChange={(event) => setQuestion(event.target.value)} onKeyDown={handleQuestionKeyDown} maxLength={500} rows={2} placeholder={sessionExpired ? "새 대화를 시작해 주세요." : "세종대왕에게 궁금한 것을 물어보세요."} disabled={loading || starting || sessionExpired || voiceBusy} />{!voiceModeEnabled && (showSamples ? <button type="button" className="outline-button mic-button" disabled={loading || starting || sessionExpired} onClick={() => setNotice("예시 대화에서는 음성 질문을 사용할 수 없어요. 글로 입력해 주세요.")}><Icon name="mic" /><span>말로 질문</span></button> : <ChatVoiceButton icon={<Icon name="mic" />} draft={question} disabled={loading || starting || sessionExpired} onBeforeRecording={() => cancelAudio.current?.()} onBusyChange={setVoiceBusy} onSessionExpired={expireSession} onTranscript={(text) => { setQuestion(text.slice(0, 500)); focusAfterVoice.current = true; }} />)}<button className="primary-button send-button" disabled={!question.trim() || loading || starting || sessionExpired || voiceBusy}><Icon name="send" /><span>{loading ? "답변 준비 중" : "질문 보내기"}</span></button></div>
           </form>
-          {voiceModeEnabled && started && <VoiceQuestionMode key={voiceRevision} active={questionMode === "voice"} configured={voiceConfigured} stopRef={voiceStop} onLinesChange={setVoiceLines} />}
+          {voiceModeEnabled && started && <VoiceQuestionMode key={voiceRevision} active={questionMode === "voice"} configured={voiceConfigured} stopRef={voiceStop} onLinesChange={receiveVoiceLines} />}
           {showSamples && <details className="sample-controls"><summary>예시 상태 확인</summary><p>실제 서비스 연결 전, 오류와 만료 상황을 확인하는 개발용 메뉴예요.</p><label><input type="checkbox" checked={failNextAnswer} disabled={loading || sessionExpired} onChange={(event) => setFailNextAnswer(event.target.checked)} /> 다음 질문에서 답변 오류 보기</label><button className="outline-button" disabled={sessionExpired} onClick={expireSession}>세션 만료 보기</button></details>}
         </section>
         <p className="chat-footer">역사 자료를 바탕으로 재구성한 AI예요. 실제 세종대왕이 남긴 말과는 다를 수 있어요.</p>

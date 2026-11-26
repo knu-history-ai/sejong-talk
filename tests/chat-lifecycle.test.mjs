@@ -73,6 +73,19 @@ test("session change preserves completed/failed turns for archival on recovery",
   ]);
 });
 
+test("a delayed cross-tab clear cannot be undone by archiving the active conversation", async (t) => {
+  const app = setup(t);
+  await start(app);
+  await ask(app, "삭제된 대화에 남아 있던 질문");
+  app.storage.removeItem(app.historyKey);
+  app.storage.setItem("sejong-chat-clear", "clear-from-other-tab");
+
+  app.click("세종톡 소개 화면");
+  await app.click("보관하고 돌아가기");
+  assert.equal(app.isChat(), false);
+  assert.deepEqual(app.savedChats(), [], "an outdated active transcript must not be written back after another tab cleared storage");
+});
+
 test("session change cancels the pending turn without losing earlier answers or accepting late replies", async (t) => {
   const app = setup(t);
   await start(app);
